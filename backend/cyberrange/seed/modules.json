@@ -10,7 +10,7 @@
     "cleanup": "None required; read-only discovery.",
     "detection_notes": "Blue should observe a burst of short-lived connections from the attacker host across the target subnet.",
     "execution": {"adapter": "docker", "image": "alpine:3.19", "network": "none",
-      "cmd": ["sh", "-c", "echo '[recon] enumerating local network context'; ip -o addr 2>/dev/null || ifconfig -a; echo '--- hosts ---'; cat /etc/hosts; echo '--- resolv ---'; cat /etc/resolv.conf 2>/dev/null; echo '[recon] complete'"]},
+      "cmd": ["sh", "-c", "echo '[recon] enumerating local network context'; ip -o addr 2>/dev/null || ifconfig -a; echo '--- hosts ---'; cat /etc/hosts; echo '--- probing lab web service (webapp:80) ---'; wget -qO- -T 3 http://webapp 2>/dev/null && echo ' [+] webapp:80 reachable' || echo ' [-] webapp unreachable'; echo '[recon] complete'"]},
     "signed": true
   },
   {
@@ -158,7 +158,7 @@
     "cleanup": "None; read-only.",
     "detection_notes": "Host sweep pattern across the server zone from a non-admin host.",
     "execution": {"adapter": "docker", "image": "alpine:3.19", "network": "none",
-      "cmd": ["sh", "-c", "echo '[discovery] remote-system discovery'; echo '--- known hosts ---'; cat /etc/hosts; echo '--- routes ---'; ip route 2>/dev/null || route -n; echo '--- arp cache ---'; arp -a 2>/dev/null || cat /proc/net/arp; echo '[discovery] complete'"]},
+      "cmd": ["sh", "-c", "echo '[discovery] remote-system discovery'; echo '--- known hosts ---'; cat /etc/hosts; echo '--- routes ---'; ip route 2>/dev/null || route -n; echo '--- reaching webapp host ---'; wget -qO- -T 3 http://webapp 2>/dev/null | head -1 && echo ' [+] reached webapp over range network' || echo ' [-] webapp not reachable'; echo '[discovery] complete'"]},
     "signed": true
   },
   {
@@ -275,6 +275,8 @@
     "expected_telemetry": ["web access log anomaly", "app-spawned process", "network connection"],
     "cleanup": "Restart app container; restore checkpoint.",
     "detection_notes": "Web request that results in a shell/child process on the app host.",
+    "execution": {"adapter": "docker", "image": "alpine:3.19", "network": "none",
+      "cmd": ["sh", "-c", "echo '[webapp] sending crafted request to lab web app'; wget -qO- -T 3 'http://webapp/?cmd=id' 2>/dev/null && echo ' [+] response received from webapp' || echo ' [-] webapp unreachable'; echo '[webapp] emulating follow-on host command'; id; echo '[webapp] complete'"]},
     "signed": true
   },
   {

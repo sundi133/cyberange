@@ -27,7 +27,13 @@
     "id": "DR-NETWORK-RECON", "technique_id": "T1595", "rule_version": "v1",
     "severity": "low", "title": "Local network reconnaissance",
     "description": "Enumeration of local interfaces, hosts, and resolver configuration.",
-    "match": {"kinds": ["process-output"], "line_regex": "enumerating local network context|--- resolv ---"}
+    "match": {"kinds": ["process-output"], "line_regex": "enumerating local network context|probing lab web service"}
+  },
+  {
+    "id": "DR-WEBAPP-ACCESS", "technique_id": "T1190", "rule_version": "v1",
+    "severity": "high", "title": "Web request to a lab target over the range network",
+    "description": "A host reached the webapp target across the range network — recon probe or exploit attempt against the lab web service.",
+    "match": {"kinds": ["process-output"], "line_regex": "vulnerable-app|webapp:80 reachable|reached webapp over range network|response received from webapp|sending crafted request"}
   },
   {
     "id": "DR-PHISH-DELIVERY", "technique_id": "T1566", "rule_version": "v1",

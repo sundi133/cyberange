@@ -75,6 +75,22 @@ class LiveRangeTest(unittest.TestCase):
             self.rid, ["sh", "-c", "wget -qO- http://webapp"])
         self.assertIn("vulnerable-app", out)
 
+    def test_cross_target_web_activity_detects_t1190(self):
+        rng = self.svc.create_range("red", "instructor", "CR-WEBAPP-001")
+        self.rid = rng["id"]
+        for a in ("preflight", "provision", "seed", "ready"):
+            self.svc.lifecycle_action("red", "instructor", self.rid, a)
+        ex = self.svc.start_exercise("red", "instructor", self.rid)
+        self.svc.execute_module("red", "red", ex["id"], "CR-MOD-WEBAPP-001")
+        # real response from the webapp target appears on the timeline
+        lines = [e["payload"].get("line", "") for e in self.svc.timeline(ex["id"])
+                 if e["kind"] == "process-output"]
+        self.assertTrue(any("vulnerable-app" in ln for ln in lines))
+        # and a log-basis T1190 detection fires from it
+        dets = self.svc.list_detections(ex["id"])
+        self.assertTrue(any(d["technique_id"] == "T1190" and d["basis"] == "log"
+                            for d in dets))
+
     def test_reset_recycles_the_foothold(self):
         self._ready_range()
         ex = self.svc.start_exercise("red", "instructor", self.rid)
