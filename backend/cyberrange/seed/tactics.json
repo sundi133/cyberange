@@ -1,0 +1,17 @@
+[
+  {"tactic": "Reconnaissance", "attack": "T1595", "lab_behavior": "Controlled discovery of lab-exposed services", "expected_evidence": "Asset/network inventory, scan telemetry"},
+  {"tactic": "Initial Access", "attack": "T1566", "lab_behavior": "Simulated phishing attachment or link", "expected_evidence": "Mail, browser, endpoint, user report"},
+  {"tactic": "Execution", "attack": "T1059", "lab_behavior": "Approved shell/interpreter behavior", "expected_evidence": "Process creation, command line, parent/child"},
+  {"tactic": "Persistence", "attack": "T1053", "lab_behavior": "Scheduled task/job in lab", "expected_evidence": "Task creation, autorun, EDR alert"},
+  {"tactic": "Privilege Escalation", "attack": "T1548", "lab_behavior": "Preconfigured local misconfiguration path", "expected_evidence": "Auth, process, policy telemetry"},
+  {"tactic": "Defense Evasion", "attack": "T1070", "lab_behavior": "Benign log or artifact manipulation", "expected_evidence": "Audit gaps, tamper alert, file events"},
+  {"tactic": "Credential Access", "attack": "T1003", "lab_behavior": "Synthetic credential-dump simulation", "expected_evidence": "Sensitive-process access alert"},
+  {"tactic": "Discovery", "attack": "T1087/T1018", "lab_behavior": "Account and remote-system discovery", "expected_evidence": "Directory queries, host/network events"},
+  {"tactic": "Lateral Movement", "attack": "T1021", "lab_behavior": "Remote services using seeded accounts", "expected_evidence": "Logon type, remote service, network flow"},
+  {"tactic": "Collection", "attack": "T1005", "lab_behavior": "Collect tagged synthetic files", "expected_evidence": "File reads, archive creation, DLP signal"},
+  {"tactic": "Command & Control", "attack": "T1071", "lab_behavior": "Beacon to internal C2 simulator", "expected_evidence": "DNS/HTTP patterns, proxy/network alert"},
+  {"tactic": "Exfiltration", "attack": "T1041", "lab_behavior": "Transfer synthetic data to internal sink", "expected_evidence": "DLP, flow volume, destination alert"},
+  {"tactic": "Container Discovery", "attack": "T1613", "lab_behavior": "Enumerate lab containers, images, networks, and volumes", "expected_evidence": "Docker audit, runtime, and process telemetry"},
+  {"tactic": "Escape to Host", "attack": "T1611", "lab_behavior": "Safe preconfigured container-to-host boundary test", "expected_evidence": "Falco/runtime alert, mount and host process events"},
+  {"tactic": "Impact", "attack": "T1486", "lab_behavior": "Safe canary-file encryption simulation", "expected_evidence": "File modifications and recovery action"}
+]

@@ -1,0 +1,123 @@
+[
+  {
+    "id": "CR-PHISH-001", "name": "Phish to foothold", "version": "1.0.0",
+    "mode": "red-blue", "difficulty": "intermediate", "duration_min": [60, 90],
+    "topology_id": "TOPO-STD5",
+    "team_objective": "Red gains a controlled foothold; Blue validates user report and endpoint containment.",
+    "technique_ids": ["T1566", "T1059", "T1105"],
+    "module_ids": ["CR-MOD-PHISH-001", "CR-MOD-EXEC-WIN-001"],
+    "objectives": [
+      {"role": "red", "text": "Establish controlled execution and prove access.", "points": 40},
+      {"role": "blue", "text": "Validate alert, scope, contain, and preserve evidence.", "points": 60}
+    ],
+    "injects": [
+      {"at_min": 15, "type": "user-report", "text": "Synthetic user reports a suspicious attachment."},
+      {"at_min": 35, "type": "escalation", "text": "Manager escalation raised."},
+      {"at_min": 45, "type": "hint", "text": "Optional hint: check process lineage under the mail client."}
+    ],
+    "expected_evidence": ["mail event", "browser/download event", "process lineage", "network connection", "alert", "case actions"],
+    "safety_class": "S1"
+  },
+  {
+    "id": "CR-IDENT-001", "name": "Identity compromise", "version": "1.0.0",
+    "mode": "red-blue", "difficulty": "intermediate", "duration_min": [90, 90],
+    "topology_id": "TOPO-STD5",
+    "team_objective": "Investigate seeded password reuse and remote logons; revoke sessions and reset identities.",
+    "technique_ids": ["T1078", "T1087", "T1021"],
+    "module_ids": ["CR-MOD-IDENT-001", "CR-MOD-DISC-WIN-001", "CR-MOD-LATERAL-WIN-001"],
+    "objectives": [
+      {"role": "red", "text": "Reuse seeded credentials to move between hosts.", "points": 35},
+      {"role": "blue", "text": "Detect reuse, revoke sessions, reset identities.", "points": 65}
+    ],
+    "injects": [
+      {"at_min": 20, "type": "alert", "text": "Anomalous logon flagged."},
+      {"at_min": 50, "type": "hint", "text": "Correlate logon types across the server zone."}
+    ],
+    "expected_evidence": ["remote logons", "directory queries", "session creation", "containment actions"],
+    "safety_class": "S1"
+  },
+  {
+    "id": "CR-RANSOM-001", "name": "Ransomware precursor", "version": "1.0.0",
+    "mode": "red-blue", "difficulty": "advanced", "duration_min": [90, 120],
+    "topology_id": "TOPO-STD5",
+    "team_objective": "Detect discovery, staging, and safe canary encryption; contain before impact.",
+    "technique_ids": ["T1018", "T1005", "T1486"],
+    "module_ids": ["CR-MOD-DISC-LNX-001", "CR-MOD-COLLECT-001", "CR-MOD-IMPACT-001"],
+    "objectives": [
+      {"role": "red", "text": "Stage collection and trigger canary encryption.", "points": 40},
+      {"role": "blue", "text": "Contain before canary impact completes.", "points": 60}
+    ],
+    "injects": [
+      {"at_min": 30, "type": "alert", "text": "Mass file-read anomaly."},
+      {"at_min": 60, "type": "escalation", "text": "Canary directory changes detected."}
+    ],
+    "expected_evidence": ["host/network discovery", "archive creation", "canary file modifications", "recovery action"],
+    "safety_class": "S2"
+  },
+  {
+    "id": "CR-WEBAPP-001", "name": "Web app intrusion", "version": "1.0.0",
+    "mode": "red-blue", "difficulty": "advanced", "duration_min": [120, 120],
+    "topology_id": "TOPO-STD5",
+    "team_objective": "Trace a preconfigured vulnerable Linux app path to host activity and data access.",
+    "technique_ids": ["T1190", "T1059", "T1005"],
+    "module_ids": ["CR-MOD-WEBAPP-001", "CR-MOD-EXEC-LNX-001", "CR-MOD-COLLECT-001"],
+    "objectives": [
+      {"role": "red", "text": "Exploit the app path and reach host data.", "points": 40},
+      {"role": "blue", "text": "Trace the entry, scope host activity, and contain.", "points": 60}
+    ],
+    "injects": [
+      {"at_min": 25, "type": "alert", "text": "Web access-log anomaly."},
+      {"at_min": 70, "type": "hint", "text": "Follow the app-spawned process tree."}
+    ],
+    "expected_evidence": ["web access anomaly", "app-spawned process", "file reads", "network connection"],
+    "safety_class": "S1"
+  },
+  {
+    "id": "CR-DOCKER-001", "name": "Docker compromise", "version": "1.0.0",
+    "mode": "red-blue", "difficulty": "advanced", "duration_min": [90, 120],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Investigate a vulnerable container, exposed synthetic secret, abnormal runtime activity, and safe host-boundary test.",
+    "technique_ids": ["T1613", "T1610", "T1611"],
+    "module_ids": ["CR-MOD-DOCKER-DISC-001", "CR-MOD-DOCKER-SECRET-001", "CR-MOD-DOCKER-RUNTIME-001", "CR-MOD-DOCKER-ESCAPE-001"],
+    "objectives": [
+      {"role": "red", "text": "Enumerate, access the secret, and run the boundary test.", "points": 40},
+      {"role": "blue", "text": "Detect runtime anomalies and the boundary test via Falco.", "points": 60}
+    ],
+    "injects": [
+      {"at_min": 30, "type": "alert", "text": "Falco: shell in container."},
+      {"at_min": 70, "type": "escalation", "text": "Sensitive-mount access observed."}
+    ],
+    "expected_evidence": ["Docker audit", "runtime alert", "sensitive file read", "host boundary alert"],
+    "safety_class": "S2"
+  },
+  {
+    "id": "CR-INSIDER-001", "name": "Insider collection", "version": "1.0.0",
+    "mode": "solo", "difficulty": "intermediate", "duration_min": [60, 90],
+    "topology_id": "TOPO-STD5",
+    "team_objective": "Distinguish legitimate access from abnormal synthetic-data collection.",
+    "technique_ids": ["T1078", "T1005", "T1560"],
+    "module_ids": ["CR-MOD-COLLECT-001", "CR-MOD-EXFIL-001"],
+    "objectives": [
+      {"role": "blue", "text": "Separate normal from abnormal collection and act.", "points": 100}
+    ],
+    "injects": [
+      {"at_min": 20, "type": "alert", "text": "DLP signal on tagged files."}
+    ],
+    "expected_evidence": ["file reads", "archive creation", "DLP signal", "flow volume"],
+    "safety_class": "S1"
+  },
+  {
+    "id": "CR-PURPLE-001", "name": "Purple detection sprint", "version": "1.0.0",
+    "mode": "purple", "difficulty": "advanced", "duration_min": [120, 240],
+    "topology_id": "TOPO-STD5",
+    "team_objective": "Replay Windows, Linux, and Docker behaviors; tune rules and demonstrate improved coverage.",
+    "technique_ids": ["T1059", "T1071", "T1613"],
+    "module_ids": ["CR-MOD-EXEC-WIN-001", "CR-MOD-EXEC-LNX-001", "CR-MOD-DOCKER-RUNTIME-001", "CR-MOD-C2-001"],
+    "objectives": [
+      {"role": "purple", "text": "Replay across platforms and improve coverage vs baseline.", "points": 100}
+    ],
+    "injects": [],
+    "expected_evidence": ["baseline signals", "post-tuning signals", "coverage comparison"],
+    "safety_class": "S1"
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "cyberrange",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "cyberrange", "serve", "--host", "127.0.0.1", "--port", "8080"],
+      "cwd": "backend",
+      "port": 8080
+    }
+  ]
+}

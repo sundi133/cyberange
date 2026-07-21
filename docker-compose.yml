@@ -1,0 +1,12 @@
+services:
+  cyberrange:
+    build: .
+    image: cyberrange:0.1
+    ports:
+      - "8080:8080"
+    volumes:
+      - cyberrange-data:/app/backend/data
+    restart: unless-stopped
+
+volumes:
+  cyberrange-data:

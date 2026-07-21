@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CyberRange · Control Plane</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">◈</span>
+      <div>
+        <h1>CyberRange</h1>
+        <p class="tagline">Red · Blue · Purple training &amp; validation</p>
+      </div>
+    </div>
+    <div class="identity">
+      <label>Role
+        <select id="role">
+          <option value="admin">admin</option>
+          <option value="instructor" selected>instructor</option>
+          <option value="red">red</option>
+          <option value="blue">blue</option>
+          <option value="purple">purple</option>
+          <option value="security_leader">security_leader</option>
+          <option value="solo">solo</option>
+        </select>
+      </label>
+      <label>User
+        <input id="user" value="instructor-1" />
+      </label>
+      <span id="health" class="pill">checking…</span>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-view="catalog">Catalog</button>
+    <button class="tab" data-view="ranges">Ranges</button>
+    <button class="tab" data-view="exercise">Exercise</button>
+    <button class="tab" data-view="reference">Reference</button>
+    <button class="tab" data-view="audit">Audit</button>
+  </nav>
+
+  <main id="main"></main>
+
+  <div id="toast" class="toast"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

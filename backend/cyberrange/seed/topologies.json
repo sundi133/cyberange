@@ -1,0 +1,41 @@
+[
+  {
+    "id": "TOPO-STD5", "name": "Standard five-VM range", "version": "1.0.0",
+    "description": "Reference MVP topology: attacker, Windows endpoint, AD server, Linux app, security console.",
+    "vms": [
+      {"name": "attacker", "zone": "red", "os": "linux", "image": "kali-hardened:1.0", "cpu": 2, "ram_gb": 4},
+      {"name": "win-endpoint", "zone": "enterprise-user", "os": "windows", "image": "win11-ent:1.0", "cpu": 2, "ram_gb": 6},
+      {"name": "ad-server", "zone": "server", "os": "windows", "image": "winsrv-ad-dns:1.0", "cpu": 2, "ram_gb": 6},
+      {"name": "linux-app", "zone": "server", "os": "linux", "image": "ubuntu-webapp:1.0", "cpu": 2, "ram_gb": 4},
+      {"name": "sec-console", "zone": "security", "os": "linux", "image": "wazuh-suricata-falco:1.0", "cpu": 4, "ram_gb": 8}
+    ],
+    "networks": [
+      {"name": "range-lan", "type": "isolated", "cidr": "10.20.0.0/24"},
+      {"name": "mgmt", "type": "control-plane-only", "cidr": "10.99.0.0/24"}
+    ],
+    "identities": ["synthetic-user@lab.local", "svc-app@lab.local", "seeded-admin@lab.local"],
+    "resource_limits": {"total_cpu": 12, "total_ram_gb": 28},
+    "egress": "default-deny"
+  },
+  {
+    "id": "TOPO-DOCKER", "name": "Container range", "version": "1.0.0",
+    "description": "Docker host with a three-service Compose stack, private OCI registry, and security console.",
+    "vms": [
+      {"name": "attacker", "zone": "red", "os": "linux", "image": "kali-hardened:1.0", "cpu": 2, "ram_gb": 4},
+      {"name": "docker-host", "zone": "container", "os": "linux", "image": "ubuntu-docker:1.0", "cpu": 4, "ram_gb": 8},
+      {"name": "sec-console", "zone": "security", "os": "linux", "image": "wazuh-suricata-falco:1.0", "cpu": 4, "ram_gb": 8}
+    ],
+    "networks": [
+      {"name": "range-lan", "type": "isolated", "cidr": "10.30.0.0/24"},
+      {"name": "mgmt", "type": "control-plane-only", "cidr": "10.99.0.0/24"}
+    ],
+    "compose_stack": {
+      "services": ["web-frontend", "api-backend", "db"],
+      "registry": "private-oci:5000",
+      "pinned_digests": true,
+      "volumes_resettable": true
+    },
+    "resource_limits": {"total_cpu": 10, "total_ram_gb": 20},
+    "egress": "default-deny"
+  }
+]
