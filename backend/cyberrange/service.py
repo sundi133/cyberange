@@ -14,7 +14,7 @@ import os
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from . import auth, catalog, execution, lifecycle, rbac, scoring
+from . import auth, catalog, detection, execution, lifecycle, rbac, scoring
 from .db import Database, row_to_dict
 
 SESSION_TTL_HOURS = 12
@@ -343,12 +343,17 @@ class CyberRangeService:
             )
         self._audit(actor, role, "module:execute", exercise_id,
                     f"{module_id} ({result.summary.get('adapter')})")
+        # Run the detection engine over the freshly captured telemetry so
+        # verdicts fire from rules, not a manual form.
+        detections = self.run_detections(exercise_id)
         return {
             "executed": module_id,
             "real": result.real,
             "adapter": result.summary.get("adapter"),
             "techniques": module.get("technique_ids", []),
             "events_recorded": len(result.records),
+            "detections_fired": len(detections),
+            "detections": detections,
             "expected_telemetry": module.get("expected_telemetry", []),
             "summary": result.summary,
         }
@@ -383,14 +388,49 @@ class CyberRangeService:
     # ---- detections ------------------------------------------------------
     def record_detection(self, actor: str, role: str, exercise_id: str, *,
                          technique_id: str, verdict: str, rule_version: str,
-                         latency_s: float = 0.0, fp_context: str = "") -> dict:
+                         latency_s: float = 0.0, fp_context: str = "",
+                         rule_id: str | None = None, basis: str = "manual",
+                         severity: str = "medium", detail: str = "") -> dict:
         self.get_exercise(exercise_id)
         cur = self.db.execute(
-            "INSERT INTO detections (exercise_id, rule_version, technique_id, verdict, "
-            "latency_s, fp_context, ts_utc) VALUES (?,?,?,?,?,?,?)",
-            (exercise_id, rule_version, technique_id, verdict, latency_s, fp_context, _now()),
+            "INSERT INTO detections (exercise_id, rule_id, rule_version, technique_id, "
+            "verdict, basis, severity, latency_s, fp_context, detail, ts_utc) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (exercise_id, rule_id, rule_version, technique_id, verdict, basis, severity,
+             latency_s, fp_context, detail, _now()),
         )
         return {"id": cur.lastrowid}
+
+    def run_detections(self, exercise_id: str) -> list[dict]:
+        """Fire the detection-rule engine over the timeline and record any new
+        rule matches automatically (FR-08). Idempotent per rule."""
+        rules = catalog.detection_rules()
+        events = self.timeline(exercise_id)
+        existing = {d["rule_id"] for d in self.list_detections(exercise_id)
+                    if d.get("rule_id")}
+        hits = detection.evaluate(
+            rules, events, now=datetime.now(timezone.utc), already_fired=existing)
+        recorded = []
+        for hit in hits:
+            self.record_detection(
+                "detection-engine", "admin", exercise_id,
+                technique_id=hit["technique_id"], verdict="detected",
+                rule_version=hit["rule_version"], latency_s=hit["latency_s"],
+                rule_id=hit["rule_id"], basis=hit["basis"],
+                severity=hit["severity"], detail=hit["evidence"],
+            )
+            # Surface the detection on the shared timeline.
+            self.record_event(
+                "detection-engine", "admin", exercise_id, source="detection-engine",
+                kind="detection", technique_id=hit["technique_id"],
+                actor_name="detection-engine",
+                payload={"real": hit["basis"] == "log", "rule_id": hit["rule_id"],
+                         "title": hit["title"], "severity": hit["severity"],
+                         "basis": hit["basis"], "latency_s": hit["latency_s"],
+                         "evidence": hit["evidence"]},
+            )
+            recorded.append(hit)
+        return recorded
 
     def list_detections(self, exercise_id: str) -> list[dict]:
         rows = self.db.query(

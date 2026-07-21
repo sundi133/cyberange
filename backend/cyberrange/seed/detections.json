@@ -1,0 +1,56 @@
+[
+  {
+    "id": "DR-CONTAINER-RUNTIME-EXEC", "technique_id": "T1610", "rule_version": "v1",
+    "severity": "high", "title": "Binary written and executed inside a container",
+    "description": "A workload container wrote an executable to a writable path and ran it — a hallmark of hands-on-keyboard activity or malware staging.",
+    "match": {"kinds": ["process-output"], "line_regex": "payload\\.sh|writing binary to /tmp|spawning nested shell"}
+  },
+  {
+    "id": "DR-CONTAINER-DISCOVERY", "technique_id": "T1613", "rule_version": "v1",
+    "severity": "medium", "title": "Container/orchestration context enumeration",
+    "description": "A process inspected cgroup, mount, or capability data to learn it is running inside a container.",
+    "match": {"kinds": ["process-output"], "line_regex": "container-discovery|/proc/1/cgroup|overlay on / type overlay|CapEff"}
+  },
+  {
+    "id": "DR-INTERPRETER-ROOT", "technique_id": "T1059", "rule_version": "v1",
+    "severity": "medium", "title": "Interactive interpreter running as root",
+    "description": "A shell/interpreter executed identity and process-enumeration commands as uid 0.",
+    "match": {"kinds": ["process-output"], "line_regex": "interpreter behavior|uid=0\\(root\\)"}
+  },
+  {
+    "id": "DR-REMOTE-DISCOVERY", "technique_id": "T1018", "rule_version": "v1",
+    "severity": "low", "title": "Host and route discovery",
+    "description": "Enumeration of known hosts, routing tables, or ARP cache — reconnaissance for lateral movement.",
+    "match": {"kinds": ["process-output"], "line_regex": "remote-system discovery|arp cache|--- routes ---"}
+  },
+  {
+    "id": "DR-NETWORK-RECON", "technique_id": "T1595", "rule_version": "v1",
+    "severity": "low", "title": "Local network reconnaissance",
+    "description": "Enumeration of local interfaces, hosts, and resolver configuration.",
+    "match": {"kinds": ["process-output"], "line_regex": "enumerating local network context|--- resolv ---"}
+  },
+  {
+    "id": "DR-PHISH-DELIVERY", "technique_id": "T1566", "rule_version": "v1",
+    "severity": "medium", "title": "Phishing delivery observed",
+    "description": "Technique-coverage rule: a phishing initial-access behavior was emulated in the range.",
+    "match": {"technique": "T1566"}
+  },
+  {
+    "id": "DR-CRED-DUMP-SIM", "technique_id": "T1003", "rule_version": "v1",
+    "severity": "high", "title": "Credential-access behavior",
+    "description": "Technique-coverage rule: a credential-dump behavior was emulated.",
+    "match": {"technique": "T1003"}
+  },
+  {
+    "id": "DR-CANARY-ENCRYPT", "technique_id": "T1486", "rule_version": "v1",
+    "severity": "high", "title": "Canary-file encryption / impact",
+    "description": "Technique-coverage rule: a safe canary-encryption impact behavior was emulated.",
+    "match": {"technique": "T1486"}
+  },
+  {
+    "id": "DR-HOST-ESCAPE", "technique_id": "T1611", "rule_version": "v1",
+    "severity": "high", "title": "Container-to-host boundary test",
+    "description": "Technique-coverage rule: a container escape / host-boundary behavior was emulated.",
+    "match": {"technique": "T1611"}
+  }
+]

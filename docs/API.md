@@ -45,6 +45,7 @@ status (400 bad request, 401 unknown role, 403 forbidden, 404 not found,
 | GET | `/api/scenarios/{id}` | one scenario |
 | GET | `/api/modules` | filter: `platform, safety_class, technique, tactic` |
 | GET | `/api/modules/{id}` | one behavior module |
+| GET | `/api/detection-rules` | versioned Sigma-like detection rules (FR-08) |
 | GET | `/api/topologies` / `/api/topologies/{id}` | topology templates |
 
 ## Ranges (FR-03)
@@ -68,7 +69,7 @@ return 409. Releasing/destroying a `QUARANTINED` range requires `admin`.
 | GET | `/api/exercises` / `/api/exercises/{id}` | list / detail |
 | GET | `/api/exercises/{id}/timeline` | synchronized UTC event list (FR-07) |
 | POST | `/api/exercises/{id}/injects` | `{text, type?}` — needs `exercise:inject` |
-| POST | `/api/exercises/{id}/modules` | `{module_id, inputs?}` — needs `module:execute` |
+| POST | `/api/exercises/{id}/modules` | `{module_id, inputs?}` — needs `module:execute`; runs the module (real container or simulated) and auto-fires detection rules; returns `{real, adapter, events_recorded, detections_fired, …}` |
 | POST | `/api/exercises/{id}/evidence` | `{description, classification?, linked_event?}` |
 | GET | `/api/exercises/{id}/evidence` | list evidence with integrity hashes |
 | POST | `/api/exercises/{id}/detections` | `{technique_id, verdict, rule_version?, latency_s?}` |

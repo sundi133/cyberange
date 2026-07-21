@@ -54,6 +54,7 @@ make catalog          # print the seeded content summary
 | FR-03 Lifecycle | `lifecycle.py` — full state machine incl. QUARANTINED (admin-only release) |
 | FR-06 TTP emulation | 24 signed S0/S1/S2 modules across Windows/Linux/Docker; **real container execution** for modules with an execution spec (see below), simulated otherwise |
 | FR-07 Telemetry/timeline | `service.py` — synchronized UTC event timeline with integrity hashes |
+| FR-08 Detection content | `detection.py` + `seed/detections.json` — versioned Sigma-like rules that **fire automatically** against real telemetry (MTTD, severity, evidence) |
 | FR-09 Scoring | `scoring.py` — weighted, explainable, penalty- and override-aware |
 | FR-10 Replay | `purple_compare` — baseline-to-replay coverage delta (not win/lose) |
 | FR-11 Reporting | `build_report` — coverage, gaps, evidence, recommendations |
@@ -136,6 +137,26 @@ Every timeline event's payload carries `real: true|false`, and the dashboard
 tags each event **real** or **sim** so operators always know which is which.
 This is the first cut of the spec's execution-adapter seam; the same interface
 later drives agents on real VM targets (KVM/Proxmox/VMware), Phase 2.
+
+## Detection engine (real rules, not a manual verdict)
+
+When a module runs, the **detection engine** (`detection.py`) evaluates
+versioned, Sigma-like rules (`seed/detections.json`) against the timeline —
+including the *real* container output — and records verdicts automatically:
+
+- **`log`-basis rules** regex-match real captured log lines (high fidelity),
+  e.g. a rule fires on `spawning nested shell` or `uid=0(root)` produced by an
+  actual container. These are marked `real` on the timeline.
+- **`technique`-basis rules** provide coverage for behaviors that are simulated
+  rather than executed in a container.
+
+Each detection records **which rule fired, the matched evidence line, severity,
+and latency (MTTD)** — the time from the activity to the verdict. Detections
+appear on the shared timeline and feed the report's detected-coverage and
+scoring. Blue can still add a manual verdict, but the baseline is automatic.
+
+Kernel-level syscall detection (Falco) is the Phase-2 sensor; this engine is
+its portable analog over collected telemetry — the same model a SIEM uses.
 
 ## Safety model
 

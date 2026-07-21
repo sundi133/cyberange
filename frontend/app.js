@@ -251,6 +251,8 @@ async function viewExercise() {
         </div>
         <h3>Detection result</h3>
         <div class="card">
+          <p class="muted" style="font-size:12px;margin-top:0">The detection engine fires
+            rules automatically when a module runs. Add a manual verdict below if needed.</p>
           <div class="row">
             <input id="det-tech" placeholder="T1059" style="width:90px" />
             <select id="det-verdict"><option>detected</option><option>missed</option><option>false_positive</option></select>
@@ -319,7 +321,8 @@ async function runModule() {
     const mid = document.getElementById("mod-select").value;
     const res = await api("POST", `/exercises/${state.exercise}/modules`, { module_id: mid });
     const how = res.real ? `ran for real via ${res.adapter}` : "simulated";
-    toast(`${res.executed} ${how} → ${res.events_recorded} events`);
+    const det = res.detections_fired ? `, ${res.detections_fired} detection(s) fired` : "";
+    toast(`${res.executed} ${how} → ${res.events_recorded} events${det}`);
     await loadTimeline();
   } catch (e) { toast(e.message, "err"); }
 }
@@ -401,16 +404,23 @@ async function loadTimeline() {
     const realTag = p.real === true ? '<span class="tag s0">real</span>'
       : (p.real === false ? '<span class="tag" style="opacity:.6">sim</span>' : "");
     let extra = "";
+    let kindHtml = `<span class="kind">${esc(ev.kind)}</span>`;
     if (ev.kind === "process-output" && p.line) {
       extra = `<div class="logline">${esc(p.line)}</div>`;
     } else if (ev.kind === "process-stderr" && p.stderr) {
       extra = `<div class="logline" style="color:var(--amber)">${esc(p.stderr)}</div>`;
     } else if (ev.kind === "ttp-exec" && p.image) {
       extra = `<div class="mono muted" style="font-size:11px">${esc(p.image)} · exit ${esc(p.exit_code)} · ${esc(p.duration_s)}s</div>`;
+    } else if (ev.kind === "detection") {
+      kindHtml = `<span class="kind" style="color:var(--amber)">◈ detection</span>`;
+      const sev = (p.severity || "").toUpperCase();
+      extra = `<div class="detline"><strong>${esc(p.rule_id)}</strong> · ${esc(p.title)}
+        <span class="tag ${p.basis === "log" ? "s0" : ""}">${esc(p.basis)}</span>
+        <span class="muted">${esc(sev)} · MTTD ${esc(p.latency_s)}s</span></div>`;
     }
     ul.appendChild(el(`<li>
       <div class="ts">${esc(ev.ts_utc.slice(11, 23))} · ${esc(ev.source)}</div>
-      <div><span class="kind">${esc(ev.kind)}</span> ${tech} ${realTag}
+      <div>${kindHtml} ${tech} ${realTag}
         <span class="muted">— ${esc(ev.actor || "")}</span></div>
       ${extra}
     </li>`));

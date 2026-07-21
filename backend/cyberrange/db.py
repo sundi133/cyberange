@@ -75,11 +75,15 @@ CREATE TABLE IF NOT EXISTS evidence (
 CREATE TABLE IF NOT EXISTS detections (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     exercise_id TEXT NOT NULL,
+    rule_id TEXT,
     rule_version TEXT,
     technique_id TEXT,
     verdict TEXT,
+    basis TEXT,
+    severity TEXT,
     latency_s REAL,
     fp_context TEXT,
+    detail TEXT,
     ts_utc TEXT NOT NULL
 );
 

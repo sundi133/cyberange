@@ -78,6 +78,7 @@ def build_router(svc: CyberRangeService) -> Router:
     r.add("GET", "/api/modules", modules_handler)
     r.add("GET", "/api/modules/{mid}",
           lambda ctx: catalog.get_module(ctx["params"]["mid"]) or _notfound("module"))
+    r.add("GET", "/api/detection-rules", lambda ctx: catalog.detection_rules())
 
     # ---- ranges (FR-03) ----
     r.add("GET", "/api/ranges", lambda ctx: svc.list_ranges(_first(ctx["query"], "tenant")))

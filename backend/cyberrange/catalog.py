@@ -39,6 +39,10 @@ def reference() -> dict:
     return _load("reference")
 
 
+def detection_rules() -> list[dict]:
+    return _load("detections")
+
+
 def get_scenario(scenario_id: str) -> dict | None:
     return next((s for s in scenarios() if s["id"] == scenario_id), None)
 
