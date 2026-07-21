@@ -146,9 +146,11 @@ def build_router(svc: CyberRangeService) -> Router:
     def score(ctx):
         b = ctx["body"]
         return svc.score_exercise(ctx["user"], ctx["role"], ctx["params"]["exid"],
-                                  b["raw_scores"], penalties=b.get("penalties"),
+                                  b.get("raw_scores", {}), penalties=b.get("penalties"),
                                   overrides=b.get("overrides"))
     r.add("POST", "/api/exercises/{exid}/score", score)
+    r.add("GET", "/api/exercises/{exid}/derived-scores",
+          lambda ctx: svc.derived_dimension_scores(ctx["params"]["exid"]))
 
     def end_exercise(ctx):
         return svc.end_exercise(ctx["user"], ctx["role"], ctx["params"]["exid"])

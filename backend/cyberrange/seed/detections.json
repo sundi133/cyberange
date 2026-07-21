@@ -49,8 +49,14 @@
   },
   {
     "id": "DR-HOST-ESCAPE", "technique_id": "T1611", "rule_version": "v1",
-    "severity": "high", "title": "Container-to-host boundary test",
-    "description": "Technique-coverage rule: a container escape / host-boundary behavior was emulated.",
-    "match": {"technique": "T1611"}
+    "severity": "high", "title": "Container-to-host boundary probe",
+    "description": "A container process probed for escape vectors — docker socket exposure, sensitive host mounts, or elevated privileges.",
+    "match": {"kinds": ["process-output"], "line_regex": "escape-test|probing container-to-host boundary|docker socket|sensitive host mount"}
+  },
+  {
+    "id": "DR-SECRET-ACCESS", "technique_id": "T1552", "rule_version": "v1",
+    "severity": "high", "title": "Secret material read inside a container",
+    "description": "A container process read mounted secret files or scanned the environment for credentials.",
+    "match": {"kinds": ["process-output"], "line_regex": "secret-access|reading mounted secret|SECRET_ACCESS_KEY|synthetic credential retrieved"}
   }
 ]

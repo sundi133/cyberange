@@ -233,6 +233,8 @@
     "expected_telemetry": ["sensitive file read", "runtime alert", "process telemetry"],
     "cleanup": "Rotate synthetic secret.",
     "detection_notes": "Read of a mounted secret/env by an unexpected process.",
+    "execution": {"adapter": "docker", "image": "alpine:3.19", "network": "none",
+      "cmd": ["sh", "-c", "echo '[secret-access] searching container for exposed secrets'; mkdir -p /run/secrets; printf 'AWS_SECRET_ACCESS_KEY=SYNTHETIC-DO-NOT-USE-abc123\\n' > /run/secrets/app.env; echo '--- reading mounted secret ---'; cat /run/secrets/app.env; echo '--- scanning env for tokens ---'; env | grep -iE 'key|token|secret|password' || echo 'no secrets in environment'; echo '[secret-access] synthetic credential retrieved'"]},
     "signed": true
   },
   {
@@ -259,6 +261,8 @@
     "expected_telemetry": ["Falco escape alert", "host mount access", "host process events"],
     "cleanup": "Restore checkpoint; remove test container.",
     "detection_notes": "Access to host paths via a sensitive mount from a container context.",
+    "execution": {"adapter": "docker", "image": "alpine:3.19", "network": "none",
+      "cmd": ["sh", "-c", "echo '[escape-test] probing container-to-host boundary'; echo '--- effective privilege check ---'; grep -E 'CapEff|CapBnd' /proc/self/status | sed 's/Cap/Privilege-/'; echo '--- docker socket exposed? ---'; ls -la /var/run/docker.sock 2>&1 || echo 'docker socket not present (boundary intact)'; echo '--- sensitive host mount check ---'; mount | grep -iE '/host|docker.sock' || echo 'no sensitive host mounts detected'; echo '[escape-test] boundary held; no host access achieved'"]},
     "signed": true
   },
   {

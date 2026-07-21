@@ -54,5 +54,54 @@ class ScoringTest(unittest.TestCase):
         self.assertIn("total", payload)
 
 
+class DerivedScoringTest(unittest.TestCase):
+    def setUp(self):
+        from cyberrange.db import Database
+        from cyberrange.service import CyberRangeService
+        self.svc = CyberRangeService(Database(":memory:"))
+
+    def _run(self, module_ids):
+        rng = self.svc.create_range("inst", "instructor", "CR-PHISH-001")
+        for a in ("preflight", "provision", "seed", "ready"):
+            self.svc.lifecycle_action("inst", "instructor", rng["id"], a)
+        ex = self.svc.start_exercise("inst", "instructor", rng["id"])
+        for mid in module_ids:
+            self.svc.execute_module("inst", "instructor", ex["id"], mid)
+        return ex
+
+    def test_detection_dimension_derived_from_coverage(self):
+        # CR-PHISH-001 expects T1566/T1059/T1105. Running the phishing module
+        # emulates T1566 which auto-detects, so coverage > 0.
+        ex = self._run(["CR-MOD-PHISH-001"])
+        derived = self.svc.derived_dimension_scores(ex["id"])
+        self.assertGreater(derived["detection"], 0)
+        self.assertIn("T1566", derived["_detail"]["detected"])
+
+    def test_slider_cannot_override_derived_detection(self):
+        ex = self._run(["CR-MOD-PHISH-001"])
+        derived = self.svc.derived_dimension_scores(ex["id"])
+        # Submit a bogus detection slider of 100; result must use the derived value.
+        result = self.svc.score_exercise("inst", "instructor", ex["id"],
+                                         {"detection": 100, "investigation": 50})
+        det = next(d for d in result["dimensions"] if d["dimension"] == "detection")
+        self.assertEqual(det["raw"], derived["detection"])
+        self.assertIn("detection", result["derived"]["dimensions"])
+
+    def test_instructor_override_still_wins(self):
+        ex = self._run(["CR-MOD-PHISH-001"])
+        result = self.svc.score_exercise(
+            "inst", "instructor", ex["id"], {"investigation": 50},
+            overrides=[{"dimension": "detection", "old_raw": 0, "new_raw": 88,
+                        "instructor": "inst", "justification": "manual review"}])
+        det = next(d for d in result["dimensions"] if d["dimension"] == "detection")
+        self.assertEqual(det["raw"], 88.0)
+
+    def test_no_detection_means_zero_detection_score(self):
+        ex = self._run([])  # nothing executed
+        derived = self.svc.derived_dimension_scores(ex["id"])
+        self.assertEqual(derived["detection"], 0.0)
+        self.assertEqual(derived["red_execution"], 0.0)
+
+
 if __name__ == "__main__":
     unittest.main()

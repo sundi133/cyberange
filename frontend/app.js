@@ -275,7 +275,7 @@ async function viewExercise() {
 
   const scenario = await loadExerciseMeta();
   await loadModuleSelect(scenario);
-  buildScorePanel();
+  await buildScorePanel();
   await loadTimeline();
 
   document.getElementById("btn-run-mod").onclick = runModule;
@@ -360,20 +360,39 @@ async function doDetection() {
   } catch (e) { toast(e.message, "err"); }
 }
 
-const DIMS = ["red_execution", "detection", "investigation", "response", "collaboration"];
-function buildScorePanel() {
+const DERIVED_DIMS = ["red_execution", "detection"];
+const MANUAL_DIMS = ["investigation", "response", "collaboration"];
+
+async function buildScorePanel() {
   const p = document.getElementById("score-panel");
-  p.innerHTML = DIMS.map((d) =>
+  let derived = { detection: 0, red_execution: 0, _detail: {} };
+  try { derived = await api("GET", `/exercises/${state.exercise}/derived-scores`); } catch { /* none yet */ }
+  const d = derived._detail || {};
+  const mttd = d.mean_mttd_s == null ? "—" : `${d.mean_mttd_s}s`;
+
+  const derivedRows = DERIVED_DIMS.map((dim) =>
     `<div class="row" style="justify-content:space-between;margin-bottom:6px">
-      <label style="color:var(--muted)">${d}</label>
-      <input type="range" min="0" max="100" value="70" id="sc-${d}" style="flex:1;margin:0 10px" />
-      <span class="mono" id="scv-${d}">70</span></div>`
-  ).join("") +
+      <label style="color:var(--muted)">${dim} <span class="tag" style="font-size:10px">auto</span></label>
+      <span class="mono" id="scv-${dim}" style="color:var(--green)">${derived[dim] ?? 0}</span></div>`
+  ).join("");
+
+  const manualRows = MANUAL_DIMS.map((dim) =>
+    `<div class="row" style="justify-content:space-between;margin-bottom:6px">
+      <label style="color:var(--muted)">${dim}</label>
+      <input type="range" min="0" max="100" value="70" id="sc-${dim}" style="flex:1;margin:0 10px" />
+      <span class="mono" id="scv-${dim}">70</span></div>`
+  ).join("");
+
+  p.innerHTML = derivedRows +
+    `<p class="muted" style="font-size:11px;margin:2px 0 8px">Detection &amp; red-execution are
+      derived from the timeline — coverage ${((d.coverage ?? 0) * 100).toFixed(0)}% ·
+      log-fidelity ${((d.log_fidelity ?? 0) * 100).toFixed(0)}% · mean MTTD ${mttd}.</p>` +
+    manualRows +
     `<button class="act" id="btn-score" style="margin-top:8px">Compute score</button>
      <div id="score-out" style="margin-top:12px"></div>`;
-  DIMS.forEach((d) => {
-    const r = document.getElementById(`sc-${d}`);
-    r.oninput = () => { document.getElementById(`scv-${d}`).textContent = r.value; };
+  MANUAL_DIMS.forEach((dim) => {
+    const r = document.getElementById(`sc-${dim}`);
+    r.oninput = () => { document.getElementById(`scv-${dim}`).textContent = r.value; };
   });
   document.getElementById("btn-score").onclick = computeScore;
 }
@@ -381,12 +400,15 @@ function buildScorePanel() {
 async function computeScore() {
   try {
     const raw = {};
-    DIMS.forEach((d) => { raw[d] = Number(document.getElementById(`sc-${d}`).value); });
+    MANUAL_DIMS.forEach((dim) => { raw[dim] = Number(document.getElementById(`sc-${dim}`).value); });
     const res = await api("POST", `/exercises/${state.exercise}/score`, { raw_scores: raw });
-    const bars = res.dimensions.map((d) =>
-      `<div style="margin:6px 0"><div class="row" style="justify-content:space-between">
-        <span class="muted">${d.dimension} (×${d.weight})</span><span class="mono">${d.contribution}</span></div>
-       <div class="bar"><span style="width:${d.raw}%"></span></div></div>`).join("");
+    const derivedSet = new Set((res.derived || {}).dimensions || []);
+    const bars = res.dimensions.map((dd) => {
+      const auto = derivedSet.has(dd.dimension) ? '<span class="tag" style="font-size:10px">auto</span>' : "";
+      return `<div style="margin:6px 0"><div class="row" style="justify-content:space-between">
+        <span class="muted">${dd.dimension} (×${dd.weight}) ${auto}</span><span class="mono">${dd.contribution}</span></div>
+       <div class="bar"><span style="width:${dd.raw}%"></span></div></div>`;
+    }).join("");
     document.getElementById("score-out").innerHTML =
       `<div class="row" style="justify-content:space-between"><h4>Total: ${res.total}</h4>
        <span class="muted">weighted ${res.weighted_before_penalty}</span></div>${bars}`;

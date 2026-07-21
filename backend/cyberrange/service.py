@@ -439,6 +439,56 @@ class CyberRangeService:
         return [row_to_dict(r) for r in rows]
 
     # ---- scoring (FR-09) -------------------------------------------------
+    # Dimensions computed automatically from exercise data rather than entered
+    # by hand. Others (investigation, response, collaboration) remain rubric
+    # inputs; an instructor can still override any dimension (audited).
+    DERIVED_DIMENSIONS = ("detection", "red_execution")
+
+    def derived_dimension_scores(self, exercise_id: str) -> dict:
+        """Derive the detection and red-execution dimensions from the timeline
+        and recorded detections (spec §7: coverage, MTTD, attribution)."""
+        ex = self.get_exercise(exercise_id)
+        scenario = catalog.get_scenario(ex["scenario_id"]) or {}
+        expected = set(scenario.get("technique_ids", []))
+
+        timeline = self.timeline(exercise_id)
+        observed = {e["technique_id"] for e in timeline
+                    if e.get("technique_id") and e["kind"] in ("ttp-exec", "ttp-emulation")}
+        detections = self.list_detections(exercise_id)
+        detected = {d["technique_id"] for d in detections if d.get("verdict") == "detected"}
+        log_detected = {d["technique_id"] for d in detections
+                        if d.get("verdict") == "detected" and d.get("basis") == "log"}
+        latencies = [d["latency_s"] for d in detections
+                     if d.get("verdict") == "detected" and d.get("latency_s") is not None]
+
+        # Detection: coverage of the expected techniques (weighted 90) plus a
+        # fidelity bonus (weighted 10) for detections backed by real log evidence.
+        if expected:
+            coverage = len(detected & expected) / len(expected)
+        else:
+            coverage = 1.0 if detected else 0.0
+        fidelity = (len(log_detected) / len(detected)) if detected else 0.0
+        detection_score = round(min(100.0, coverage * 90 + fidelity * 10), 1)
+
+        # Red execution: did red actually run the expected techniques.
+        if expected:
+            red = len(observed & expected) / len(expected)
+        else:
+            red = 1.0 if observed else 0.0
+        red_score = round(red * 100, 1)
+
+        mttd = round(sum(latencies) / len(latencies), 3) if latencies else None
+        return {
+            "detection": detection_score,
+            "red_execution": red_score,
+            "_detail": {
+                "expected": sorted(expected), "observed": sorted(observed),
+                "detected": sorted(detected), "log_detected": sorted(log_detected),
+                "coverage": round(coverage, 3), "log_fidelity": round(fidelity, 3),
+                "mean_mttd_s": mttd,
+            },
+        }
+
     def score_exercise(self, actor: str, role: str, exercise_id: str,
                        raw_scores: dict, penalties: list | None = None,
                        overrides: list | None = None) -> dict:
@@ -451,22 +501,30 @@ class CyberRangeService:
             rbac.require(role, "exercise:score_override")
             ov_objs.append(scoring.Override(**o))
 
-        # Attach detection evidence per technique as scoring evidence refs.
+        # Derived dimensions take precedence over any submitted slider values.
+        derived = self.derived_dimension_scores(exercise_id)
+        detail = derived.pop("_detail")
+        effective = dict(raw_scores)
+        effective.update(derived)
+
         detections = self.list_detections(exercise_id)
         evidence_refs = {
-            "detection": [f"det:{d['id']}:{d['technique_id']}" for d in detections]
+            "detection": [f"det:{d['id']}:{d['rule_id'] or d['technique_id']}"
+                          for d in detections]
         }
         result = scoring.compute_score(
-            raw_scores, penalties=pen_objs, overrides=ov_objs, evidence=evidence_refs
+            effective, penalties=pen_objs, overrides=ov_objs, evidence=evidence_refs
         )
+        payload = result.to_dict()
+        payload["derived"] = {"dimensions": list(self.DERIVED_DIMENSIONS), **detail}
         self.db.execute(
             "UPDATE exercises SET score=? WHERE id=?",
-            (json.dumps(result.to_dict()), exercise_id),
+            (json.dumps(payload), exercise_id),
         )
         if ov_objs:
             self._audit(actor, role, "exercise:score_override", exercise_id,
                         json.dumps([o.__dict__ for o in ov_objs]))
-        return result.to_dict()
+        return payload
 
     def end_exercise(self, actor: str, role: str, exercise_id: str) -> dict:
         rbac.require(role, "range:lifecycle")

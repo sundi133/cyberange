@@ -110,6 +110,25 @@ class ServiceDetectionTest(unittest.TestCase):
         self.assertTrue(any(d["basis"] == "log" for d in dets),
                         "expected at least one detection from a real log line")
 
+    @unittest.skipUnless(DOCKER, "Docker not available")
+    def test_all_docker_scenario_techniques_detect_from_real_logs(self):
+        ex = self._running_docker_exercise()
+        for mid in ("CR-MOD-DOCKER-DISC-001", "CR-MOD-DOCKER-RUNTIME-001",
+                    "CR-MOD-DOCKER-ESCAPE-001"):
+            self.svc.execute_module("inst", "instructor", ex["id"], mid)
+        log_techs = {d["technique_id"] for d in self.svc.list_detections(ex["id"])
+                     if d["basis"] == "log"}
+        # The Docker compromise scenario's three techniques all detect from logs.
+        self.assertTrue({"T1613", "T1610", "T1611"} <= log_techs, log_techs)
+
+    @unittest.skipUnless(DOCKER, "Docker not available")
+    def test_secret_access_module_detects_from_real_log(self):
+        ex = self._running_docker_exercise()
+        self.svc.execute_module("red", "red", ex["id"], "CR-MOD-DOCKER-SECRET-001")
+        dets = self.svc.list_detections(ex["id"])
+        self.assertTrue(any(d["technique_id"] == "T1552" and d["basis"] == "log"
+                            for d in dets))
+
 
 if __name__ == "__main__":
     unittest.main()
