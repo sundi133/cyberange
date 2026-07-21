@@ -47,16 +47,31 @@ const $main = () => document.getElementById("main");
 // ---------------- Catalog view ----------------
 async function viewCatalog() {
   const m = $main();
-  m.innerHTML = `
+  const guide = can("range:create") ? `
+    <div class="guide">
+      <div class="steps">
+        <span><span class="num">1</span>Launch a scenario</span><span class="arrow">→</span>
+        <span><span class="num">2</span>Prepare the range</span><span class="arrow">→</span>
+        <span><span class="num">3</span>Start the exercise</span><span class="arrow">→</span>
+        <span><span class="num">4</span>Run techniques &amp; watch detections</span>
+      </div>
+    </div>` : `
+    <div class="guide"><div class="steps muted">
+      You're signed in as <strong>${esc(session.role)}</strong> — browse the catalog here,
+      then join a running exercise from the <strong>Exercise</strong> tab once an instructor starts one.
+    </div></div>`;
+
+  m.innerHTML = guide + `
+    <h2>Scenario catalog</h2>
     <div class="toolbar">
-      <input id="q" placeholder="Search scenarios…" />
+      <input id="q" placeholder="Search scenarios…" style="min-width:200px" />
       <select id="f-diff"><option value="">Any difficulty</option>
         <option>intermediate</option><option>advanced</option></select>
       <select id="f-plat"><option value="">Any platform</option>
         <option>windows</option><option>linux</option><option>docker</option></select>
       <button class="ghost" id="btn-search">Filter</button>
     </div>
-    <h3>Scenarios</h3><div class="grid" id="scenarios"></div>
+    <div class="grid" id="scenarios"></div>
     <h3>TTP behavior modules</h3>
     <div class="toolbar">
       <select id="m-plat"><option value="">Any platform</option>
@@ -103,15 +118,19 @@ async function viewCatalog() {
 function scenarioCard(s) {
   const techs = (s.technique_ids || []).map((t) => `<span class="tag tech">${t}</span>`).join(" ");
   const dur = (s.duration_min || []).join("–");
-  return el(`<div class="card">
+  const cta = can("range:create")
+    ? `<button class="act" data-launch="${esc(s.id)}">Launch range →</button>`
+    : `<span class="faint" style="font-size:12px">Instructor-launched</span>`;
+  return el(`<div class="card mode-${esc(s.mode)}">
     <div class="row" style="justify-content:space-between">
-      <h4>${esc(s.name)}</h4><span class="tag">${esc(s.mode)}</span>
+      <h4>${esc(s.name)}</h4><span class="tag mode">${esc(s.mode)}</span>
     </div>
-    <p class="mono muted">${esc(s.id)} · ${esc(s.difficulty)} · ${dur} min</p>
+    <p class="mono faint" style="font-size:11.5px">${esc(s.id)} · ${esc(s.difficulty)} · ${dur} min</p>
     <p>${esc(s.team_objective)}</p>
     <div class="row">${techs}</div>
-    <div class="row" style="margin-top:12px">
-      <button class="act" data-launch="${esc(s.id)}">Launch range</button>
+    <div class="row" style="margin-top:14px;justify-content:space-between">
+      ${cta}
+      <span class="faint" style="font-size:11.5px">${(s.module_ids || []).length} modules</span>
     </div>
   </div>`);
 }
@@ -134,66 +153,119 @@ function moduleCard(m) {
 // ---------------- Ranges view ----------------
 async function viewRanges() {
   const m = $main();
-  m.innerHTML = `<h2>Ranges</h2>
+  const canManage = can("range:lifecycle");
+  const creator = can("range:create") ? `
     <div class="toolbar">
-      <select id="new-scenario"></select>
-      <button class="act" id="btn-create">Create range</button>
-      <button class="ghost" id="btn-refresh">Refresh</button>
-    </div>
-    <table><thead><tr><th>ID</th><th>Scenario</th><th>State</th><th>Expiry</th><th>Actions</th></tr></thead>
-    <tbody id="range-rows"></tbody></table>`;
+      <select id="new-scenario" style="min-width:220px"></select>
+      <button class="act" id="btn-create">+ Create range</button>
+      <button class="ghost" id="btn-refresh">↻ Refresh</button>
+    </div>` : `<div class="toolbar"><button class="ghost" id="btn-refresh">↻ Refresh</button></div>`;
 
-  const scenarios = await api("GET", "/scenarios");
-  const sel = document.getElementById("new-scenario");
-  scenarios.forEach((s) => sel.appendChild(el(`<option value="${esc(s.id)}">${esc(s.name)}</option>`)));
+  m.innerHTML = `<h2>Ranges</h2>${creator}
+    <div class="table-wrap">
+      <table><thead><tr>
+        <th>Range</th><th>Lifecycle</th><th style="width:40%">Next step</th>
+      </tr></thead><tbody id="range-rows"></tbody></table>
+    </div>`;
 
-  document.getElementById("btn-create").onclick = async () => {
-    try {
-      const r = await api("POST", "/ranges", { scenario_id: sel.value });
-      toast(`Created ${r.id}`);
-      await loadRanges();
-    } catch (e) { toast(e.message, "err"); }
-  };
+  if (can("range:create")) {
+    const scenarios = await api("GET", "/scenarios");
+    const sel = document.getElementById("new-scenario");
+    scenarios.forEach((s) => sel.appendChild(el(`<option value="${esc(s.id)}">${esc(s.name)}</option>`)));
+    document.getElementById("btn-create").onclick = async () => {
+      try {
+        const r = await api("POST", "/ranges", { scenario_id: sel.value });
+        toast(`Created ${r.id}`);
+        await loadRanges();
+      } catch (e) { toast(e.message, "err"); }
+    };
+  }
   document.getElementById("btn-refresh").onclick = loadRanges;
-  await loadRanges();
+  await loadRanges(canManage);
 }
 
-const NEXT_ACTION = {
-  REQUESTED: "preflight", PREFLIGHT: "provision", PROVISIONING: "seed",
-  SEEDING: "ready", READY: "start",
-};
+// Milestones shown in the lifecycle stepper, mapped from raw states.
+const MILESTONES = ["Requested", "Prepared", "Running", "Complete"];
+function milestoneIndex(state) {
+  if (["REQUESTED", "PREFLIGHT", "PROVISIONING", "SEEDING"].includes(state)) return 0;
+  if (state === "READY") return 1;
+  if (["RUNNING", "PAUSED"].includes(state)) return 2;
+  if (["COMPLETING", "EVIDENCE_LOCKED", "ARCHIVED", "DESTROYED"].includes(state)) return 3;
+  return -1; // QUARANTINED
+}
+function stepperHtml(state) {
+  if (state === "QUARANTINED") return `<span class="badge QUARANTINED">QUARANTINED</span>`;
+  const cur = milestoneIndex(state);
+  return `<div class="stepper">` + MILESTONES.map((label, i) => {
+    const cls = i < cur ? "done" : (i === cur ? "current" : "");
+    const line = i > 0 ? `<span class="step-line ${i <= cur ? "done" : ""}"></span>` : "";
+    return `${line}<span class="step ${cls}"><span class="dot"></span><span class="lbl">${label}</span></span>`;
+  }).join("") + `</div>`;
+}
 
-async function loadRanges() {
+async function loadRanges(canManage = can("range:lifecycle")) {
   const ranges = await api("GET", "/ranges");
   const tb = document.getElementById("range-rows");
   tb.innerHTML = "";
   ranges.forEach((r) => {
-    const next = NEXT_ACTION[r.state];
     const row = el(`<tr>
-      <td class="mono">${esc(r.id)}</td>
-      <td>${esc(r.scenario_id)}</td>
-      <td><span class="badge state ${esc(r.state)}">${esc(r.state)}</span></td>
-      <td class="mono muted">${esc((r.expiry_at || "").slice(0, 16))}</td>
+      <td><div><strong class="mono" style="font-size:12px">${esc(r.id)}</strong></div>
+        <div class="faint" style="font-size:11.5px">${esc(r.scenario_id)}</div></td>
+      <td>${stepperHtml(r.state)}<div class="faint mono" style="font-size:10.5px;margin-top:5px">${esc(r.state)}</div></td>
       <td class="row"></td></tr>`);
     const actions = row.querySelector("td.row");
-    if (next && next !== "start") {
-      const b = el(`<button class="ghost">→ ${next}</button>`);
-      b.onclick = () => advance(r.id, next);
-      actions.appendChild(b);
-    }
-    if (r.state === "READY") {
-      const b = el(`<button class="act">Start exercise</button>`);
+    const idx = milestoneIndex(r.state);
+
+    if (!canManage) {
+      actions.innerHTML = `<span class="faint" style="font-size:12px">read-only</span>`;
+    } else if (r.state === "QUARANTINED") {
+      const d = el(`<button class="ghost danger">Destroy</button>`);
+      d.onclick = () => advance(r.id, "destroy");
+      actions.appendChild(d);
+    } else if (idx === 0) {
+      const prep = el(`<button class="act">⚡ Prepare range</button>`);
+      prep.onclick = () => prepareRange(r.id);
+      actions.appendChild(prep);
+      actions.appendChild(hint("Provisions the VMs and networks, then seeds identities (≈ 4 steps, one click)."));
+    } else if (r.state === "READY") {
+      const b = el(`<button class="act">▶ Start exercise</button>`);
       b.onclick = () => startExercise(r.id);
       actions.appendChild(b);
+    } else if (["RUNNING", "PAUSED"].includes(r.state)) {
+      const b = el(`<button class="ghost">Open exercise →</button>`);
+      b.onclick = () => { switchView("exercise"); };
+      actions.appendChild(b);
+    } else {
+      actions.innerHTML = `<span class="faint" style="font-size:12px">${esc(r.state.toLowerCase())}</span>`;
     }
-    if (!["DESTROYED", "ARCHIVED"].includes(r.state)) {
-      const q = el(`<button class="ghost">Quarantine</button>`);
+    if (canManage && !["DESTROYED", "ARCHIVED", "QUARANTINED"].includes(r.state) && idx >= 0) {
+      const q = el(`<button class="ghost danger" title="Isolate this range">⚠</button>`);
       q.onclick = () => advance(r.id, "quarantine");
       actions.appendChild(q);
     }
     tb.appendChild(row);
   });
-  if (!ranges.length) tb.innerHTML = `<tr><td colspan="5" class="muted">No ranges yet.</td></tr>`;
+  if (!ranges.length) {
+    tb.innerHTML = `<tr><td colspan="3"><div class="empty">
+      <span class="ico">🖥️</span><h4>No ranges yet</h4>
+      <p>${can("range:create")
+        ? "Pick a scenario above and hit <strong>Create range</strong> to spin up an isolated environment."
+        : "An instructor hasn't created any ranges yet."}</p></div></td></tr>`;
+  }
+}
+
+function hint(text) {
+  return el(`<span class="faint" style="font-size:11px;flex-basis:100%;margin-top:2px">${esc(text)}</span>`);
+}
+
+async function prepareRange(rid) {
+  const steps = ["preflight", "provision", "seed", "ready"];
+  try {
+    toast("Preparing range…");
+    for (const s of steps) await api("POST", `/ranges/${rid}/actions`, { action: s });
+    toast("Range ready — you can start the exercise", "ok");
+    await loadRanges();
+  } catch (e) { toast(e.message, "err"); await loadRanges(); }
 }
 
 async function advance(rid, action) {
@@ -218,52 +290,79 @@ async function viewExercise() {
   const m = $main();
   const exercises = await api("GET", "/exercises");
   if (!exercises.length) {
-    m.innerHTML = `<h2>Exercise</h2><p class="muted">No exercises yet. Create a range and start one.</p>`;
+    m.innerHTML = `<div class="empty"><span class="ico">🎯</span>
+      <h4>No exercises running</h4>
+      <p>${can("range:create")
+        ? "Head to <strong>Ranges</strong>, prepare a range, and press <strong>Start exercise</strong>."
+        : "Once an instructor starts an exercise, it appears here for you to join."}</p></div>`;
     return;
   }
-  if (!state.exercise) state.exercise = exercises[0].id;
+  if (!state.exercise || !exercises.some((e) => e.id === state.exercise)) {
+    state.exercise = exercises[0].id;
+  }
 
-  m.innerHTML = `<div class="toolbar">
-      <select id="ex-select"></select>
-      <button class="ghost" id="btn-report">Report</button>
-      <button class="ghost" id="btn-end">End exercise</button>
+  // Role-aware action panels.
+  const panels = [];
+  if (can("module:execute")) panels.push(`
+    <div class="panel">
+      <div class="phead">Run a TTP module <span class="tag tech">red</span></div>
+      <div class="phelp">Executes the attacker behavior. Docker modules run for real in an isolated container; others simulate. S2 modules need instructor/admin.</div>
+      <div class="row"><select id="mod-select" style="flex:1"></select>
+        <button class="act" id="btn-run-mod">Execute</button></div>
+    </div>`);
+  if (can("exercise:inject")) panels.push(`
+    <div class="panel">
+      <div class="phead">Instructor inject</div>
+      <div class="phelp">Publish an event (user report, escalation, hint) onto the shared timeline.</div>
+      <div class="row"><input id="inject-text" placeholder="e.g. User reports a suspicious email" style="flex:1" />
+        <button class="ghost" id="btn-inject">Inject</button></div>
+    </div>`);
+  if (can("exercise:submit_evidence")) panels.push(`
+    <div class="panel">
+      <div class="phead">Submit evidence <span class="tag" style="color:var(--blue);border-color:var(--blue)">blue</span></div>
+      <div class="phelp">Record a finding or containment action. Each item is hashed for integrity.</div>
+      <div class="row"><input id="ev-text" placeholder="e.g. Isolated host, killed process tree" style="flex:1" />
+        <button class="ghost" id="btn-ev">Submit</button></div>
+    </div>`);
+  panels.push(`
+    <div class="panel">
+      <div class="phead">Detection</div>
+      <div class="phelp">Rules fire <strong>automatically</strong> when a module runs. Add a manual verdict only if needed.</div>
+      <div class="row">
+        <input id="det-tech" placeholder="T1059" style="width:88px" />
+        <select id="det-verdict"><option>detected</option><option>missed</option><option>false_positive</option></select>
+        <button class="ghost" id="btn-det">Record</button>
+      </div>
+    </div>`);
+  if (can("scoring:read")) panels.push(`
+    <div class="panel">
+      <div class="phead">Score</div>
+      <div class="phelp">Detection &amp; red-execution are computed from the timeline. Set the rubric dimensions and compute.</div>
+      <div id="score-panel"></div>
+    </div>`);
+
+  const canEnd = can("range:lifecycle");
+  m.innerHTML = `
+    <div class="toolbar">
+      <select id="ex-select" style="min-width:230px"></select>
+      <button class="ghost" id="btn-report">📄 Report</button>
+      ${canEnd ? '<button class="ghost" id="btn-end">■ End exercise</button>' : ""}
     </div>
     <div class="split">
       <div>
-        <div class="card" id="ex-meta"></div>
-        <h3>Run a TTP module</h3>
-        <div class="card">
-          <div class="row">
-            <select id="mod-select" style="flex:1"></select>
-            <button class="act" id="btn-run-mod">Execute</button>
-          </div>
-          <p class="muted" style="font-size:12px">S2 modules require instructor/admin role.</p>
-        </div>
-        <h3>Instructor inject</h3>
-        <div class="card">
-          <div class="row"><input id="inject-text" placeholder="Inject text…" style="flex:1" />
-          <button class="ghost" id="btn-inject">Inject</button></div>
-        </div>
-        <h3>Blue: submit evidence</h3>
-        <div class="card">
-          <div class="row"><input id="ev-text" placeholder="Evidence description…" style="flex:1" />
-          <button class="ghost" id="btn-ev">Submit</button></div>
-        </div>
-        <h3>Detection result</h3>
-        <div class="card">
-          <p class="muted" style="font-size:12px;margin-top:0">The detection engine fires
-            rules automatically when a module runs. Add a manual verdict below if needed.</p>
-          <div class="row">
-            <input id="det-tech" placeholder="T1059" style="width:90px" />
-            <select id="det-verdict"><option>detected</option><option>missed</option><option>false_positive</option></select>
-            <button class="ghost" id="btn-det">Record</button>
-          </div>
-        </div>
-        <h3>Score</h3>
-        <div class="card" id="score-panel"></div>
+        <div class="panel" id="ex-meta"></div>
+        ${panels.join("")}
       </div>
       <div>
-        <h3>Synchronized timeline (UTC)</h3>
+        <div class="row" style="justify-content:space-between;align-items:baseline">
+          <h3 style="margin:0">Live timeline <span class="faint">(UTC)</span></h3>
+          <button class="ghost" id="btn-tl-refresh" style="padding:5px 10px">↻</button>
+        </div>
+        <div class="legend">
+          <span><span class="tag s0">real</span> genuine container output</span>
+          <span><span class="tag" style="opacity:.6">sim</span> simulated telemetry</span>
+          <span><span style="color:var(--amber)">◈</span> detection fired</span>
+        </div>
         <ul class="timeline" id="timeline"></ul>
       </div>
     </div>`;
@@ -274,32 +373,39 @@ async function viewExercise() {
   sel.onchange = () => { state.exercise = sel.value; viewExercise(); };
 
   const scenario = await loadExerciseMeta();
-  await loadModuleSelect(scenario);
-  await buildScorePanel();
+  if (can("module:execute")) await loadModuleSelect(scenario);
+  if (can("scoring:read")) await buildScorePanel();
   await loadTimeline();
 
-  document.getElementById("btn-run-mod").onclick = runModule;
-  document.getElementById("btn-inject").onclick = doInject;
-  document.getElementById("btn-ev").onclick = doEvidence;
-  document.getElementById("btn-det").onclick = doDetection;
-  document.getElementById("btn-report").onclick = showReport;
-  document.getElementById("btn-end").onclick = endExercise;
+  bind("btn-run-mod", runModule);
+  bind("btn-inject", doInject);
+  bind("btn-ev", doEvidence);
+  bind("btn-det", doDetection);
+  bind("btn-report", showReport);
+  bind("btn-end", endExercise);
+  bind("btn-tl-refresh", loadTimeline);
+}
+
+function bind(id, fn) {
+  const el2 = document.getElementById(id);
+  if (el2) el2.onclick = fn;
 }
 
 async function loadExerciseMeta() {
   const ex = await api("GET", `/exercises/${state.exercise}`);
   state.range = ex.range_id;
   const scenario = await api("GET", `/scenarios/${ex.scenario_id}`);
+  const statusCls = ex.status === "running" ? "RUNNING" : "";
   document.getElementById("ex-meta").innerHTML = `
-    <div class="row" style="justify-content:space-between">
-      <h4>${esc(scenario.name)}</h4>
-      <span class="badge state">${esc(ex.status)}</span>
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div><div class="phead" style="font-size:15px">${esc(scenario.name)}</div>
+        <div class="faint mono" style="font-size:11px">${esc(ex.id)}</div></div>
+      <span class="badge ${statusCls}">${esc(ex.status)}</span>
     </div>
-    <p class="mono muted">${esc(ex.id)}</p>
-    <p>${esc(scenario.team_objective)}</p>
+    <p style="margin:10px 0 12px">${esc(scenario.team_objective)}</p>
     <div class="kv">
-      <dt>Objectives</dt><dd>${(scenario.objectives || []).map(o => `${o.role}:${o.points}`).join(" · ")}</dd>
-      <dt>Techniques</dt><dd>${(scenario.technique_ids || []).join(", ")}</dd>
+      <dt>Techniques</dt><dd class="row" style="gap:5px">${(scenario.technique_ids || []).map(t => `<span class="tag tech">${esc(t)}</span>`).join("")}</dd>
+      <dt>Objectives</dt><dd>${(scenario.objectives || []).map(o => `<span class="tag mode">${esc(o.role)} · ${o.points}pt</span>`).join(" ")}</dd>
     </div>`;
   return scenario;
 }
@@ -440,14 +546,16 @@ async function loadTimeline() {
         <span class="tag ${p.basis === "log" ? "s0" : ""}">${esc(p.basis)}</span>
         <span class="muted">${esc(sev)} · MTTD ${esc(p.latency_s)}s</span></div>`;
     }
-    ul.appendChild(el(`<li>
+    const liClass = ev.kind === "detection" ? "det"
+      : (ev.kind === "process-output" ? "out" : "");
+    ul.appendChild(el(`<li class="${liClass}">
       <div class="ts">${esc(ev.ts_utc.slice(11, 23))} · ${esc(ev.source)}</div>
       <div>${kindHtml} ${tech} ${realTag}
-        <span class="muted">— ${esc(ev.actor || "")}</span></div>
+        <span class="faint">— ${esc(ev.actor || "")}</span></div>
       ${extra}
     </li>`));
   });
-  if (!events.length) ul.innerHTML = `<li class="muted">No events yet.</li>`;
+  if (!events.length) ul.innerHTML = `<li class="faint" style="padding-left:0">No activity yet — run a module to populate the timeline.</li>`;
 }
 
 async function endExercise() {
@@ -618,10 +726,20 @@ const VIEWS = {
   reference: viewReference, audit: viewAudit, admin: viewAdmin,
 };
 
+const VIEW_HELP = {
+  catalog: "<strong>Catalog</strong> — browse scenarios and attacker techniques. Launch a scenario to create an isolated range.",
+  ranges: "<strong>Ranges</strong> — prepare a range through its lifecycle, then start the exercise. Each range is isolated with no internet access.",
+  exercise: "<strong>Exercise</strong> — run attacker techniques (red), watch detections fire on the live timeline, submit evidence (blue), and score the run.",
+  reference: "<strong>Reference</strong> — ATT&amp;CK coverage, scoring model, safety classes, detection stack, topologies, and what each role can do.",
+  audit: "<strong>Audit</strong> — an append-only ledger of every action, attributed to a user and role.",
+  admin: "<strong>Admin</strong> — provision user accounts and assign each a role.",
+};
+
 function switchView(name) {
   state.view = name;
   document.querySelectorAll(".tab").forEach((t) =>
     t.classList.toggle("active", t.dataset.view === name));
+  document.getElementById("view-help").innerHTML = VIEW_HELP[name] || "";
   VIEWS[name]().catch((e) => { $main().innerHTML = `<p class="muted">Error: ${esc(e.message)}</p>`; });
 }
 
