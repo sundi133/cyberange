@@ -199,6 +199,55 @@ def build_router(svc: CyberRangeService) -> Router:
                                    ctx["params"]["username"], bool(b.get("active", True)))
     r.add("POST", "/api/users/{username}/active", set_active)
 
+    # ---- learning: cohorts / classes ----
+    r.add("GET", "/api/cohorts", lambda ctx: svc.list_cohorts(ctx["user"], ctx["role"]))
+    r.add("POST", "/api/cohorts",
+          lambda ctx: svc.create_cohort(ctx["user"], ctx["role"], ctx["body"].get("name", "")))
+    r.add("GET", "/api/cohorts/{cid}", lambda ctx: svc.get_cohort(ctx["params"]["cid"]))
+
+    def cohort_member(ctx):
+        b = ctx["body"]
+        if b.get("remove"):
+            return svc.remove_member(ctx["user"], ctx["role"], ctx["params"]["cid"], b["username"])
+        return svc.add_member(ctx["user"], ctx["role"], ctx["params"]["cid"], b["username"])
+    r.add("POST", "/api/cohorts/{cid}/members", cohort_member)
+
+    r.add("POST", "/api/cohorts/{cid}/roster",
+          lambda ctx: svc.import_roster(ctx["user"], ctx["role"], ctx["params"]["cid"],
+                                        ctx["body"].get("csv", "")))
+
+    def create_assignment(ctx):
+        b = ctx["body"]
+        return svc.create_assignment(ctx["user"], ctx["role"], ctx["params"]["cid"],
+                                     b["scenario_id"], b.get("title"), b.get("due_at"))
+    r.add("POST", "/api/cohorts/{cid}/assignments", create_assignment)
+    r.add("GET", "/api/cohorts/{cid}/gradebook",
+          lambda ctx: svc.gradebook(ctx["user"], ctx["role"], ctx["params"]["cid"]))
+
+    # ---- learning: student ----
+    r.add("GET", "/api/learn/assignments",
+          lambda ctx: svc.my_assignments(ctx["user"], ctx["role"]))
+    r.add("GET", "/api/learn/lesson/{sid}",
+          lambda ctx: (catalog.get_scenario(ctx["params"]["sid"]) or _notfound("lesson")))
+
+    def learn_start(ctx):
+        b = ctx["body"]
+        return svc.start_lesson(ctx["user"], ctx["role"], b["scenario_id"],
+                                b.get("assignment_id", "self"))
+    r.add("POST", "/api/learn/start", learn_start)
+
+    def learn_step(ctx):
+        b = ctx["body"]
+        return svc.run_lesson_step(ctx["user"], ctx["role"], b["scenario_id"],
+                                   int(b["step_index"]), b.get("assignment_id", "self"))
+    r.add("POST", "/api/learn/step", learn_step)
+
+    def learn_quiz(ctx):
+        b = ctx["body"]
+        return svc.submit_quiz(ctx["user"], ctx["role"], b["scenario_id"],
+                               b.get("answers", []), b.get("assignment_id", "self"))
+    r.add("POST", "/api/learn/quiz", learn_quiz)
+
     # ---- admin ----
     r.add("GET", "/api/audit", lambda ctx: svc.audit_log(int(_first(ctx["query"], "limit") or 200)))
 

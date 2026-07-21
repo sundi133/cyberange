@@ -720,13 +720,277 @@ async function loadUsers() {
   });
 }
 
+// ---------------- Learn (student) ----------------
+function statusBadge(st) {
+  const map = { completed: ["s0", "completed"], in_progress: ["s1", "in progress"],
+                not_started: ["", "not started"] };
+  const [cls, label] = map[st] || ["", st];
+  return `<span class="tag ${cls}">${label}</span>`;
+}
+
+async function viewLearn() {
+  const m = $main();
+  const assignments = await api("GET", "/learn/assignments");
+  if (!assignments.length) {
+    m.innerHTML = `<div class="empty"><span class="ico">📚</span>
+      <h4>No lessons assigned yet</h4>
+      <p>When your instructor assigns a lesson, it will appear here. Each lesson guides you
+      through a briefing, hands-on tasks, and a short quiz.</p></div>`;
+    return;
+  }
+  m.innerHTML = `<h2>My lessons</h2><div class="grid" id="lesson-cards"></div>`;
+  const wrap = document.getElementById("lesson-cards");
+  assignments.forEach((a) => {
+    const p = a.progress;
+    const pct = p.total_steps ? Math.round(100 * p.steps_done.length / p.total_steps) : 0;
+    const card = el(`<div class="card mode-solo">
+      <div class="row" style="justify-content:space-between">
+        <h4>${esc(a.title)}</h4>${statusBadge(p.status)}</div>
+      <p class="faint mono" style="font-size:11.5px">${esc(a.scenario_name)} · ${esc(a.difficulty || "")}</p>
+      <p class="muted" style="font-size:12.5px">${a.step_count} hands-on steps · ${a.quiz_count} quiz questions</p>
+      <div class="bar" style="margin:8px 0"><span style="width:${pct}%"></span></div>
+      <div class="row" style="justify-content:space-between;margin-top:10px">
+        <button class="act" data-lesson="${esc(a.scenario_id)}" data-asn="${esc(a.id)}">
+          ${p.status === "completed" ? "Review" : (p.status === "in_progress" ? "Continue" : "Start lesson")} →</button>
+        <span class="faint" style="font-size:11.5px">${p.score == null ? "" : "score " + p.score + "%"}</span>
+      </div></div>`);
+    card.querySelector("[data-lesson]").onclick = () => openLesson(a.scenario_id, a.id);
+    wrap.appendChild(card);
+  });
+}
+
+async function openLesson(scenarioId, assignmentId) {
+  const m = $main();
+  m.innerHTML = `<p class="muted">Provisioning your range…</p>`;
+  let data;
+  try {
+    data = await api("POST", "/learn/start", { scenario_id: scenarioId, assignment_id: assignmentId });
+  } catch (e) { m.innerHTML = `<p class="muted">Error: ${esc(e.message)}</p>`; return; }
+  state.lesson = { scenario_id: scenarioId, assignment_id: assignmentId, exercise_id: data.exercise_id };
+  const L = data.lesson;
+  const done = new Set(data.progress.steps_done || []);
+
+  const stepsHtml = L.steps.map((s, i) => `
+    <div class="panel" id="lstep-${i}">
+      <div class="row" style="justify-content:space-between">
+        <div class="phead">Step ${i + 1}. ${esc(s.title)}</div>
+        <span id="lstep-badge-${i}">${done.has(i) ? statusBadge("completed") : ""}</span>
+      </div>
+      <div class="phelp">${esc(s.instructions)}</div>
+      ${s.module_id ? `<button class="act" id="lstep-run-${i}">▶ Run this step</button>` : ""}
+      <div class="phelp" style="margin-top:8px"><strong>What to look for:</strong> ${esc(s.observe || "")}</div>
+      <div id="lstep-out-${i}" class="mono" style="font-size:11.5px;margin-top:6px"></div>
+    </div>`).join("");
+
+  const quizHtml = (L.quiz || []).map((q, i) => `
+    <div class="panel">
+      <div class="phead">Q${i + 1}. ${esc(q.q)}</div>
+      ${q.options.map((o, j) => `<label style="display:block;margin:5px 0;cursor:pointer">
+        <input type="radio" name="quiz-${i}" value="${j}" style="margin-right:8px" />${esc(o)}</label>`).join("")}
+      <div id="quiz-fb-${i}" style="font-size:12px;margin-top:4px"></div>
+    </div>`).join("");
+
+  m.innerHTML = `
+    <div class="toolbar"><button class="ghost" id="lback">← My lessons</button></div>
+    <h2>${esc(data.scenario.name)}</h2>
+    <div class="split">
+      <div>
+        <div class="panel">
+          <div class="phead">What you'll learn</div>
+          <p style="font-size:13px">${esc(L.overview)}</p>
+          <ul>${(L.concepts || []).map(c => `<li style="font-size:13px;margin:4px 0">${esc(c)}</li>`).join("")}</ul>
+          <div class="row" style="margin-top:6px">${(data.scenario.technique_ids || []).map(t => `<span class="tag tech">${esc(t)}</span>`).join("")}</div>
+        </div>
+        <h3>Hands-on</h3>${stepsHtml}
+        <h3>Knowledge check</h3>${quizHtml}
+        <button class="act" id="quiz-submit" style="margin-top:6px">Submit answers</button>
+        <div id="quiz-result" style="margin-top:12px"></div>
+      </div>
+      <div>
+        <div class="row" style="justify-content:space-between;align-items:baseline">
+          <h3 style="margin:0">Your range — live timeline</h3>
+          <button class="ghost" id="btn-tl-refresh" style="padding:5px 10px">↻</button>
+        </div>
+        <div class="legend">
+          <span><span class="tag s0">real</span> genuine output</span>
+          <span><span style="color:var(--amber)">◈</span> detection fired</span>
+        </div>
+        <ul class="timeline" id="timeline"></ul>
+      </div>
+    </div>`;
+
+  state.exercise = data.exercise_id;   // let loadTimeline reuse
+  document.getElementById("lback").onclick = () => switchView("learn");
+  document.getElementById("btn-tl-refresh").onclick = loadTimeline;
+  L.steps.forEach((s, i) => {
+    if (!s.module_id) return;
+    const btn = document.getElementById(`lstep-run-${i}`);
+    if (done.has(i)) btn.textContent = "✓ Run again";
+    btn.onclick = () => runLessonStep(i);
+  });
+  document.getElementById("quiz-submit").onclick = () => submitLessonQuiz(L.quiz || []);
+  await loadTimeline();
+}
+
+async function runLessonStep(i) {
+  const btn = document.getElementById(`lstep-run-${i}`);
+  btn.disabled = true; btn.textContent = "Running…";
+  try {
+    const r = await api("POST", "/learn/step", {
+      scenario_id: state.lesson.scenario_id, step_index: i,
+      assignment_id: state.lesson.assignment_id });
+    const ex = r.execution || {};
+    const how = ex.real ? `ran for real via ${ex.adapter}` : "ran";
+    document.getElementById(`lstep-out-${i}`).innerHTML =
+      `<span style="color:var(--green)">✓ ${esc(how)} — ${ex.events_recorded || 0} events, ${ex.detections_fired || 0} detection(s). See the timeline →</span>`;
+    document.getElementById(`lstep-badge-${i}`).innerHTML = statusBadge("completed");
+    btn.disabled = false; btn.textContent = "✓ Run again";
+    await loadTimeline();
+  } catch (e) { toast(e.message, "err"); btn.disabled = false; btn.textContent = "▶ Run this step"; }
+}
+
+async function submitLessonQuiz(quiz) {
+  const answers = quiz.map((_, i) => {
+    const sel = document.querySelector(`input[name="quiz-${i}"]:checked`);
+    return sel ? Number(sel.value) : -1;
+  });
+  try {
+    const res = await api("POST", "/learn/quiz", {
+      scenario_id: state.lesson.scenario_id, answers,
+      assignment_id: state.lesson.assignment_id });
+    res.results.forEach((r) => {
+      const fb = document.getElementById(`quiz-fb-${r.index}`);
+      fb.innerHTML = r.correct
+        ? `<span style="color:var(--green)">✓ Correct. ${esc(r.explain)}</span>`
+        : `<span style="color:var(--red)">✗ Not quite.</span> <span class="muted">${esc(r.explain)}</span>`;
+    });
+    const done = res.status === "completed";
+    document.getElementById("quiz-result").innerHTML =
+      `<div class="panel"><div class="row" style="justify-content:space-between">
+        <h4 style="margin:0">Score: ${res.score}/${res.total} (${res.pct}%)</h4>
+        ${done ? statusBadge("completed") : `<span class="muted">complete the hands-on steps to finish</span>`}</div></div>`;
+    toast(`Quiz ${res.pct}%${done ? " — lesson complete!" : ""}`, "ok");
+  } catch (e) { toast(e.message, "err"); }
+}
+
+// ---------------- Classes (instructor) ----------------
+async function viewClasses() {
+  const m = $main();
+  m.innerHTML = `<h2>Classes</h2>
+    <div class="toolbar">
+      <input id="new-class" placeholder="New class name, e.g. Intro to Cyber — Fall" style="min-width:280px" />
+      <button class="act" id="btn-new-class">＋ Create class</button>
+    </div>
+    <div class="grid" id="class-cards"></div>`;
+  document.getElementById("btn-new-class").onclick = async () => {
+    const name = document.getElementById("new-class").value.trim();
+    if (!name) return;
+    try { await api("POST", "/cohorts", { name }); toast("Class created"); viewClasses(); }
+    catch (e) { toast(e.message, "err"); }
+  };
+  const classes = await api("GET", "/cohorts");
+  const wrap = document.getElementById("class-cards");
+  if (!classes.length) { wrap.innerHTML = `<p class="muted">No classes yet — create one above.</p>`; return; }
+  classes.forEach((c) => {
+    const card = el(`<div class="card">
+      <h4>${esc(c.name)}</h4>
+      <p class="muted" style="font-size:12.5px">${c.member_count} students · ${c.assignment_count} lessons assigned</p>
+      <button class="act" data-class="${esc(c.id)}" style="margin-top:8px">Open →</button></div>`);
+    card.querySelector("[data-class]").onclick = () => openClass(c.id);
+    wrap.appendChild(card);
+  });
+}
+
+async function openClass(cid) {
+  const m = $main();
+  const [c, scenarios] = await Promise.all([
+    api("GET", `/cohorts/${cid}`), api("GET", "/scenarios"),
+  ]);
+  const lessons = scenarios.filter((s) => s.learning);
+  m.innerHTML = `
+    <div class="toolbar"><button class="ghost" id="cback">← Classes</button></div>
+    <h2>${esc(c.name)}</h2>
+    <div class="split">
+      <div>
+        <div class="panel">
+          <div class="phead">Enroll students</div>
+          <div class="phelp">Paste a CSV: <span class="mono">username,display name,password</span> (one per line; password optional — we'll generate one).</div>
+          <textarea id="roster-csv" rows="4" style="width:100%" placeholder="alice,Alice Ng&#10;bob,Bob Lee,bobpass123"></textarea>
+          <button class="ghost" id="btn-import" style="margin-top:8px">Import roster</button>
+          <div id="import-out" style="margin-top:8px;font-size:12px"></div>
+        </div>
+        <div class="panel">
+          <div class="phead">Assign a lesson</div>
+          <div class="row"><select id="asn-scenario" style="flex:1">
+            ${lessons.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("")}</select>
+            <button class="act" id="btn-assign">Assign</button></div>
+        </div>
+        <div class="panel">
+          <div class="phead">Students (${c.members.length})</div>
+          <div id="member-list">${c.members.map(mm => `<div class="row" style="justify-content:space-between;padding:4px 0">
+            <span>${esc(mm.display_name || mm.username)} <span class="faint mono">${esc(mm.username)}</span></span>
+            <span class="tag">${esc(mm.role)}</span></div>`).join("") || '<span class="muted">No students yet.</span>'}</div>
+        </div>
+      </div>
+      <div>
+        <div class="row" style="justify-content:space-between;align-items:baseline">
+          <h3 style="margin:0">Gradebook</h3><button class="ghost" id="btn-gb" style="padding:5px 10px">↻</button></div>
+        <div id="gradebook"></div>
+      </div>
+    </div>`;
+  document.getElementById("cback").onclick = () => switchView("classes");
+  document.getElementById("btn-import").onclick = async () => {
+    const csv = document.getElementById("roster-csv").value;
+    if (!csv.trim()) return;
+    try {
+      const r = await api("POST", `/cohorts/${cid}/roster`, { csv });
+      const creds = r.credentials.length
+        ? "<br>Generated logins:<br>" + r.credentials.map(x => `<span class="mono">${esc(x.username)} / ${esc(x.password)}</span>`).join("<br>")
+        : "";
+      document.getElementById("import-out").innerHTML =
+        `<span style="color:var(--green)">Created ${r.created}, enrolled ${r.enrolled}.</span>${creds}`;
+      openClass(cid);
+    } catch (e) { toast(e.message, "err"); }
+  };
+  document.getElementById("btn-assign").onclick = async () => {
+    try {
+      await api("POST", `/cohorts/${cid}/assignments`, { scenario_id: document.getElementById("asn-scenario").value });
+      toast("Lesson assigned"); openClass(cid);
+    } catch (e) { toast(e.message, "err"); }
+  };
+  document.getElementById("btn-gb").onclick = () => loadGradebook(cid);
+  await loadGradebook(cid);
+}
+
+async function loadGradebook(cid) {
+  const gb = await api("GET", `/cohorts/${cid}/gradebook`);
+  const box = document.getElementById("gradebook");
+  if (!gb.assignments.length) { box.innerHTML = `<p class="muted">Assign a lesson to start tracking progress.</p>`; return; }
+  if (!gb.rows.length) { box.innerHTML = `<p class="muted">Enroll students to see the gradebook.</p>`; return; }
+  const head = gb.assignments.map(a => `<th title="${esc(a.title)}">${esc((a.title || "").slice(0, 14))}</th>`).join("");
+  const rows = gb.rows.map(r => `<tr>
+    <td><strong>${esc(r.display_name || r.username)}</strong></td>
+    ${gb.assignments.map(a => {
+      const c = r.cells[a.id] || {};
+      const v = c.status === "completed" ? `<span class="tag s0">${c.score == null ? "done" : c.score + "%"}</span>`
+        : (c.status === "in_progress" ? `<span class="tag s1">${c.steps_done ? c.steps_done.length : 0}/${c.total_steps}</span>` : `<span class="faint">—</span>`);
+      return `<td>${v}</td>`;
+    }).join("")}
+    <td>${r.avg_score == null ? "—" : "<strong>" + r.avg_score + "%</strong>"}</td></tr>`).join("");
+  box.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>Student</th>${head}<th>Avg</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
 // ---------------- Router ----------------
 const VIEWS = {
   catalog: viewCatalog, ranges: viewRanges, exercise: viewExercise,
   reference: viewReference, audit: viewAudit, admin: viewAdmin,
+  learn: viewLearn, classes: viewClasses,
 };
 
 const VIEW_HELP = {
+  learn: "<strong>Learn</strong> — your assigned lessons. Each one guides you through a briefing, hands-on tasks on your own range, and a knowledge check.",
+  classes: "<strong>Classes</strong> — create a class, enroll students, assign lessons, and track progress in the gradebook.",
   catalog: "<strong>Catalog</strong> — browse scenarios and attacker techniques. Launch a scenario to create an isolated range.",
   ranges: "<strong>Ranges</strong> — prepare a range through its lifecycle, then start the exercise. Each range is isolated with no internet access.",
   exercise: "<strong>Exercise</strong> — run attacker techniques (red), watch detections fire on the live timeline, submit evidence (blue), and score the run.",
@@ -765,6 +1029,8 @@ function applySession(s) {
   const roleTag = document.getElementById("who-role");
   roleTag.textContent = session.role;
   document.getElementById("tab-admin").hidden = !can("admin:manage_users");
+  document.getElementById("tab-learn").hidden = !can("learn:participate");
+  document.getElementById("tab-classes").hidden = !can("cohort:manage");
 }
 
 function clearSession() {

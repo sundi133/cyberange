@@ -182,6 +182,26 @@ scoring. Blue can still add a manual verdict, but the baseline is automatic.
 Kernel-level syscall detection (Falco) is the Phase-2 sensor; this engine is
 its portable analog over collected telemetry — the same model a SIEM uses.
 
+## Learning platform (teach & learn in-product)
+
+CyberRange isn't just a range engine — students learn **inside** it, no external
+LMS required:
+
+- **Classes & rosters** — an instructor creates a class and bulk-enrolls students
+  from CSV (`username,display name,password`); missing accounts are created as
+  `solo` learners and generated passwords are returned to hand out.
+- **Assignments** — assign any scenario that has a lesson to a class.
+- **Guided lessons** — each lesson has a briefing, key concepts, ordered
+  **hands-on steps** (each runs a real/simulated TTP module on the learner's own
+  auto-provisioned range and tells them what to watch for), and a **knowledge
+  check** that's auto-graded with explanations. The platform runs curated S2
+  steps on the learner's behalf, so students get the full experience safely.
+- **Progress & gradebook** — per-student status/score is tracked; instructors see
+  a class gradebook (completion + average score) as accreditation-ready evidence.
+
+Roles: `solo` is the **student** learner; `instructor` runs classes; both build
+on the same RBAC. See [docs/ROLES.md](docs/ROLES.md).
+
 ## Safety model
 
 This platform emulates **observable adversary behavior inside owned lab

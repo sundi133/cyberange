@@ -8,9 +8,12 @@ append-only audit ledger. Persistence is delegated to db.Database.
 
 from __future__ import annotations
 
+import csv
 import hashlib
+import io
 import json
 import os
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -311,7 +314,8 @@ class CyberRangeService:
 
     # ---- module execution ------------------------------------------------
     def execute_module(self, actor: str, role: str, exercise_id: str,
-                       module_id: str, inputs: dict | None = None) -> dict:
+                       module_id: str, inputs: dict | None = None,
+                       in_lesson: bool = False) -> dict:
         rbac.require(role, "module:execute")
         module = catalog.get_module(module_id)
         if not module:
@@ -320,8 +324,10 @@ class CyberRangeService:
             raise ServiceError(f"Refusing to execute unsigned module: {module_id}", 403)
         if module.get("safety_class") == "PROHIBITED":
             raise ServiceError("Prohibited safety class cannot be executed", 403)
-        if module.get("safety_class") == "S2" and not rbac.is_admin(role) \
-                and role != "instructor":
+        # S2 is gated to admin/instructor for free-form use, but the platform may
+        # run a curated S2 step inside a guided lesson on the learner's behalf.
+        if module.get("safety_class") == "S2" and not in_lesson \
+                and not rbac.is_admin(role) and role != "instructor":
             raise ServiceError(
                 "S2 modules require administrator or instructor approval", 403
             )
@@ -596,3 +602,287 @@ class CyberRangeService:
     # ---- purple replay (FR-10) ------------------------------------------
     def purple_compare(self, baseline: dict, replay: dict) -> dict:
         return scoring.purple_delta(baseline, replay)
+
+    # ===================================================================
+    #  Learning platform: cohorts, rosters, assignments, lessons, grades
+    # ===================================================================
+
+    # ---- cohorts (classes) ----------------------------------------------
+    def create_cohort(self, actor: str, role: str, name: str) -> dict:
+        rbac.require(role, "cohort:manage")
+        if not (name or "").strip():
+            raise ServiceError("class name is required", 400)
+        cid = f"class-{uuid.uuid4().hex[:10]}"
+        self.db.execute(
+            "INSERT INTO cohorts (id, name, owner, created_at) VALUES (?,?,?,?)",
+            (cid, name.strip(), actor, _now()))
+        self._audit(actor, role, "cohort:create", cid, name)
+        return self.get_cohort(cid)
+
+    def get_cohort(self, cohort_id: str) -> dict:
+        row = self.db.query_one("SELECT * FROM cohorts WHERE id=?", (cohort_id,))
+        if not row:
+            raise ServiceError(f"unknown class: {cohort_id}", 404)
+        d = row_to_dict(row)
+        d["members"] = [row_to_dict(r) for r in self.db.query(
+            "SELECT cm.username, cm.added_at, u.display_name, u.role, u.active "
+            "FROM cohort_members cm JOIN users u ON u.username = cm.username "
+            "WHERE cm.cohort_id=? ORDER BY cm.username", (cohort_id,))]
+        d["assignments"] = self.list_assignments(cohort_id)
+        return d
+
+    def list_cohorts(self, actor: str, role: str) -> list[dict]:
+        rbac.require(role, "cohort:manage")
+        if rbac.is_admin(role):
+            rows = self.db.query("SELECT * FROM cohorts ORDER BY created_at DESC")
+        else:
+            rows = self.db.query(
+                "SELECT * FROM cohorts WHERE owner=? ORDER BY created_at DESC", (actor,))
+        out = []
+        for r in rows:
+            d = row_to_dict(r)
+            d["member_count"] = self.db.query_one(
+                "SELECT COUNT(*) c FROM cohort_members WHERE cohort_id=?", (r["id"],))["c"]
+            d["assignment_count"] = self.db.query_one(
+                "SELECT COUNT(*) c FROM assignments WHERE cohort_id=?", (r["id"],))["c"]
+            out.append(d)
+        return out
+
+    def add_member(self, actor: str, role: str, cohort_id: str, username: str) -> dict:
+        rbac.require(role, "cohort:manage")
+        self.get_cohort(cohort_id)
+        self.get_user(username)  # validate exists
+        self.db.execute(
+            "INSERT OR IGNORE INTO cohort_members (cohort_id, username, added_at) "
+            "VALUES (?,?,?)", (cohort_id, username, _now()))
+        self._audit(actor, role, "cohort:add_member", cohort_id, username)
+        return {"ok": True}
+
+    def remove_member(self, actor: str, role: str, cohort_id: str, username: str) -> dict:
+        rbac.require(role, "cohort:manage")
+        self.db.execute("DELETE FROM cohort_members WHERE cohort_id=? AND username=?",
+                        (cohort_id, username))
+        self._audit(actor, role, "cohort:remove_member", cohort_id, username)
+        return {"ok": True}
+
+    def import_roster(self, actor: str, role: str, cohort_id: str, csv_text: str) -> dict:
+        """Bulk-enroll students from CSV: username[,display_name[,password]].
+        Creates missing accounts as 'solo' (student) and returns any generated
+        passwords so the instructor can distribute them."""
+        rbac.require(role, "cohort:manage")
+        self.get_cohort(cohort_id)
+        created, added, errors, credentials = 0, 0, [], []
+        reader = csv.reader(io.StringIO(csv_text))
+        for lineno, row in enumerate(reader, 1):
+            if not row or not row[0].strip():
+                continue
+            username = row[0].strip()
+            if username.lower() in ("username", "user", "email"):
+                continue  # header row
+            display = row[1].strip() if len(row) > 1 and row[1].strip() else username
+            password = row[2].strip() if len(row) > 2 and row[2].strip() else ""
+            existing = self.db.query_one("SELECT username FROM users WHERE username=?", (username,))
+            if not existing:
+                if not password:
+                    password = "cr-" + secrets.token_hex(3)
+                    credentials.append({"username": username, "password": password})
+                try:
+                    self._insert_user(username, display, "solo", password, created_by=actor)
+                    created += 1
+                except Exception as exc:  # noqa: BLE001
+                    errors.append(f"line {lineno} ({username}): {exc}")
+                    continue
+            self.db.execute(
+                "INSERT OR IGNORE INTO cohort_members (cohort_id, username, added_at) "
+                "VALUES (?,?,?)", (cohort_id, username, _now()))
+            added += 1
+        self._audit(actor, role, "cohort:import_roster", cohort_id,
+                    f"created={created} enrolled={added}")
+        return {"created": created, "enrolled": added, "errors": errors,
+                "credentials": credentials}
+
+    # ---- assignments -----------------------------------------------------
+    def create_assignment(self, actor: str, role: str, cohort_id: str,
+                          scenario_id: str, title: str | None = None,
+                          due_at: str | None = None) -> dict:
+        rbac.require(role, "assignment:manage")
+        self.get_cohort(cohort_id)
+        scenario = catalog.get_scenario(scenario_id)
+        if not scenario:
+            raise ServiceError(f"unknown scenario: {scenario_id}", 404)
+        aid = f"asn-{uuid.uuid4().hex[:10]}"
+        self.db.execute(
+            "INSERT INTO assignments (id, cohort_id, scenario_id, title, due_at, "
+            "assigned_by, created_at) VALUES (?,?,?,?,?,?,?)",
+            (aid, cohort_id, scenario_id, title or scenario["name"], due_at, actor, _now()))
+        self._audit(actor, role, "assignment:create", aid, f"{cohort_id}/{scenario_id}")
+        return row_to_dict(self.db.query_one("SELECT * FROM assignments WHERE id=?", (aid,)))
+
+    def list_assignments(self, cohort_id: str) -> list[dict]:
+        rows = self.db.query(
+            "SELECT * FROM assignments WHERE cohort_id=? ORDER BY created_at", (cohort_id,))
+        return [row_to_dict(r) for r in rows]
+
+    def my_assignments(self, actor: str, role: str) -> list[dict]:
+        rbac.require(role, "learn:participate")
+        rows = self.db.query(
+            "SELECT a.* FROM assignments a JOIN cohort_members cm "
+            "ON cm.cohort_id = a.cohort_id WHERE cm.username=? ORDER BY a.created_at DESC",
+            (actor,))
+        out = []
+        for r in rows:
+            a = row_to_dict(r)
+            scenario = catalog.get_scenario(a["scenario_id"]) or {}
+            a["scenario_name"] = scenario.get("name")
+            a["difficulty"] = scenario.get("difficulty")
+            learning = scenario.get("learning") or {}
+            a["step_count"] = len(learning.get("steps", []))
+            a["quiz_count"] = len(learning.get("quiz", []))
+            prog = self._get_progress(actor, a["id"], a["scenario_id"])
+            a["progress"] = self._progress_view(prog, scenario)
+            out.append(a)
+        return out
+
+    # ---- lessons & progress ---------------------------------------------
+    def _get_progress(self, username: str, assignment_id: str, scenario_id: str):
+        return self.db.query_one(
+            "SELECT * FROM progress WHERE username=? AND assignment_id=? AND scenario_id=?",
+            (username, assignment_id, scenario_id))
+
+    def _progress_view(self, prog, scenario) -> dict:
+        learning = (scenario or {}).get("learning") or {}
+        total_steps = len(learning.get("steps", []))
+        if not prog:
+            return {"status": "not_started", "steps_done": [], "total_steps": total_steps,
+                    "quiz_score": None, "quiz_total": len(learning.get("quiz", [])),
+                    "score": None}
+        p = row_to_dict(prog)
+        steps_done = p.get("steps_done") or []
+        pct = None
+        if p.get("quiz_total"):
+            pct = round(100.0 * (p.get("quiz_score") or 0) / p["quiz_total"], 1)
+        return {"status": p["status"], "steps_done": steps_done, "total_steps": total_steps,
+                "quiz_score": p.get("quiz_score"), "quiz_total": p.get("quiz_total"),
+                "score": pct, "exercise_id": p.get("exercise_id")}
+
+    def _upsert_progress(self, username, assignment_id, scenario_id, **fields):
+        prog = self._get_progress(username, assignment_id, scenario_id)
+        if not prog:
+            self.db.execute(
+                "INSERT INTO progress (username, assignment_id, scenario_id, status, "
+                "steps_done, updated_at) VALUES (?,?,?,?,?,?)",
+                (username, assignment_id, scenario_id, fields.get("status", "in_progress"),
+                 json.dumps(fields.get("steps_done", [])), _now()))
+            prog = self._get_progress(username, assignment_id, scenario_id)
+        sets, vals = [], []
+        for k, v in fields.items():
+            sets.append(f"{k}=?")
+            vals.append(json.dumps(v) if k == "steps_done" else v)
+        sets.append("updated_at=?"); vals.append(_now())
+        vals.append(prog["id"])
+        self.db.execute(f"UPDATE progress SET {', '.join(sets)} WHERE id=?", tuple(vals))
+        return self._get_progress(username, assignment_id, scenario_id)
+
+    def start_lesson(self, actor: str, role: str, scenario_id: str,
+                     assignment_id: str = "self") -> dict:
+        rbac.require(role, "learn:participate")
+        scenario = catalog.get_scenario(scenario_id)
+        if not scenario or "learning" not in scenario:
+            raise ServiceError(f"no lesson for scenario {scenario_id}", 404)
+        prog = self._get_progress(actor, assignment_id, scenario_id)
+        exercise_id = row_to_dict(prog).get("exercise_id") if prog else None
+        # Auto-provision a private range + exercise for this learner if needed.
+        if not exercise_id or not self.db.query_one(
+                "SELECT id FROM exercises WHERE id=?", (exercise_id,)):
+            rng = self.create_range(actor, "instructor", scenario_id, tenant=f"learn:{actor}")
+            for a in ("preflight", "provision", "seed", "ready"):
+                self.lifecycle_action(actor, "instructor", rng["id"], a)
+            ex = self.start_exercise(actor, "instructor", rng["id"])
+            exercise_id = ex["id"]
+        prog = self._upsert_progress(actor, assignment_id, scenario_id,
+                                     status="in_progress", exercise_id=exercise_id)
+        return {"exercise_id": exercise_id,
+                "lesson": scenario["learning"],
+                "scenario": {"id": scenario["id"], "name": scenario["name"],
+                             "difficulty": scenario.get("difficulty"),
+                             "technique_ids": scenario.get("technique_ids", [])},
+                "progress": self._progress_view(prog, scenario)}
+
+    def run_lesson_step(self, actor: str, role: str, scenario_id: str, step_index: int,
+                        assignment_id: str = "self") -> dict:
+        rbac.require(role, "learn:participate")
+        scenario = catalog.get_scenario(scenario_id)
+        learning = (scenario or {}).get("learning") or {}
+        steps = learning.get("steps", [])
+        if step_index < 0 or step_index >= len(steps):
+            raise ServiceError("invalid step", 400)
+        prog = self._get_progress(actor, assignment_id, scenario_id)
+        if not prog or not row_to_dict(prog).get("exercise_id"):
+            raise ServiceError("start the lesson first", 409)
+        exercise_id = row_to_dict(prog)["exercise_id"]
+        step = steps[step_index]
+        result = None
+        if step.get("module_id"):
+            # Platform runs the curated step (may be S2) on the learner's behalf.
+            result = self.execute_module(actor, role, exercise_id, step["module_id"],
+                                         in_lesson=True)
+        done = set(row_to_dict(prog).get("steps_done") or [])
+        done.add(step_index)
+        prog = self._upsert_progress(actor, assignment_id, scenario_id,
+                                     steps_done=sorted(done))
+        return {"step_index": step_index, "execution": result,
+                "progress": self._progress_view(prog, scenario)}
+
+    def submit_quiz(self, actor: str, role: str, scenario_id: str, answers: list,
+                    assignment_id: str = "self") -> dict:
+        rbac.require(role, "learn:participate")
+        scenario = catalog.get_scenario(scenario_id)
+        quiz = ((scenario or {}).get("learning") or {}).get("quiz", [])
+        if not quiz:
+            raise ServiceError("no quiz for this lesson", 404)
+        results, correct = [], 0
+        for i, question in enumerate(quiz):
+            chosen = answers[i] if i < len(answers) else None
+            is_correct = chosen == question["answer"]
+            if is_correct:
+                correct += 1
+            results.append({
+                "index": i, "chosen": chosen, "correct": is_correct,
+                "correct_answer": question["answer"], "explain": question.get("explain", "")})
+        prog = self._get_progress(actor, assignment_id, scenario_id) or \
+            self._upsert_progress(actor, assignment_id, scenario_id, status="in_progress")
+        steps_done = row_to_dict(prog).get("steps_done") or []
+        total_steps = len(((scenario or {}).get("learning") or {}).get("steps", []))
+        status = "completed" if len(steps_done) >= total_steps else "in_progress"
+        prog = self._upsert_progress(actor, assignment_id, scenario_id,
+                                     quiz_score=correct, quiz_total=len(quiz), status=status)
+        self._audit(actor, role, "lesson:quiz", scenario_id,
+                    f"{correct}/{len(quiz)}")
+        return {"score": correct, "total": len(quiz),
+                "pct": round(100.0 * correct / len(quiz), 1),
+                "results": results, "status": status,
+                "progress": self._progress_view(prog, scenario)}
+
+    # ---- gradebook -------------------------------------------------------
+    def gradebook(self, actor: str, role: str, cohort_id: str) -> dict:
+        rbac.require(role, "gradebook:read")
+        cohort = self.get_cohort(cohort_id)
+        assignments = cohort["assignments"]
+        rows = []
+        for member in cohort["members"]:
+            cells = {}
+            for a in assignments:
+                scenario = catalog.get_scenario(a["scenario_id"]) or {}
+                prog = self._get_progress(member["username"], a["id"], a["scenario_id"])
+                cells[a["id"]] = self._progress_view(prog, scenario)
+            completed = sum(1 for c in cells.values() if c["status"] == "completed")
+            scored = [c["score"] for c in cells.values() if c["score"] is not None]
+            rows.append({
+                "username": member["username"],
+                "display_name": member.get("display_name"),
+                "cells": cells,
+                "completed": completed,
+                "avg_score": round(sum(scored) / len(scored), 1) if scored else None,
+            })
+        return {"cohort": {"id": cohort["id"], "name": cohort["name"]},
+                "assignments": assignments, "rows": rows}

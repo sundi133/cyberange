@@ -114,6 +114,44 @@ CREATE TABLE IF NOT EXISTS sessions (
     created_at TEXT NOT NULL,
     expires_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS cohorts (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    owner TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cohort_members (
+    cohort_id TEXT NOT NULL,
+    username TEXT NOT NULL,
+    added_at TEXT NOT NULL,
+    PRIMARY KEY (cohort_id, username)
+);
+
+CREATE TABLE IF NOT EXISTS assignments (
+    id TEXT PRIMARY KEY,
+    cohort_id TEXT NOT NULL,
+    scenario_id TEXT NOT NULL,
+    title TEXT,
+    due_at TEXT,
+    assigned_by TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS progress (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL,
+    assignment_id TEXT,
+    scenario_id TEXT NOT NULL,
+    exercise_id TEXT,
+    steps_done TEXT,
+    quiz_score REAL,
+    quiz_total INTEGER,
+    status TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE (username, assignment_id, scenario_id)
+);
 """
 
 
@@ -156,7 +194,7 @@ def row_to_dict(row: sqlite3.Row | None) -> dict | None:
         return None
     d = dict(row)
     for k, v in list(d.items()):
-        if k in ("meta", "payload", "score") and isinstance(v, str):
+        if k in ("meta", "payload", "score", "steps_done") and isinstance(v, str):
             try:
                 d[k] = json.loads(v)
             except (json.JSONDecodeError, TypeError):

@@ -18,6 +18,7 @@ PERMISSIONS = {
     "module:read", "module:execute", "module:approve",
     "scoring:read",
     "report:read",
+    "cohort:manage", "assignment:manage", "gradebook:read", "learn:participate",
     "admin:manage_users", "admin:manage_images", "admin:audit", "admin:emergency",
 }
 
@@ -25,26 +26,33 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
     "red": {
         "catalog:read", "range:read", "exercise:read", "exercise:participate",
         "exercise:submit_evidence", "module:read", "module:execute", "report:read",
+        "learn:participate",
     },
     "blue": {
         "catalog:read", "range:read", "exercise:read", "exercise:participate",
         "exercise:submit_evidence", "module:read", "report:read", "scoring:read",
+        "learn:participate",
     },
     "purple": {
         "catalog:read", "range:read", "exercise:read", "exercise:participate",
         "module:read", "module:execute", "report:read", "scoring:read",
+        "learn:participate",
     },
     "solo": {
-        "catalog:read", "range:read", "exercise:read", "exercise:participate",
+        "catalog:read", "range:read", "range:create", "range:lifecycle",
+        "exercise:read", "exercise:participate",
         "exercise:submit_evidence", "module:read", "module:execute", "report:read",
+        "learn:participate",
     },
     "instructor": {
         "catalog:read", "range:create", "range:read", "range:lifecycle",
         "exercise:read", "exercise:inject", "exercise:score_override",
         "module:read", "module:execute", "report:read", "scoring:read",
+        "cohort:manage", "assignment:manage", "gradebook:read",
     },
     "security_leader": {
         "catalog:read", "range:read", "exercise:read", "report:read", "scoring:read",
+        "gradebook:read",
     },
     "admin": set(PERMISSIONS),  # full control plane
 }
@@ -56,10 +64,11 @@ ROLE_SUMMARY: dict[str, str] = {
     "admin": "Full control plane. Provision users, manage images, run and destroy "
              "ranges, release quarantined ranges, drive any lifecycle step, execute "
              "any module (including S2), override scores, and read the audit ledger.",
-    "instructor": "Deliver exercises. Create ranges, drive the lifecycle, launch "
-                  "exercises, publish injects, execute modules (including S2), and "
-                  "override scores with an audited justification. Cannot manage users "
-                  "or release a quarantined range (admin-only).",
+    "instructor": "Deliver exercises and teach. Create ranges, drive the lifecycle, "
+                  "launch exercises, publish injects, execute modules (including S2), "
+                  "override scores, and run classes: create cohorts, import rosters, "
+                  "assign lessons, and view the gradebook. Cannot manage users or "
+                  "release a quarantined range (admin-only).",
     "red": "Attacker. Participate in a run, execute S0/S1 behavior modules (S2 is "
            "blocked), submit evidence, and read the catalog, ranges, and reports. "
            "Cannot create ranges, inject, or score.",
@@ -69,8 +78,9 @@ ROLE_SUMMARY: dict[str, str] = {
     "purple": "Replay & tuning. Participate, execute modules for deterministic "
               "replay, and read scoring and reports. Coordinates detection "
               "improvement between baseline and replay.",
-    "solo": "Guided single learner. Runs both attacker and defender phases: "
-            "participate, execute modules, submit evidence, and read reports.",
+    "solo": "Student / guided learner. Takes assigned lessons that walk through "
+            "briefing, hands-on tasks on an auto-provisioned range, and a knowledge "
+            "check — learning within the platform at their own pace.",
     "security_leader": "Read-only oversight. View the catalog, ranges, exercises, "
                        "scoring, and reports to assess readiness. Cannot change any "
                        "state.",
@@ -94,6 +104,10 @@ PERMISSION_LABELS: dict[str, str] = {
     "module:approve": "Approve/sign modules",
     "scoring:read": "View scoring detail",
     "report:read": "View reports",
+    "cohort:manage": "Create classes & manage rosters",
+    "assignment:manage": "Assign lessons to a class",
+    "gradebook:read": "View the class gradebook",
+    "learn:participate": "Take guided lessons",
     "admin:manage_users": "Provision & manage user accounts",
     "admin:manage_images": "Manage VM/OCI images",
     "admin:audit": "Read the audit ledger",
