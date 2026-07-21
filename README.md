@@ -52,7 +52,7 @@ make catalog          # print the seeded content summary
 | FR-01 Scenario catalog | `catalog.py` + `seed/` — search/filter scenarios & modules |
 | FR-02 Topology templates | `seed/topologies.json` — declarative VM/network/identity templates |
 | FR-03 Lifecycle | `lifecycle.py` — full state machine incl. QUARANTINED (admin-only release) |
-| FR-06 TTP emulation | 24 signed S0/S1/S2 modules across Windows/Linux/Docker |
+| FR-06 TTP emulation | 24 signed S0/S1/S2 modules across Windows/Linux/Docker; **real container execution** for modules with an execution spec (see below), simulated otherwise |
 | FR-07 Telemetry/timeline | `service.py` — synchronized UTC event timeline with integrity hashes |
 | FR-09 Scoring | `scoring.py` — weighted, explainable, penalty- and override-aware |
 | FR-10 Replay | `purple_compare` — baseline-to-replay coverage delta (not win/lose) |
@@ -116,6 +116,26 @@ backend/
 frontend/           single-page operator dashboard (no build step)
 docs/               spec summary, API reference
 ```
+
+## Real vs. simulated execution
+
+Behavior modules run through an **execution adapter** (`execution.py`):
+
+- **DockerAdapter** — when Docker is available and a module carries an
+  `execution` spec, the module's benign command runs for real inside a
+  throwaway, **network-isolated** container (`--network none`, constrained
+  memory/cpu/pids, `--no-new-privileges`, no host mounts, `--rm`). Its actual
+  stdout/stderr, exit code, and timing are captured as timeline events. Five
+  Linux/Docker modules ship with real execution specs (recon, Linux exec,
+  Linux discovery, container discovery, container runtime).
+- **SimulatedAdapter** — for modules without an execution spec (e.g. the
+  Windows modules) or when Docker is down, the module emits the telemetry it
+  *declares* it would produce. The system degrades gracefully to simulation.
+
+Every timeline event's payload carries `real: true|false`, and the dashboard
+tags each event **real** or **sim** so operators always know which is which.
+This is the first cut of the spec's execution-adapter seam; the same interface
+later drives agents on real VM targets (KVM/Proxmox/VMware), Phase 2.
 
 ## Safety model
 

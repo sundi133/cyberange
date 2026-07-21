@@ -14,7 +14,7 @@ import os
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from . import auth, catalog, lifecycle, rbac, scoring
+from . import auth, catalog, execution, lifecycle, rbac, scoring
 from .db import Database, row_to_dict
 
 SESSION_TTL_HOURS = 12
@@ -41,6 +41,8 @@ class ServiceError(Exception):
 class CyberRangeService:
     def __init__(self, db: Database):
         self.db = db
+        # Probe once: real container execution when Docker is up, else simulate.
+        self._docker_ok = execution.docker_available()
         self._seed_admin()
 
     # ---- users & auth (FR-12, spec section 6) ----------------------------
@@ -323,18 +325,33 @@ class CyberRangeService:
             raise ServiceError(
                 "S2 modules require administrator or instructor approval", 403
             )
-        # Emulate the module producing its declared telemetry on the timeline.
-        for tech in module.get("technique_ids", []):
+        # Pick a real (Docker) or simulated adapter and run the behavior. The
+        # adapter emits telemetry records; each becomes a timeline event.
+        adapter = execution.select_adapter(module, docker_ok=self._docker_ok)
+        try:
+            result = adapter.run(module, inputs or {}, module.get("timeout_seconds", 60))
+        except execution.ExecutionError as exc:
+            self._audit(actor, role, "module:execute:error", exercise_id,
+                        f"{module_id}: {exc}")
+            raise ServiceError(f"module execution failed: {exc}", 502)
+
+        for rec in result.records:
             self.record_event(
                 actor, role, exercise_id, source=f"module:{module_id}",
-                kind="ttp-emulation", technique_id=tech,
-                actor_name=actor,
-                payload={"module": module_id, "safety_class": module["safety_class"],
-                         "inputs": inputs or {}},
+                kind=rec["kind"], technique_id=rec.get("technique_id"),
+                actor_name=actor, payload=rec["payload"],
             )
-        self._audit(actor, role, "module:execute", exercise_id, module_id)
-        return {"executed": module_id, "techniques": module.get("technique_ids", []),
-                "expected_telemetry": module.get("expected_telemetry", [])}
+        self._audit(actor, role, "module:execute", exercise_id,
+                    f"{module_id} ({result.summary.get('adapter')})")
+        return {
+            "executed": module_id,
+            "real": result.real,
+            "adapter": result.summary.get("adapter"),
+            "techniques": module.get("technique_ids", []),
+            "events_recorded": len(result.records),
+            "expected_telemetry": module.get("expected_telemetry", []),
+            "summary": result.summary,
+        }
 
     # ---- evidence (FR-05) ------------------------------------------------
     def submit_evidence(self, actor: str, role: str, exercise_id: str, *,

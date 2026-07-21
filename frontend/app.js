@@ -318,7 +318,8 @@ async function runModule() {
   try {
     const mid = document.getElementById("mod-select").value;
     const res = await api("POST", `/exercises/${state.exercise}/modules`, { module_id: mid });
-    toast(`Executed ${res.executed} → ${res.techniques.join(", ")}`);
+    const how = res.real ? `ran for real via ${res.adapter}` : "simulated";
+    toast(`${res.executed} ${how} → ${res.events_recorded} events`);
     await loadTimeline();
   } catch (e) { toast(e.message, "err"); }
 }
@@ -395,11 +396,23 @@ async function loadTimeline() {
   const ul = document.getElementById("timeline");
   ul.innerHTML = "";
   events.slice().reverse().forEach((ev) => {
+    const p = ev.payload || {};
     const tech = ev.technique_id ? `<span class="tag tech">${esc(ev.technique_id)}</span>` : "";
+    const realTag = p.real === true ? '<span class="tag s0">real</span>'
+      : (p.real === false ? '<span class="tag" style="opacity:.6">sim</span>' : "");
+    let extra = "";
+    if (ev.kind === "process-output" && p.line) {
+      extra = `<div class="logline">${esc(p.line)}</div>`;
+    } else if (ev.kind === "process-stderr" && p.stderr) {
+      extra = `<div class="logline" style="color:var(--amber)">${esc(p.stderr)}</div>`;
+    } else if (ev.kind === "ttp-exec" && p.image) {
+      extra = `<div class="mono muted" style="font-size:11px">${esc(p.image)} · exit ${esc(p.exit_code)} · ${esc(p.duration_s)}s</div>`;
+    }
     ul.appendChild(el(`<li>
       <div class="ts">${esc(ev.ts_utc.slice(11, 23))} · ${esc(ev.source)}</div>
-      <div><span class="kind">${esc(ev.kind)}</span> ${tech}
+      <div><span class="kind">${esc(ev.kind)}</span> ${tech} ${realTag}
         <span class="muted">— ${esc(ev.actor || "")}</span></div>
+      ${extra}
     </li>`));
   });
   if (!events.length) ul.innerHTML = `<li class="muted">No events yet.</li>`;

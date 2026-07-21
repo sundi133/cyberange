@@ -82,8 +82,15 @@ baseline/replay comparison; audit, retention, quota, emergency kill.
 ## What this repository implements
 
 A runnable **control-plane MVP** of the above: the data model, lifecycle state
-machine, catalog, RBAC, scoring, replay comparison, evidence timeline,
-reporting, audit ledger, a REST API, and an operator dashboard. Actual
-hypervisor provisioning, live sensors, and SSO are represented by clean
-seams (topology templates, telemetry events, header-based identity) intended
-to be backed by real adapters in later phases.
+machine, catalog, RBAC, user provisioning + login, scoring, replay comparison,
+evidence timeline, reporting, audit ledger, a REST API, and an operator
+dashboard.
+
+Module execution runs through an **execution adapter**: modules with an
+execution spec run their benign command for real inside an isolated Docker
+container and capture genuine telemetry; others (and any host without Docker)
+fall back to simulation. This is the first real cut of the execution-adapter
+seam. Full hypervisor provisioning (KVM/Proxmox/VMware), live SIEM/EDR sensors
+(Wazuh/Suricata/Falco), and SSO remain clean seams — topology templates, the
+telemetry event contract, and the RBAC-behind-headers/tokens identity layer —
+intended to be backed by real adapters in Phase 2.

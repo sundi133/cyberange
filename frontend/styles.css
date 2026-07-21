@@ -122,6 +122,11 @@ tbody tr:hover { background: var(--panel-2); }
 }
 .timeline .ts { font-family: var(--mono); font-size: 11px; color: var(--muted); }
 .timeline .kind { font-weight: 600; }
+.logline {
+  font-family: var(--mono); font-size: 11px; color: var(--green);
+  white-space: pre-wrap; word-break: break-all; margin-top: 3px;
+  padding: 2px 6px; background: rgba(74, 217, 144, 0.06); border-radius: 4px;
+}
 
 .kv { display: grid; grid-template-columns: 180px 1fr; gap: 6px 14px; font-size: 13px; }
 .kv dt { color: var(--muted); }

@@ -9,6 +9,8 @@
     "expected_telemetry": ["Suricata scan alert", "network flow spike", "target auth logs"],
     "cleanup": "None required; read-only discovery.",
     "detection_notes": "Blue should observe a burst of short-lived connections from the attacker host across the target subnet.",
+    "execution": {"adapter": "docker", "image": "alpine:3.19", "network": "none",
+      "cmd": ["sh", "-c", "echo '[recon] enumerating local network context'; ip -o addr 2>/dev/null || ifconfig -a; echo '--- hosts ---'; cat /etc/hosts; echo '--- resolv ---'; cat /etc/resolv.conf 2>/dev/null; echo '[recon] complete'"]},
     "signed": true
   },
   {
@@ -45,6 +47,8 @@
     "expected_telemetry": ["execve audit record", "process tree", "command line"],
     "cleanup": "Kill spawned processes; remove staged scripts.",
     "detection_notes": "Blue should trace a web/app service account spawning an interactive shell.",
+    "execution": {"adapter": "docker", "image": "alpine:3.19", "network": "none",
+      "cmd": ["sh", "-c", "echo '[exec] interpreter behavior on target'; id; echo '--- whoami ---'; whoami; echo '--- process list ---'; ps -ef 2>/dev/null | head -20; echo '--- environment ---'; env | sort | head -20; echo '[exec] complete'"]},
     "signed": true
   },
   {
@@ -153,6 +157,8 @@
     "expected_telemetry": ["network events", "arp/host sweep", "connection metadata"],
     "cleanup": "None; read-only.",
     "detection_notes": "Host sweep pattern across the server zone from a non-admin host.",
+    "execution": {"adapter": "docker", "image": "alpine:3.19", "network": "none",
+      "cmd": ["sh", "-c", "echo '[discovery] remote-system discovery'; echo '--- known hosts ---'; cat /etc/hosts; echo '--- routes ---'; ip route 2>/dev/null || route -n; echo '--- arp cache ---'; arp -a 2>/dev/null || cat /proc/net/arp; echo '[discovery] complete'"]},
     "signed": true
   },
   {
@@ -213,6 +219,8 @@
     "expected_telemetry": ["Docker API audit", "runtime telemetry", "process events"],
     "cleanup": "None; read-only enumeration.",
     "detection_notes": "docker ps/images/inspect from inside a workload container is unusual.",
+    "execution": {"adapter": "docker", "image": "alpine:3.19", "network": "none",
+      "cmd": ["sh", "-c", "echo '[container-discovery] enumerating container context'; echo '--- cgroup (are we containerized?) ---'; cat /proc/1/cgroup 2>/dev/null | head; echo '--- mounts ---'; mount 2>/dev/null | head -15; echo '--- container id ---'; cat /etc/hostname; echo '--- capabilities ---'; cat /proc/self/status | grep -i cap; echo '[container-discovery] complete'"]},
     "signed": true
   },
   {
@@ -237,6 +245,8 @@
     "expected_telemetry": ["Falco shell-in-container", "unexpected write", "syscall alert"],
     "cleanup": "Kill offending process; reset container.",
     "detection_notes": "Interactive shell or binary write inside a service container.",
+    "execution": {"adapter": "docker", "image": "alpine:3.19", "network": "none",
+      "cmd": ["sh", "-c", "echo '[runtime] abnormal activity inside container'; echo '--- spawning nested shell ---'; sh -c 'whoami; id'; echo '--- writing binary to /tmp ---'; printf '#!/bin/sh\\necho payload\\n' > /tmp/payload.sh && chmod +x /tmp/payload.sh && ls -la /tmp/payload.sh; echo '--- executing it ---'; /tmp/payload.sh; echo '[runtime] complete'"]},
     "signed": true
   },
   {
