@@ -10,11 +10,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from . import catalog, lifecycle, rbac, scoring
+from . import auth, catalog, lifecycle, rbac, scoring
 from .db import Database, row_to_dict
+
+SESSION_TTL_HOURS = 12
+MIN_PASSWORD_LEN = 4
 
 
 def _now() -> str:
@@ -37,6 +41,114 @@ class ServiceError(Exception):
 class CyberRangeService:
     def __init__(self, db: Database):
         self.db = db
+        self._seed_admin()
+
+    # ---- users & auth (FR-12, spec section 6) ----------------------------
+    def _seed_admin(self):
+        """Bootstrap a default admin so someone can reach the admin panel."""
+        if self.db.query_one("SELECT username FROM users LIMIT 1"):
+            return
+        password = os.environ.get("CR_ADMIN_PASSWORD", "admin")
+        self._insert_user("admin", "Platform Admin", "admin", password,
+                          created_by="system")
+
+    def _insert_user(self, username, display_name, role, password, created_by):
+        pw_hash, salt = auth.hash_password(password)
+        self.db.execute(
+            "INSERT INTO users (username, display_name, role, pw_hash, pw_salt, "
+            "active, created_at, created_by) VALUES (?,?,?,?,?,1,?,?)",
+            (username, display_name or username, role, pw_hash, salt, _now(), created_by),
+        )
+
+    def create_user(self, actor: str, actor_role: str, username: str,
+                    password: str, role: str, display_name: str | None = None) -> dict:
+        rbac.require(actor_role, "admin:manage_users")
+        username = (username or "").strip()
+        if not username:
+            raise ServiceError("username is required", 400)
+        if role not in rbac.ROLES:
+            raise ServiceError(f"unknown role: {role}", 400)
+        if len(password or "") < MIN_PASSWORD_LEN:
+            raise ServiceError(
+                f"password must be at least {MIN_PASSWORD_LEN} characters", 400)
+        if self.db.query_one("SELECT username FROM users WHERE username=?", (username,)):
+            raise ServiceError(f"user already exists: {username}", 409)
+        self._insert_user(username, display_name, role, password, created_by=actor)
+        self._audit(actor, actor_role, "admin:create_user", username, role)
+        return self.get_user(username)
+
+    def get_user(self, username: str) -> dict:
+        row = self.db.query_one(
+            "SELECT username, display_name, role, active, created_at, created_by "
+            "FROM users WHERE username=?", (username,))
+        if not row:
+            raise ServiceError(f"unknown user: {username}", 404)
+        d = dict(row)
+        d["active"] = bool(d["active"])
+        return d
+
+    def list_users(self, actor: str, actor_role: str) -> list[dict]:
+        rbac.require(actor_role, "admin:manage_users")
+        rows = self.db.query(
+            "SELECT username, display_name, role, active, created_at, created_by "
+            "FROM users ORDER BY created_at")
+        out = []
+        for r in rows:
+            d = dict(r)
+            d["active"] = bool(d["active"])
+            out.append(d)
+        return out
+
+    def set_user_active(self, actor: str, actor_role: str, username: str,
+                        active: bool) -> dict:
+        rbac.require(actor_role, "admin:manage_users")
+        self.get_user(username)  # validate exists
+        if username == actor and not active:
+            raise ServiceError("you cannot deactivate your own account", 409)
+        self.db.execute("UPDATE users SET active=? WHERE username=?",
+                        (1 if active else 0, username))
+        if not active:
+            # Revoke any live sessions for a deactivated user.
+            self.db.execute("DELETE FROM sessions WHERE username=?", (username,))
+        self._audit(actor, actor_role, "admin:set_user_active", username, str(active))
+        return self.get_user(username)
+
+    def login(self, username: str, password: str) -> dict:
+        row = self.db.query_one("SELECT * FROM users WHERE username=?", (username,))
+        # Generic error — never reveal whether the username exists.
+        if not row or not row["active"] \
+                or not auth.verify_password(password, row["pw_salt"], row["pw_hash"]):
+            raise ServiceError("invalid credentials", 401)
+        token = auth.new_token()
+        now = datetime.now(timezone.utc)
+        expires = (now + timedelta(hours=SESSION_TTL_HOURS)).isoformat()
+        self.db.execute(
+            "INSERT INTO sessions (token, username, created_at, expires_at) "
+            "VALUES (?,?,?,?)", (token, username, now.isoformat(), expires))
+        self._audit(username, row["role"], "auth:login", username, "")
+        return {
+            "token": token, "username": username, "role": row["role"],
+            "display_name": row["display_name"], "expires_at": expires,
+            "permissions": sorted(rbac.permissions_for(row["role"])),
+        }
+
+    def resolve_token(self, token: str) -> dict | None:
+        row = self.db.query_one(
+            "SELECT s.token, s.expires_at, u.username, u.role, u.active, u.display_name "
+            "FROM sessions s JOIN users u ON u.username = s.username "
+            "WHERE s.token=?", (token,))
+        if not row or not row["active"]:
+            return None
+        if row["expires_at"] < _now():
+            self.db.execute("DELETE FROM sessions WHERE token=?", (token,))
+            return None
+        return {"username": row["username"], "role": row["role"],
+                "display_name": row["display_name"],
+                "permissions": sorted(rbac.permissions_for(row["role"]))}
+
+    def logout(self, token: str) -> dict:
+        self.db.execute("DELETE FROM sessions WHERE token=?", (token,))
+        return {"ok": True}
 
     # ---- audit -----------------------------------------------------------
     def _audit(self, actor: str, role: str, action: str, target: str, detail: str = ""):

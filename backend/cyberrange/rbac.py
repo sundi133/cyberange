@@ -50,6 +50,71 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
 }
 
 
+# Plain-English summary of what each role is allowed to do (for the admin
+# panel and the in-app role matrix).
+ROLE_SUMMARY: dict[str, str] = {
+    "admin": "Full control plane. Provision users, manage images, run and destroy "
+             "ranges, release quarantined ranges, drive any lifecycle step, execute "
+             "any module (including S2), override scores, and read the audit ledger.",
+    "instructor": "Deliver exercises. Create ranges, drive the lifecycle, launch "
+                  "exercises, publish injects, execute modules (including S2), and "
+                  "override scores with an audited justification. Cannot manage users "
+                  "or release a quarantined range (admin-only).",
+    "red": "Attacker. Participate in a run, execute S0/S1 behavior modules (S2 is "
+           "blocked), submit evidence, and read the catalog, ranges, and reports. "
+           "Cannot create ranges, inject, or score.",
+    "blue": "Defender. Participate, submit evidence, and read the catalog, ranges, "
+            "scoring, and reports. Cannot execute attacker modules, create ranges, "
+            "inject, or override scores.",
+    "purple": "Replay & tuning. Participate, execute modules for deterministic "
+              "replay, and read scoring and reports. Coordinates detection "
+              "improvement between baseline and replay.",
+    "solo": "Guided single learner. Runs both attacker and defender phases: "
+            "participate, execute modules, submit evidence, and read reports.",
+    "security_leader": "Read-only oversight. View the catalog, ranges, exercises, "
+                       "scoring, and reports to assess readiness. Cannot change any "
+                       "state.",
+}
+
+# Human labels for permission strings shown in the matrix.
+PERMISSION_LABELS: dict[str, str] = {
+    "catalog:read": "Browse scenario & module catalog",
+    "range:create": "Create ranges",
+    "range:read": "View ranges",
+    "range:lifecycle": "Drive range lifecycle (provision, start, reset…)",
+    "range:destroy": "Destroy ranges",
+    "range:quarantine_release": "Release/destroy a quarantined range",
+    "exercise:read": "View exercises",
+    "exercise:participate": "Participate in an exercise",
+    "exercise:submit_evidence": "Submit evidence",
+    "exercise:inject": "Publish instructor injects",
+    "exercise:score_override": "Override scores (audited)",
+    "module:read": "View behavior modules",
+    "module:execute": "Execute behavior modules",
+    "module:approve": "Approve/sign modules",
+    "scoring:read": "View scoring detail",
+    "report:read": "View reports",
+    "admin:manage_users": "Provision & manage user accounts",
+    "admin:manage_images": "Manage VM/OCI images",
+    "admin:audit": "Read the audit ledger",
+    "admin:emergency": "Emergency pause / kill controls",
+}
+
+
+def role_matrix() -> list[dict]:
+    """Structured role → capabilities view for UI and docs."""
+    out = []
+    for role in ROLES:
+        perms = sorted(ROLE_PERMISSIONS.get(role, set()))
+        out.append({
+            "role": role,
+            "summary": ROLE_SUMMARY.get(role, ""),
+            "permissions": perms,
+            "capabilities": [PERMISSION_LABELS.get(p, p) for p in perms],
+        })
+    return out
+
+
 class AuthorizationError(Exception):
     """Raised when a role lacks the required permission."""
 

@@ -1,11 +1,34 @@
 # CyberRange API reference
 
-Base path: `/api`. All requests carry identity headers:
+Base path: `/api`. Authenticated requests carry a session token:
+
+```
+Authorization: Bearer <token>      # from POST /api/login
+```
+
+For API/testing convenience, requests without a Bearer token fall back to
+identity headers (disable before real deployment):
 
 ```
 X-CR-Role: admin | instructor | red | blue | purple | solo | security_leader
 X-CR-User: <username>
 ```
+
+## Auth & users (FR-12)
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| POST | `/api/login` | `{username, password}` | public; returns `{token, role, permissions, …}` |
+| POST | `/api/logout` | — | revokes the caller's session |
+| GET | `/api/me` | — | current identity + permissions |
+| GET | `/api/roles` | — | role → summary + capabilities matrix |
+| GET | `/api/users` | — | list users (`admin:manage_users`) |
+| POST | `/api/users` | `{username, password, role, display_name?}` | provision (`admin:manage_users`) |
+| POST | `/api/users/{username}/active` | `{active}` | enable/disable + revoke sessions |
+
+Login returns generic `invalid credentials` (401) whether the username is
+unknown, the password is wrong, or the account is disabled. Passwords are
+stored PBKDF2-HMAC-SHA256 with a per-user salt. See [ROLES.md](ROLES.md).
 
 Responses are JSON. Errors return `{"error": "..."}` with an appropriate
 status (400 bad request, 401 unknown role, 403 forbidden, 404 not found,

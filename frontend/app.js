@@ -1,22 +1,25 @@
 "use strict";
 
 const state = { view: "catalog", exercise: null, range: null };
+const session = { token: null, username: null, role: null, display: null, permissions: [] };
 
-function role() { return document.getElementById("role").value; }
-function user() { return document.getElementById("user").value || "anonymous"; }
+const TOKEN_KEY = "cr_token";
+
+function can(permission) { return session.permissions.includes(permission); }
 
 async function api(method, path, body) {
-  const opts = {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      "X-CR-Role": role(),
-      "X-CR-User": user(),
-    },
-  };
+  const headers = { "Content-Type": "application/json" };
+  if (session.token) headers["Authorization"] = "Bearer " + session.token;
+  const opts = { method, headers };
   if (body !== undefined) opts.body = JSON.stringify(body);
   const res = await fetch("/api" + path, opts);
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && session.token) {
+    // Session expired or revoked — force re-login.
+    clearSession();
+    showLogin("Your session expired. Please sign in again.");
+    throw new Error(data.error || "session expired");
+  }
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
 }
@@ -438,10 +441,19 @@ async function showReport() {
 // ---------------- Reference view ----------------
 async function viewReference() {
   const m = $main();
-  const [ref, tactics, topos] = await Promise.all([
+  const [ref, tactics, topos, roles] = await Promise.all([
     api("GET", "/reference"), api("GET", "/tactics"), api("GET", "/topologies"),
+    api("GET", "/roles"),
   ]);
   m.innerHTML = `<h2>Reference</h2>
+    <h3>Roles &amp; permissions — what each role can do</h3>
+    <div class="role-matrix">${roles.map(r => `<div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h4>${esc(r.role)}</h4>
+        <span class="tag">${r.permissions.length} permissions</span></div>
+      <p>${esc(r.summary)}</p>
+      <div class="perm-list">${r.capabilities.map(c => `<span class="tag">${esc(c)}</span>`).join("")}</div>
+    </div>`).join("")}</div>
     <h3>ATT&CK coverage (${tactics.length} techniques)</h3>
     <table><thead><tr><th>Tactic</th><th>ATT&CK</th><th>Lab behavior</th><th>Expected evidence</th></tr></thead>
       <tbody>${tactics.map(t => `<tr><td>${esc(t.tactic)}</td><td class="mono">${esc(t.attack)}</td>
@@ -478,10 +490,87 @@ async function viewAudit() {
     ${log.length ? "" : '<p class="muted">No audit entries yet.</p>'}`;
 }
 
+// ---------------- Admin panel (user provisioning) ----------------
+const ROLE_OPTS = ["red", "blue", "purple", "instructor", "solo", "security_leader", "admin"];
+
+async function viewAdmin() {
+  const m = $main();
+  if (!can("admin:manage_users")) {
+    m.innerHTML = `<h2>Admin</h2><p class="muted">Your role (${esc(session.role)}) cannot manage users.</p>`;
+    return;
+  }
+  m.innerHTML = `<h2>Admin · user provisioning</h2>
+    <div class="split">
+      <div>
+        <h3>Provision a user</h3>
+        <div class="card">
+          <label class="lbl">Username<input id="nu-user" placeholder="e.g. red-op-2" /></label>
+          <label class="lbl" style="margin-top:8px">Display name<input id="nu-name" placeholder="Optional" /></label>
+          <label class="lbl" style="margin-top:8px">Role
+            <select id="nu-role">${ROLE_OPTS.map(r => `<option value="${r}">${r}</option>`).join("")}</select></label>
+          <label class="lbl" style="margin-top:8px">Password<input id="nu-pass" type="password" placeholder="min 4 chars" /></label>
+          <button class="act" id="btn-create-user" style="margin-top:12px;width:100%">Create user</button>
+        </div>
+      </div>
+      <div>
+        <h3>Provisioned users</h3>
+        <table><thead><tr><th>User</th><th>Role</th><th>Status</th><th>Created by</th><th></th></tr></thead>
+        <tbody id="user-rows"></tbody></table>
+      </div>
+    </div>`;
+
+  document.getElementById("btn-create-user").onclick = async () => {
+    try {
+      const body = {
+        username: document.getElementById("nu-user").value.trim(),
+        display_name: document.getElementById("nu-name").value.trim() || undefined,
+        role: document.getElementById("nu-role").value,
+        password: document.getElementById("nu-pass").value,
+      };
+      const u = await api("POST", "/users", body);
+      toast(`Provisioned ${u.username} (${u.role})`);
+      await loadUsers();
+      document.getElementById("nu-user").value = "";
+      document.getElementById("nu-name").value = "";
+      document.getElementById("nu-pass").value = "";
+    } catch (e) { toast(e.message, "err"); }
+  };
+  await loadUsers();
+}
+
+async function loadUsers() {
+  const users = await api("GET", "/users");
+  const tb = document.getElementById("user-rows");
+  tb.innerHTML = "";
+  users.forEach((u) => {
+    const row = el(`<tr>
+      <td><strong>${esc(u.username)}</strong><br><span class="muted">${esc(u.display_name || "")}</span></td>
+      <td><span class="tag">${esc(u.role)}</span></td>
+      <td>${u.active ? '<span class="tag s0">active</span>' : '<span class="tag s2">disabled</span>'}</td>
+      <td class="muted mono">${esc(u.created_by || "")}</td>
+      <td></td></tr>`);
+    const cell = row.querySelector("td:last-child");
+    if (u.username !== session.username) {
+      const b = el(`<button class="ghost">${u.active ? "Disable" : "Enable"}</button>`);
+      b.onclick = async () => {
+        try {
+          await api("POST", `/users/${encodeURIComponent(u.username)}/active`, { active: !u.active });
+          toast(`${u.username} ${u.active ? "disabled" : "enabled"}`);
+          await loadUsers();
+        } catch (e) { toast(e.message, "err"); }
+      };
+      cell.appendChild(b);
+    } else {
+      cell.innerHTML = '<span class="muted">you</span>';
+    }
+    tb.appendChild(row);
+  });
+}
+
 // ---------------- Router ----------------
 const VIEWS = {
   catalog: viewCatalog, ranges: viewRanges, exercise: viewExercise,
-  reference: viewReference, audit: viewAudit,
+  reference: viewReference, audit: viewAudit, admin: viewAdmin,
 };
 
 function switchView(name) {
@@ -501,20 +590,88 @@ async function checkHealth() {
   }
 }
 
-document.querySelectorAll(".tab").forEach((t) =>
-  t.addEventListener("click", () => switchView(t.dataset.view)));
+// ---------------- Session / login ----------------
+function applySession(s) {
+  session.token = s.token || session.token;
+  session.username = s.username;
+  session.role = s.role;
+  session.display = s.display_name || s.username;
+  session.permissions = s.permissions || [];
+  if (session.token) localStorage.setItem(TOKEN_KEY, session.token);
+  document.getElementById("who-name").textContent = session.display;
+  const roleTag = document.getElementById("who-role");
+  roleTag.textContent = session.role;
+  document.getElementById("tab-admin").hidden = !can("admin:manage_users");
+}
 
-// clicking a "Launch range" button anywhere (catalog cards)
-document.addEventListener("click", async (e) => {
-  const sid = e.target?.dataset?.launch;
-  if (!sid) return;
+function clearSession() {
+  session.token = null; session.username = null; session.role = null;
+  session.display = null; session.permissions = [];
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+function showLogin(message) {
+  document.getElementById("login").hidden = false;
+  document.getElementById("li-err").textContent = message || "";
+  document.getElementById("li-pass").value = "";
+  document.getElementById("li-user").focus();
+}
+
+function hideLogin() { document.getElementById("login").hidden = true; }
+
+async function doLogin(evt) {
+  evt.preventDefault();
+  const username = document.getElementById("li-user").value.trim();
+  const password = document.getElementById("li-pass").value;
   try {
-    const r = await api("POST", "/ranges", { scenario_id: sid });
-    toast(`Range ${r.id} created for ${sid}`);
-    switchView("ranges");
-  } catch (err) { toast(err.message, "err"); }
-});
+    const s = await api("POST", "/login", { username, password });
+    applySession(s);
+    hideLogin();
+    toast(`Signed in as ${s.username} (${s.role})`);
+    switchView("catalog");
+    checkHealth();
+  } catch (e) {
+    document.getElementById("li-err").textContent = e.message;
+  }
+}
 
-checkHealth();
-switchView("catalog");
-setInterval(checkHealth, 15000);
+async function doLogout() {
+  try { await api("POST", "/logout", {}); } catch { /* ignore */ }
+  clearSession();
+  showLogin("Signed out.");
+}
+
+async function bootstrap() {
+  document.getElementById("login-form").addEventListener("submit", doLogin);
+  document.getElementById("btn-logout").addEventListener("click", doLogout);
+  document.querySelectorAll(".tab").forEach((t) =>
+    t.addEventListener("click", () => switchView(t.dataset.view)));
+
+  // "Launch range" buttons on catalog cards.
+  document.addEventListener("click", async (e) => {
+    const sid = e.target?.dataset?.launch;
+    if (!sid) return;
+    try {
+      const r = await api("POST", "/ranges", { scenario_id: sid });
+      toast(`Range ${r.id} created for ${sid}`);
+      switchView("ranges");
+    } catch (err) { toast(err.message, "err"); }
+  });
+
+  const saved = localStorage.getItem(TOKEN_KEY);
+  if (saved) {
+    session.token = saved;
+    try {
+      const me = await api("GET", "/me");
+      applySession(me);
+      hideLogin();
+      switchView("catalog");
+      checkHealth();
+      setInterval(checkHealth, 15000);
+      return;
+    } catch { clearSession(); }
+  }
+  showLogin();
+}
+
+bootstrap();

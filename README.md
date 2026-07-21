@@ -31,7 +31,11 @@ make serve            # http://127.0.0.1:8080  (dashboard + API)
 cd backend && python3 -m cyberrange serve --port 8080
 ```
 
-Open <http://127.0.0.1:8080/> for the operator dashboard.
+Open <http://127.0.0.1:8080/> for the operator dashboard. On first run the
+platform seeds a single admin account — **`admin` / `admin`** (override with
+`CR_ADMIN_PASSWORD`). Sign in, then use the **Admin** tab to provision users
+and assign each a role. See [docs/ROLES.md](docs/ROLES.md) for what every role
+can do and the full provisioning flow.
 
 Other entrypoints:
 
@@ -53,7 +57,7 @@ make catalog          # print the seeded content summary
 | FR-09 Scoring | `scoring.py` — weighted, explainable, penalty- and override-aware |
 | FR-10 Replay | `purple_compare` — baseline-to-replay coverage delta (not win/lose) |
 | FR-11 Reporting | `build_report` — coverage, gaps, evidence, recommendations |
-| FR-12 Administration | `rbac.py` — role→permission model, audit ledger |
+| FR-12 Administration | `rbac.py` + `auth.py` — role→permission model, **user provisioning + login (hashed passwords, session tokens)**, admin panel, audit ledger |
 | FR-14 APIs | `server.py` — REST endpoints for lifecycle, catalog, evidence, scoring |
 | §8 Safety | unsigned/prohibited modules blocked; S2 gated to instructor/admin |
 

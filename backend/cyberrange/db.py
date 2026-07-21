@@ -92,6 +92,24 @@ CREATE TABLE IF NOT EXISTS audit (
     target TEXT,
     detail TEXT
 );
+
+CREATE TABLE IF NOT EXISTS users (
+    username TEXT PRIMARY KEY,
+    display_name TEXT,
+    role TEXT NOT NULL,
+    pw_hash TEXT NOT NULL,
+    pw_salt TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    created_by TEXT
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    username TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+);
 """
 
 

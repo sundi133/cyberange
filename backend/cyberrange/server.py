@@ -160,6 +160,41 @@ def build_router(svc: CyberRangeService) -> Router:
         return svc.purple_compare(b["baseline"], b["replay"])
     r.add("POST", "/api/purple/compare", purple)
 
+    # ---- auth & users (FR-12) ----
+    def login(ctx):
+        b = ctx["body"]
+        return svc.login(b.get("username", ""), b.get("password", ""))
+    r.add("POST", "/api/login", login)
+
+    def logout(ctx):
+        if ctx.get("token"):
+            svc.logout(ctx["token"])
+        return {"ok": True}
+    r.add("POST", "/api/logout", logout)
+
+    def whoami(ctx):
+        return {"username": ctx["user"], "role": ctx["role"],
+                "display_name": ctx.get("display_name") or ctx["user"],
+                "permissions": sorted(rbac.permissions_for(ctx["role"]))}
+    r.add("GET", "/api/me", whoami)
+
+    r.add("GET", "/api/roles", lambda ctx: rbac.role_matrix())
+
+    r.add("GET", "/api/users", lambda ctx: svc.list_users(ctx["user"], ctx["role"]))
+
+    def create_user(ctx):
+        b = ctx["body"]
+        return svc.create_user(ctx["user"], ctx["role"], b.get("username", ""),
+                               b.get("password", ""), b.get("role", ""),
+                               b.get("display_name"))
+    r.add("POST", "/api/users", create_user)
+
+    def set_active(ctx):
+        b = ctx["body"]
+        return svc.set_user_active(ctx["user"], ctx["role"],
+                                   ctx["params"]["username"], bool(b.get("active", True)))
+    r.add("POST", "/api/users/{username}/active", set_active)
+
     # ---- admin ----
     r.add("GET", "/api/audit", lambda ctx: svc.audit_log(int(_first(ctx["query"], "limit") or 200)))
 
@@ -175,8 +210,12 @@ def _notfound(kind: str):
     raise ServiceError(f"Unknown {kind}", 404)
 
 
+PUBLIC_ROUTES = {("POST", "/api/login"), ("GET", "/api/health")}
+
+
 class _Handler(BaseHTTPRequestHandler):
     router: Router = None
+    svc: CyberRangeService = None
     server_version = "CyberRange/0.1"
 
     def log_message(self, fmt, *args):  # quieter default logging
@@ -224,11 +263,32 @@ class _Handler(BaseHTTPRequestHandler):
             self._send_json({"error": f"no route for {method} {path}"}, 404)
             return
 
-        role = self.headers.get("X-CR-Role", "admin")
-        user = self.headers.get("X-CR-User", "anonymous")
-        if role not in rbac.ROLES:
-            self._send_json({"error": f"unknown role '{role}'"}, 401)
-            return
+        # Identity resolution: a Bearer session token takes precedence; otherwise
+        # fall back to X-CR-Role/X-CR-User headers (dev/API convenience).
+        token = None
+        display_name = None
+        auth_header = self.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+
+        is_public = (method, path) in PUBLIC_ROUTES
+        if token:
+            session = self.svc.resolve_token(token)
+            if not session and not is_public:
+                self._send_json({"error": "invalid or expired session"}, 401)
+                return
+            if session:
+                role = session["role"]
+                user = session["username"]
+                display_name = session["display_name"]
+            else:
+                role, user = "admin", "anonymous"
+        else:
+            role = self.headers.get("X-CR-Role", "admin")
+            user = self.headers.get("X-CR-User", "anonymous")
+            if role not in rbac.ROLES:
+                self._send_json({"error": f"unknown role '{role}'"}, 401)
+                return
 
         body = {}
         length = int(self.headers.get("Content-Length", 0) or 0)
@@ -243,6 +303,7 @@ class _Handler(BaseHTTPRequestHandler):
         ctx = {
             "params": params, "query": parse_qs(parsed.query),
             "body": body, "role": role, "user": user,
+            "token": token, "display_name": display_name,
         }
         try:
             result = handler(ctx)
@@ -268,7 +329,7 @@ def make_server(host: str = "127.0.0.1", port: int = 8080,
     db = Database(db_path)
     svc = CyberRangeService(db)
     router = build_router(svc)
-    handler = type("BoundHandler", (_Handler,), {"router": router})
+    handler = type("BoundHandler", (_Handler,), {"router": router, "svc": svc})
     httpd = ThreadingHTTPServer((host, port), handler)
     httpd.cyberrange_service = svc  # type: ignore[attr-defined]
     return httpd
