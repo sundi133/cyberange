@@ -9,7 +9,9 @@ from cyberrange.server import make_server
 class ApiTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.httpd = make_server("127.0.0.1", 0, db_path=":memory:")
+        # dev_auth=True so the header-identity tests exercise that path;
+        # production defaults to token-only (see test_auth_required_by_default).
+        cls.httpd = make_server("127.0.0.1", 0, db_path=":memory:", dev_auth=True)
         cls.port = cls.httpd.server_address[1]
         cls.thread = threading.Thread(target=cls.httpd.serve_forever, daemon=True)
         cls.thread.start()
@@ -93,6 +95,40 @@ class ApiTest(unittest.TestCase):
         })
         self.assertEqual(status, 200)
         self.assertAlmostEqual(data["improvement"], 0.5, places=3)
+
+    def test_auth_required_by_default(self):
+        # A server WITHOUT dev_auth must reject unauthenticated API calls
+        # instead of defaulting them to admin (the Railway/public-deploy case).
+        httpd = make_server("127.0.0.1", 0, db_path=":memory:")  # dev_auth off
+        port = httpd.server_address[1]
+        thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        thread.start()
+        try:
+            conn = HTTPConnection("127.0.0.1", port, timeout=5)
+            # No token, no dev headers -> must be 401, not admin access.
+            conn.request("GET", "/api/users")
+            self.assertEqual(conn.getresponse().status, 401)
+            conn.close()
+            # Even an explicit admin header is ignored without dev_auth.
+            conn = HTTPConnection("127.0.0.1", port, timeout=5)
+            conn.request("GET", "/api/users", headers={"X-CR-Role": "admin"})
+            self.assertEqual(conn.getresponse().status, 401)
+            conn.close()
+            # Login still works and yields a usable token.
+            conn = HTTPConnection("127.0.0.1", port, timeout=5)
+            conn.request("POST", "/api/login",
+                         json.dumps({"username": "admin", "password": "admin"}),
+                         {"Content-Type": "application/json"})
+            resp = conn.getresponse()
+            self.assertEqual(resp.status, 200)
+            token = json.loads(resp.read())["token"]
+            conn.close()
+            conn = HTTPConnection("127.0.0.1", port, timeout=5)
+            conn.request("GET", "/api/users", headers={"Authorization": f"Bearer {token}"})
+            self.assertEqual(conn.getresponse().status, 200)
+            conn.close()
+        finally:
+            httpd.shutdown()
 
     def test_static_dashboard_served(self):
         conn = HTTPConnection("127.0.0.1", self.port, timeout=5)

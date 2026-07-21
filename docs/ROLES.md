@@ -106,6 +106,7 @@ curl -s -H "Authorization: Bearer $BTOKEN" $BASE/me
 - This is the MVP stand-in for the **SSO/OIDC** identity in spec §6. The RBAC
   layer downstream is identical, so swapping in a real IdP later does not
   change any role logic.
-- For API/testing convenience, requests without a Bearer token fall back to
-  `X-CR-Role` / `X-CR-User` headers. Disable this fallback before any real
-  deployment.
+- For API/testing convenience, `X-CR-Role` / `X-CR-User` header identity can be
+  enabled with `CR_DEV_AUTH=1`. It is **off by default**: without it, an
+  unauthenticated API call is rejected (401) rather than defaulting to admin, so
+  a public deployment (e.g. Railway) is not wide open.

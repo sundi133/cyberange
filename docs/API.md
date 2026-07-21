@@ -6,8 +6,9 @@ Base path: `/api`. Authenticated requests carry a session token:
 Authorization: Bearer <token>      # from POST /api/login
 ```
 
-For API/testing convenience, requests without a Bearer token fall back to
-identity headers (disable before real deployment):
+For API/testing convenience, header identity can be enabled by starting the
+server with `CR_DEV_AUTH=1`. It is **off by default** — without it, and without
+a Bearer token, API calls return 401 (so a public deployment is not open):
 
 ```
 X-CR-Role: admin | instructor | red | blue | purple | solo | security_leader

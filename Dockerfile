@@ -7,7 +7,9 @@ COPY frontend /app/frontend
 ENV PYTHONUNBUFFERED=1
 WORKDIR /app/backend
 
+# The app binds $PORT (Railway/Heroku inject it); defaults to 8080 locally.
 EXPOSE 8080
 
-# 0.0.0.0 so the port is reachable from outside the container.
-CMD ["python", "-m", "cyberrange", "serve", "--host", "0.0.0.0", "--port", "8080"]
+# 0.0.0.0 so the port is reachable from outside the container. Token auth only
+# by default — set CR_DEV_AUTH=1 to re-enable header identity (never in prod).
+CMD ["python", "-m", "cyberrange", "serve", "--host", "0.0.0.0"]

@@ -8,6 +8,7 @@ Auth is a lightweight header-based identity for the MVP: callers send
 from __future__ import annotations
 
 import json
+import os
 import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -217,6 +218,7 @@ PUBLIC_ROUTES = {("POST", "/api/login"), ("GET", "/api/health")}
 class _Handler(BaseHTTPRequestHandler):
     router: Router = None
     svc: CyberRangeService = None
+    dev_auth: bool = False
     server_version = "CyberRange/0.1"
 
     def log_message(self, fmt, *args):  # quieter default logging
@@ -264,8 +266,10 @@ class _Handler(BaseHTTPRequestHandler):
             self._send_json({"error": f"no route for {method} {path}"}, 404)
             return
 
-        # Identity resolution: a Bearer session token takes precedence; otherwise
-        # fall back to X-CR-Role/X-CR-User headers (dev/API convenience).
+        # Identity resolution: a Bearer session token is the real path. Header
+        # identity (X-CR-Role/X-CR-User) is a dev/testing convenience and is
+        # OFF unless dev_auth is enabled (CR_DEV_AUTH=1) — otherwise a public
+        # deployment would grant admin to any unauthenticated caller.
         token = None
         display_name = None
         auth_header = self.headers.get("Authorization", "")
@@ -273,6 +277,7 @@ class _Handler(BaseHTTPRequestHandler):
             token = auth_header[7:].strip()
 
         is_public = (method, path) in PUBLIC_ROUTES
+        role = user = None
         if token:
             session = self.svc.resolve_token(token)
             if not session and not is_public:
@@ -282,14 +287,18 @@ class _Handler(BaseHTTPRequestHandler):
                 role = session["role"]
                 user = session["username"]
                 display_name = session["display_name"]
-            else:
-                role, user = "admin", "anonymous"
-        else:
+        elif self.dev_auth:
             role = self.headers.get("X-CR-Role", "admin")
             user = self.headers.get("X-CR-User", "anonymous")
             if role not in rbac.ROLES:
                 self._send_json({"error": f"unknown role '{role}'"}, 401)
                 return
+
+        if role is None and not is_public:
+            self._send_json({"error": "authentication required"}, 401)
+            return
+        if role is None:  # public route reached without identity
+            role, user = "admin", "anonymous"
 
         body = {}
         length = int(self.headers.get("Content-Length", 0) or 0)
@@ -326,19 +335,25 @@ class _Handler(BaseHTTPRequestHandler):
 
 
 def make_server(host: str = "127.0.0.1", port: int = 8080,
-                db_path: str | None = None) -> ThreadingHTTPServer:
+                db_path: str | None = None,
+                dev_auth: bool = False) -> ThreadingHTTPServer:
     db = Database(db_path)
     svc = CyberRangeService(db)
     router = build_router(svc)
-    handler = type("BoundHandler", (_Handler,), {"router": router, "svc": svc})
+    handler = type("BoundHandler", (_Handler,),
+                   {"router": router, "svc": svc, "dev_auth": dev_auth})
     httpd = ThreadingHTTPServer((host, port), handler)
     httpd.cyberrange_service = svc  # type: ignore[attr-defined]
     return httpd
 
 
-def run(host: str = "127.0.0.1", port: int = 8080, db_path: str | None = None):
-    httpd = make_server(host, port, db_path)
-    print(f"CyberRange control plane listening on http://{host}:{port}")
+def run(host: str = "127.0.0.1", port: int = 8080, db_path: str | None = None,
+        dev_auth: bool | None = None):
+    if dev_auth is None:
+        dev_auth = os.environ.get("CR_DEV_AUTH", "").lower() in ("1", "true", "yes")
+    httpd = make_server(host, port, db_path, dev_auth=dev_auth)
+    mode = "DEV header-auth ENABLED" if dev_auth else "token auth only"
+    print(f"CyberRange control plane listening on http://{host}:{port} ({mode})")
     print(f"Dashboard: http://{host}:{port}/")
     try:
         httpd.serve_forever()

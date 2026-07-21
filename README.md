@@ -66,18 +66,23 @@ Seeded content: **7 launch scenarios**, **24 signed behavior modules**,
 **15 ATT&CK techniques**, **2 topology templates** — matching the MVP scope in
 the spec (§10).
 
-## Roles
+## Roles & auth
 
-Send `X-CR-Role` and `X-CR-User` headers (the dashboard sets these from the
-top-right selector). Roles: `admin`, `instructor`, `red`, `blue`, `purple`,
-`solo`, `security_leader`. In production these headers are replaced by SSO/OIDC
-(spec §6); the RBAC layer is unchanged.
+The dashboard uses **login + session tokens** (see [docs/ROLES.md](docs/ROLES.md)).
+Roles: `admin`, `instructor`, `red`, `blue`, `purple`, `solo`, `security_leader`.
+In production the login is replaced by SSO/OIDC (spec §6); the RBAC layer is
+unchanged. API calls send `Authorization: Bearer <token>`.
+
+`X-CR-Role`/`X-CR-User` header identity is a dev/testing shortcut and is **off
+by default** — start the server with `CR_DEV_AUTH=1` to enable it. Without it,
+unauthenticated API calls are rejected (so a public deployment is not open).
 
 ## API tour
 
 ```bash
 BASE=http://127.0.0.1:8080/api
-H='-H X-CR-Role:instructor -H X-CR-User:inst-1 -H Content-Type:application/json'
+TOKEN=$(curl -s -d '{"username":"admin","password":"admin"}' $BASE/login | jq -r .token)
+H="-H Authorization:Bearer\ $TOKEN -H Content-Type:application/json"
 
 curl $H $BASE/scenarios                                   # FR-01 catalog
 RID=$(curl -s $H -d '{"scenario_id":"CR-PHISH-001"}' $BASE/ranges | jq -r .id)
@@ -92,6 +97,25 @@ curl -s $H $BASE/exercises/$EX/report                     # FR-11 report
 ```
 
 Full endpoint list: [docs/API.md](docs/API.md).
+
+## Deploy to Railway
+
+The app is a single Docker service and deploys to [Railway](https://railway.app)
+from the included `Dockerfile` + `railway.json`. Full steps and caveats:
+[docs/DEPLOY.md](docs/DEPLOY.md). In short:
+
+1. Push this repo to GitHub, then Railway → **New Project → Deploy from GitHub**
+   (or `railway up` with the CLI). Railway builds the Dockerfile.
+2. Set **`CR_ADMIN_PASSWORD`** to a strong value (the seeded admin login). Do
+   **not** set `CR_DEV_AUTH`.
+3. Railway injects `PORT` and gives you a public HTTPS URL. Add a Volume at
+   `/app/backend/data` so the SQLite DB survives redeploys.
+4. Open the URL, sign in as `admin` / your `CR_ADMIN_PASSWORD`, provision users.
+
+Caveat: **real container execution doesn't run on Railway** (no Docker daemon
+inside the app container), so modules fall back to simulation and detection uses
+technique-basis rules. Log-basis detection over real container output needs a
+Docker host — run locally, or a VM host in Phase 2. Everything else works.
 
 ## Running with Docker
 

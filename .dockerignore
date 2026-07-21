@@ -1,0 +1,15 @@
+.git
+.gitignore
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+backend/data
+backend/tests
+*.db
+*.db-journal
+*.sqlite3
+docs/*.docx
+.venv
+venv
+.DS_Store

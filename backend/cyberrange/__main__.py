@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 
 from . import catalog, __version__
@@ -68,8 +69,9 @@ def main(argv=None):
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_serve = sub.add_parser("serve", help="run the API + dashboard server")
-    p_serve.add_argument("--host", default="127.0.0.1")
-    p_serve.add_argument("--port", type=int, default=8080)
+    # PORT/HOST env vars let platforms like Railway/Heroku inject the bind port.
+    p_serve.add_argument("--host", default=os.environ.get("HOST", "127.0.0.1"))
+    p_serve.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8080")))
     p_serve.add_argument("--db", default=None, help="SQLite path (default: backend/data/cyberrange.db)")
     p_serve.set_defaults(func=_cmd_serve)
 
