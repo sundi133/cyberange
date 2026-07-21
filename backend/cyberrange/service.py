@@ -14,10 +14,12 @@ import io
 import json
 import os
 import secrets
+import subprocess
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from . import auth, catalog, detection, execution, lifecycle, rbac, scoring, siem
+from . import (auth, catalog, detection, execution, lifecycle, provisioning,
+               rbac, scoring, siem)
 from .db import Database, row_to_dict
 
 SESSION_TTL_HOURS = 12
@@ -48,6 +50,11 @@ class CyberRangeService:
         self._docker_ok = execution.docker_available()
         # Optional SIEM forwarding (Wazuh). No-op unless WAZUH_INGEST_ENABLED=1.
         self.siem = event_sink or siem.EventSink()
+        # Live container ranges: provision real persistent targets per range and
+        # run modules inside them. Off unless CR_LIVE_RANGES=1 (and Docker up).
+        self._live_ranges = (
+            os.environ.get("CR_LIVE_RANGES", "").lower() in ("1", "true", "yes")
+            and self._docker_ok)
         self._seed_admin()
 
     # ---- users & auth (FR-12, spec section 6) ----------------------------
@@ -238,7 +245,27 @@ class CyberRangeService:
         )
         self._log_lifecycle(range_id, src, dst, action, actor)
         self._audit(actor, role, f"range:lifecycle:{action}", range_id, f"{src}->{dst}")
+        if self._live_ranges:
+            self._live_range_action(actor, role, range_id, action)
         return self.get_range(range_id)
+
+    def _live_range_action(self, actor: str, role: str, range_id: str, action: str):
+        """Stand up / recycle / tear down real per-range containers."""
+        try:
+            if action == "provision":
+                info = provisioning.provision(range_id)
+                self.db.execute("UPDATE ranges SET meta=? WHERE id=?",
+                                (json.dumps({"targets": info["targets"],
+                                             "network": info["network"]}), range_id))
+                self._audit(actor, role, "range:provision", range_id,
+                            f"targets: {', '.join(t['hostname'] for t in info['targets'])}")
+            elif action == "reset":
+                provisioning.reset(range_id)
+                self._audit(actor, role, "range:reset", range_id, "targets recycled")
+            elif action == "destroy":
+                provisioning.teardown(range_id)
+        except Exception as exc:  # noqa: BLE001 - provisioning must not corrupt state
+            self._audit(actor, role, "range:provision_error", range_id, str(exc))
 
     # ---- exercises -------------------------------------------------------
     def start_exercise(self, actor: str, role: str, range_id: str) -> dict:
@@ -341,15 +368,33 @@ class CyberRangeService:
             raise ServiceError(
                 "S2 modules require administrator or instructor approval", 403
             )
-        # Pick a real (Docker) or simulated adapter and run the behavior. The
-        # adapter emits telemetry records; each becomes a timeline event.
-        adapter = execution.select_adapter(module, docker_ok=self._docker_ok)
+        # If the range has live persistent targets, run the behavior INSIDE the
+        # victim host (state persists across steps; targets reachable over the
+        # range network). Otherwise fall back to a throwaway container or sim.
+        spec = module.get("execution") or {}
+        range_row = self.db.query_one(
+            "SELECT range_id FROM exercises WHERE id=?", (exercise_id,))
+        range_id = range_row["range_id"] if range_row else None
+        timeout = module.get("timeout_seconds", 60)
         try:
-            result = adapter.run(module, inputs or {}, module.get("timeout_seconds", 60))
+            if (self._live_ranges and range_id and spec.get("adapter") == "docker"
+                    and provisioning.is_provisioned(range_id)):
+                out, err, rc, dur = provisioning.exec_in_victim(
+                    range_id, spec["cmd"], timeout)
+                result = execution.build_result(
+                    module, out, err, rc, dur, adapter="docker-exec",
+                    image=f"victim@{provisioning.net_name(range_id)}")
+            else:
+                adapter = execution.select_adapter(module, docker_ok=self._docker_ok)
+                result = adapter.run(module, inputs or {}, timeout)
         except execution.ExecutionError as exc:
             self._audit(actor, role, "module:execute:error", exercise_id,
                         f"{module_id}: {exc}")
             raise ServiceError(f"module execution failed: {exc}", 502)
+        except (OSError, subprocess.SubprocessError) as exc:
+            self._audit(actor, role, "module:execute:error", exercise_id,
+                        f"{module_id}: {exc}")
+            raise ServiceError(f"target execution failed: {exc}", 502)
 
         for rec in result.records:
             self.record_event(

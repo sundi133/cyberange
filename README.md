@@ -185,6 +185,26 @@ tags each event **real** or **sim** so operators always know which is which.
 This is the first cut of the spec's execution-adapter seam; the same interface
 later drives agents on real VM targets (KVM/Proxmox/VMware), Phase 2.
 
+## Live container ranges (persistent, connected targets)
+
+By default a range is control-plane state and modules run in throwaway
+containers. Set **`CR_LIVE_RANGES=1`** (with Docker available) to make a range a
+**real, persistent environment**: provisioning stands up an isolated per-range
+network (`--internal`, no egress) with a persistent **victim** host and a
+reachable **webapp** target. TTP modules then run **inside the victim** (via
+`docker exec`), so:
+
+- a **foothold persists across steps** (files/processes written in one step are
+  there in the next — a real kill chain, not atomic one-shots), and
+- targets are **reachable over the range network** (e.g. `wget http://webapp`
+  from the victim), so behaviors can traverse a connected target set.
+
+`reset` recycles the targets to a clean state (kept the range/network);
+`destroy` tears down all containers + the network. Everything is labelled
+`cyberrange=<range_id>`, non-privileged, and memory/pid-capped. Windows/AD
+targets still need the VM tier (roadmap); this makes the **container** range
+genuinely interactive today.
+
 ## Detection engine (real rules, not a manual verdict)
 
 When a module runs, the **detection engine** (`detection.py`) evaluates

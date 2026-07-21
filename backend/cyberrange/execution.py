@@ -171,6 +171,39 @@ class DockerAdapter:
         )
 
 
+def build_result(module: dict, stdout: str, stderr: str, returncode: int,
+                 duration: float, *, adapter: str, image: str,
+                 real: bool = True) -> ExecutionResult:
+    """Turn already-captured command output into telemetry records. Used by the
+    live-range exec path (provisioning.exec_in_victim) so behaviors run inside a
+    persistent target produce the same real events as a throwaway container."""
+    stdout_lines = [ln for ln in stdout.splitlines() if ln.strip()]
+    cmd = (module.get("execution") or {}).get("cmd")
+    records: list[dict] = []
+    for tech in module.get("technique_ids", []):
+        records.append({
+            "kind": "ttp-exec", "technique_id": tech,
+            "payload": {"real": real, "adapter": adapter, "image": image,
+                        "cmd": cmd, "exit_code": returncode, "duration_s": duration},
+        })
+    for line in stdout_lines[:_MAX_OUTPUT_LINES]:
+        records.append({"kind": "process-output", "technique_id": None,
+                        "payload": {"real": real, "image": image, "line": line}})
+    if len(stdout_lines) > _MAX_OUTPUT_LINES:
+        records.append({"kind": "process-output", "technique_id": None,
+                        "payload": {"real": real, "image": image,
+                                    "line": f"… {len(stdout_lines) - _MAX_OUTPUT_LINES} more lines truncated"}})
+    if stderr.strip():
+        records.append({"kind": "process-stderr", "technique_id": None,
+                        "payload": {"real": real, "stderr": stderr[:_MAX_STDERR_CHARS]}})
+    return ExecutionResult(
+        real=real, records=records,
+        summary={"real": real, "adapter": adapter, "image": image,
+                 "exit_code": returncode, "duration_s": duration,
+                 "stdout_lines": len(stdout_lines)},
+    )
+
+
 def select_adapter(module: dict, *, docker_ok: bool | None = None):
     """Pick the real Docker adapter when the module opts in and Docker is up;
     otherwise fall back to simulation."""

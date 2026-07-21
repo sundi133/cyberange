@@ -208,10 +208,14 @@ async function loadRanges(canManage = can("range:lifecycle")) {
   const tb = document.getElementById("range-rows");
   tb.innerHTML = "";
   ranges.forEach((r) => {
+    const targets = (r.meta && r.meta.targets) ? r.meta.targets : null;
+    const targetHtml = targets
+      ? `<div class="faint" style="font-size:11px;margin-top:4px">🎯 targets: ${targets.map(t => `<span class="mono">${esc(t.hostname)}</span>`).join(", ")}</div>`
+      : "";
     const row = el(`<tr>
       <td><div><strong class="mono" style="font-size:12px">${esc(r.id)}</strong></div>
         <div class="faint" style="font-size:11.5px">${esc(r.scenario_id)}</div></td>
-      <td>${stepperHtml(r.state)}<div class="faint mono" style="font-size:10.5px;margin-top:5px">${esc(r.state)}</div></td>
+      <td>${stepperHtml(r.state)}<div class="faint mono" style="font-size:10.5px;margin-top:5px">${esc(r.state)}</div>${targetHtml}</td>
       <td class="row"></td></tr>`);
     const actions = row.querySelector("td.row");
     const idx = milestoneIndex(r.state);
@@ -237,6 +241,11 @@ async function loadRanges(canManage = can("range:lifecycle")) {
       actions.appendChild(b);
     } else {
       actions.innerHTML = `<span class="faint" style="font-size:12px">${esc(r.state.toLowerCase())}</span>`;
+    }
+    if (canManage && ["READY", "RUNNING", "PAUSED"].includes(r.state)) {
+      const rs = el(`<button class="ghost" title="Recycle the range targets to a clean state">↻ Reset</button>`);
+      rs.onclick = () => advance(r.id, "reset");
+      actions.appendChild(rs);
     }
     if (canManage && !["DESTROYED", "ARCHIVED", "QUARANTINED"].includes(r.state) && idx >= 0) {
       const q = el(`<button class="ghost danger" title="Isolate this range">⚠</button>`);
