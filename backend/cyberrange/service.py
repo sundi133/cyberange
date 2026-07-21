@@ -289,13 +289,13 @@ class CyberRangeService:
         ts = _now()
         payload_json = json.dumps(payload or {})
         integrity = _hash(exercise_id, ts, source, kind, str(technique_id), payload_json)
-        cur = self.db.execute(
+        new_id = self.db.execute_returning_id(
             "INSERT INTO events (exercise_id, ts_utc, source, actor, kind, technique_id, "
             "payload, integrity_hash) VALUES (?,?,?,?,?,?,?,?)",
             (exercise_id, ts, source, actor_name or actor, kind, technique_id,
              payload_json, integrity),
         )
-        return {"id": cur.lastrowid, "ts_utc": ts, "integrity_hash": integrity}
+        return {"id": new_id, "ts_utc": ts, "integrity_hash": integrity}
 
     def inject(self, actor: str, role: str, exercise_id: str, text: str,
                inject_type: str = "instructor") -> dict:
@@ -398,14 +398,14 @@ class CyberRangeService:
                          rule_id: str | None = None, basis: str = "manual",
                          severity: str = "medium", detail: str = "") -> dict:
         self.get_exercise(exercise_id)
-        cur = self.db.execute(
+        new_id = self.db.execute_returning_id(
             "INSERT INTO detections (exercise_id, rule_id, rule_version, technique_id, "
             "verdict, basis, severity, latency_s, fp_context, detail, ts_utc) "
             "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
             (exercise_id, rule_id, rule_version, technique_id, verdict, basis, severity,
              latency_s, fp_context, detail, _now()),
         )
-        return {"id": cur.lastrowid}
+        return {"id": new_id}
 
     def run_detections(self, exercise_id: str) -> list[dict]:
         """Fire the detection-rule engine over the timeline and record any new

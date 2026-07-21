@@ -15,7 +15,7 @@ from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
 from . import catalog, rbac
-from .db import Database
+from .db import connect as db_connect
 from .service import CyberRangeService, ServiceError
 
 FRONTEND_DIR = Path(__file__).parent.parent.parent / "frontend"
@@ -388,7 +388,7 @@ class _Handler(BaseHTTPRequestHandler):
 def make_server(host: str = "127.0.0.1", port: int = 8080,
                 db_path: str | None = None,
                 dev_auth: bool = False) -> ThreadingHTTPServer:
-    db = Database(db_path)
+    db = db_connect(db_path)  # Postgres/Supabase if DATABASE_URL is set, else SQLite
     svc = CyberRangeService(db)
     router = build_router(svc)
     handler = type("BoundHandler", (_Handler,),

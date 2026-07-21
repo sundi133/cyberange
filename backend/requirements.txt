@@ -1,0 +1,4 @@
+# The control plane runs on the Python standard library alone (SQLite backend).
+# The only optional dependency is the Postgres driver, needed ONLY when using
+# the PostgreSQL / Supabase backend (DATABASE_URL set to a postgres:// DSN).
+psycopg[binary]>=3.1

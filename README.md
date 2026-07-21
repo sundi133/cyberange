@@ -98,6 +98,29 @@ curl -s $H $BASE/exercises/$EX/report                     # FR-11 report
 
 Full endpoint list: [docs/API.md](docs/API.md).
 
+## Database — SQLite or Supabase/Postgres
+
+Persistence has two interchangeable backends behind one interface (`db.py`):
+
+- **SQLite** (default) — zero dependencies; great for local dev and tests.
+- **PostgreSQL / Supabase** — used automatically when `DATABASE_URL` (or
+  `SUPABASE_DB_URL`) is set to a `postgres://` DSN. Requires the `psycopg`
+  driver (`backend/requirements.txt`; already installed in the Docker image).
+
+```bash
+# Point at your Supabase Postgres connection string (Project → Settings →
+# Database → Connection string → URI). Supabase requires TLS:
+export DATABASE_URL='postgresql://postgres:<pw>@db.<ref>.supabase.co:5432/postgres?sslmode=require'
+cd backend && python3 -m cyberrange serve
+```
+
+The app creates its tables on boot (`CREATE TABLE IF NOT EXISTS`). A standalone
+[supabase/schema.sql](supabase/schema.sql) is provided if you prefer to
+provision the schema (and add RLS) ahead of time. The server connects with the
+Postgres/service credentials and enforces access in the RBAC layer, so
+row-level security is optional. The same code is verified against real Postgres
+in CI-style tests; SQLite remains the default so nothing needs Postgres to run.
+
 ## Deploy to Railway
 
 The app is a single Docker service and deploys to [Railway](https://railway.app)

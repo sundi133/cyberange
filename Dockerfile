@@ -4,6 +4,10 @@ WORKDIR /app
 COPY backend /app/backend
 COPY frontend /app/frontend
 
+# Install the Postgres/Supabase driver so DATABASE_URL works in production.
+# (Not needed for the default SQLite backend, but harmless.)
+RUN pip install --no-cache-dir -r /app/backend/requirements.txt
+
 ENV PYTHONUNBUFFERED=1
 WORKDIR /app/backend
 

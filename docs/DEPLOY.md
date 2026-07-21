@@ -42,8 +42,25 @@ railway domain                     # generate a public URL
 |---|---|---|
 | `PORT` | Bind port | Injected by Railway; the app reads it. |
 | `CR_ADMIN_PASSWORD` | Seeded admin password | **Set this.** Applied only on first run against an empty DB. |
+| `DATABASE_URL` | Postgres/Supabase DSN | Set to your Supabase URI (with `?sslmode=require`) to use Postgres; unset = SQLite. |
 | `CR_DEV_AUTH` | Enable `X-CR-Role`/`X-CR-User` header identity | Leave **unset** in production; it bypasses login. |
 | `HOST` | Bind host | Defaults to `0.0.0.0` via the Dockerfile CMD. |
+
+## Using Supabase (recommended for a hosted deploy)
+
+A single-instance app on Railway with a Volume works for a pilot, but a managed
+Postgres survives redeploys and scales better. To use Supabase:
+
+1. Create a Supabase project → **Settings → Database → Connection string → URI**.
+2. Set `DATABASE_URL` to that URI with TLS, e.g.
+   `postgresql://postgres:<pw>@db.<ref>.supabase.co:5432/postgres?sslmode=require`.
+   (For serverless/pooled use, the Supabase **Session pooler** URI also works.)
+3. Deploy. The app installs `psycopg` (in the image) and creates its tables on
+   first boot; no Volume is needed. Optionally pre-apply
+   [supabase/schema.sql](../supabase/schema.sql) in the Supabase SQL editor.
+
+The server connects with the Postgres credentials and enforces access in its own
+RBAC layer, so Supabase Row-Level Security is optional.
 
 ## What works, and what doesn't, on Railway
 
