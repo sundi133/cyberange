@@ -23,3 +23,7 @@ evidence_store/
 
 # Logs
 *.log
+
+# Wazuh deploy: cloned upstream stack + local env/certs
+deploy/wazuh/wazuh-single-node/
+deploy/wazuh/.env

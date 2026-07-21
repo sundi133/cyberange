@@ -17,7 +17,7 @@ import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from . import auth, catalog, detection, execution, lifecycle, rbac, scoring
+from . import auth, catalog, detection, execution, lifecycle, rbac, scoring, siem
 from .db import Database, row_to_dict
 
 SESSION_TTL_HOURS = 12
@@ -42,10 +42,12 @@ class ServiceError(Exception):
 
 
 class CyberRangeService:
-    def __init__(self, db: Database):
+    def __init__(self, db: Database, event_sink: "siem.EventSink | None" = None):
         self.db = db
         # Probe once: real container execution when Docker is up, else simulate.
         self._docker_ok = execution.docker_available()
+        # Optional SIEM forwarding (Wazuh). No-op unless WAZUH_INGEST_ENABLED=1.
+        self.siem = event_sink or siem.EventSink()
         self._seed_admin()
 
     # ---- users & auth (FR-12, spec section 6) ----------------------------
@@ -295,6 +297,14 @@ class CyberRangeService:
             (exercise_id, ts, source, actor_name or actor, kind, technique_id,
              payload_json, integrity),
         )
+        # Forward to the SIEM (Wazuh) when enabled — never on the detection path.
+        if kind != "detection":
+            self.siem.write({
+                "id": new_id, "exercise_id": exercise_id, "ts_utc": ts,
+                "source": source, "actor": actor_name or actor, "kind": kind,
+                "technique_id": technique_id, "payload": payload or {},
+                "integrity_hash": integrity,
+            })
         return {"id": new_id, "ts_utc": ts, "integrity_hash": integrity}
 
     def inject(self, actor: str, role: str, exercise_id: str, text: str,
@@ -437,6 +447,30 @@ class CyberRangeService:
             )
             recorded.append(hit)
         return recorded
+
+    def ingest_siem_alert(self, actor: str, role: str, *, exercise_id: str,
+                          rule_id: str, level: int, description: str,
+                          technique_id: str | None = None,
+                          full_log: str | None = None) -> dict:
+        """Record a REAL detection raised by an external SIEM (Wazuh). Called by
+        the alert-forwarder with a Wazuh alert. basis='siem' distinguishes these
+        from the built-in engine's log/technique detections."""
+        rbac.require(role, "admin:audit")
+        self.get_exercise(exercise_id)
+        severity = "high" if level >= 10 else ("medium" if level >= 7 else "low")
+        self.record_detection(
+            actor, role, exercise_id, technique_id=technique_id or "",
+            verdict="detected", rule_version=str(rule_id), basis="siem",
+            severity=severity, latency_s=0.0, detail=(description or "")[:200])
+        self.record_event(
+            actor, role, exercise_id, source="wazuh-siem", kind="detection",
+            technique_id=technique_id, actor_name="wazuh",
+            payload={"real": True, "siem": True, "rule_id": rule_id, "level": level,
+                     "title": description, "basis": "siem",
+                     "evidence": (full_log or "")[:200]})
+        self._audit("wazuh", role, "siem:alert", exercise_id,
+                    f"rule {rule_id} L{level}")
+        return {"ok": True, "rule_id": rule_id, "severity": severity}
 
     def list_detections(self, exercise_id: str) -> list[dict]:
         rows = self.db.query(

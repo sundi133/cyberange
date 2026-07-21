@@ -248,6 +248,16 @@ def build_router(svc: CyberRangeService) -> Router:
                                b.get("answers", []), b.get("assignment_id", "self"))
     r.add("POST", "/api/learn/quiz", learn_quiz)
 
+    # ---- SIEM (Wazuh alert-forwarder ingest) ----
+    def siem_alert(ctx):
+        b = ctx["body"]
+        return svc.ingest_siem_alert(
+            ctx["user"], ctx["role"], exercise_id=b["exercise_id"],
+            rule_id=str(b.get("rule_id", "")), level=int(b.get("level", 0)),
+            description=b.get("description", ""), technique_id=b.get("technique_id"),
+            full_log=b.get("full_log"))
+    r.add("POST", "/api/siem/alert", siem_alert)
+
     # ---- admin ----
     r.add("GET", "/api/audit", lambda ctx: svc.audit_log(int(_first(ctx["query"], "limit") or 200)))
 

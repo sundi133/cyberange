@@ -205,6 +205,19 @@ scoring. Blue can still add a manual verdict, but the baseline is automatic.
 Kernel-level syscall detection (Falco) is the Phase-2 sensor; this engine is
 its portable analog over collected telemetry — the same model a SIEM uses.
 
+### Real Wazuh SIEM (optional)
+
+For a **real SIEM**, [deploy/wazuh](deploy/wazuh) brings up a full Wazuh stack
+(manager + indexer + dashboard) in Docker next to CyberRange. With
+`WAZUH_INGEST_ENABLED=1` the app streams every event as JSON to a file a Wazuh
+agent tails; the manager evaluates CyberRange detection rules
+([custom/local_rules.xml](deploy/wazuh/custom/local_rules.xml)) and raises real
+alerts; a forwarder posts those back to the timeline as `basis=siem` detections
+and they show in the Wazuh dashboard too. It needs a Docker host with ~4 GB RAM
+(the OpenSearch indexer needs host sysctls Railway doesn't allow), so run the
+SIEM here and keep the lightweight app on Railway. See
+[deploy/wazuh/README.md](deploy/wazuh/README.md).
+
 ## Learning platform (teach & learn in-product)
 
 CyberRange isn't just a range engine — students learn **inside** it, no external

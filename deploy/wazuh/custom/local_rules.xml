@@ -1,0 +1,65 @@
+<!--
+  CyberRange -> Wazuh detection rules.
+
+  CyberRange writes each timeline event as a JSON line (marker "cyberrange":true)
+  which the Wazuh agent tails (log_format json). Wazuh's JSON decoder exposes the
+  fields (kind, technique_id, source, payload.line, exercise_id). These rules
+  raise real Wazuh alerts on adversary activity; the alert-forwarder then posts
+  them back to CyberRange as basis=siem detections.
+
+  Mount at /var/ossec/etc/rules/local_rules.xml on the manager.
+-->
+<group name="cyberrange,">
+
+  <!-- Base: any decoded CyberRange telemetry event -->
+  <rule id="100100" level="2">
+    <decoded_as>json</decoded_as>
+    <field name="cyberrange">true</field>
+    <description>CyberRange telemetry event</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Red-team technique executed (module ran) -->
+  <rule id="100110" level="8">
+    <if_sid>100100</if_sid>
+    <field name="kind">ttp-exec</field>
+    <description>CyberRange: adversary technique executed ($(technique_id))</description>
+    <group>attack,</group>
+  </rule>
+
+  <!-- Simulated technique emulation -->
+  <rule id="100111" level="6">
+    <if_sid>100100</if_sid>
+    <field name="kind">ttp-emulation</field>
+    <description>CyberRange: adversary technique emulated ($(technique_id))</description>
+    <group>attack,</group>
+  </rule>
+
+  <!-- High-signal container runtime activity, matched on REAL container output -->
+  <rule id="100120" level="12">
+    <if_sid>100100</if_sid>
+    <field name="kind">process-output</field>
+    <field name="payload.line" type="pcre2">spawning nested shell|writing binary to /tmp|payload\.sh</field>
+    <description>CyberRange: suspicious runtime activity inside a container</description>
+    <group>attack,</group>
+  </rule>
+
+  <!-- Container-to-host boundary probe -->
+  <rule id="100121" level="12">
+    <if_sid>100100</if_sid>
+    <field name="kind">process-output</field>
+    <field name="payload.line" type="pcre2">escape-test|docker socket|sensitive host mount</field>
+    <description>CyberRange: container-to-host boundary probe</description>
+    <group>attack,</group>
+  </rule>
+
+  <!-- Secret material accessed inside a container -->
+  <rule id="100122" level="10">
+    <if_sid>100100</if_sid>
+    <field name="kind">process-output</field>
+    <field name="payload.line" type="pcre2">secret-access|SECRET_ACCESS_KEY|reading mounted secret</field>
+    <description>CyberRange: secret material read inside a container</description>
+    <group>attack,</group>
+  </rule>
+
+</group>

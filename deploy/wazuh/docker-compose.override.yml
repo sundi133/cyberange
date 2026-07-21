@@ -1,0 +1,73 @@
+# CyberRange <-> Wazuh integration overlay.
+#
+# This layers three things onto Wazuh's official single-node stack
+# (wazuh.indexer + wazuh.manager + wazuh.dashboard):
+#   - cyberrange     : the app, forwarding events to a shared JSON file
+#   - wazuh.agent    : tails that file and ships it to the manager
+#   - forwarder      : reads the manager's alerts and posts them back to CyberRange
+# It also mounts our custom detection rules into the manager.
+#
+# Run it together with the upstream single-node compose (see setup.sh / README):
+#   docker compose \
+#     -f wazuh-single-node/docker-compose.yml \
+#     -f docker-compose.override.yml up -d --build
+#
+# WAZUH_VERSION must match the upstream stack you cloned (default 4.9.0).
+
+services:
+  cyberrange:
+    build:
+      context: ../..            # repo root (backend + frontend + Dockerfile)
+    environment:
+      - CR_ADMIN_PASSWORD=${CR_ADMIN_PASSWORD:-admin}
+      - WAZUH_INGEST_ENABLED=1
+      - WAZUH_INGEST_PATH=/var/log/cyberrange/events.json
+      # For real container execution the app needs a Docker socket; omit to run
+      # modules in simulation mode (SIEM path works either way).
+      - DATABASE_URL=${DATABASE_URL:-}
+    ports:
+      - "8080:8080"
+    volumes:
+      - cyberrange_logs:/var/log/cyberrange
+      # Uncomment to let modules run FOR REAL in containers (grants the app
+      # access to the host Docker daemon — understand the trust implications).
+      # Without it, modules simulate; the SIEM path still fires (rule 100111).
+      # - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+  wazuh.agent:
+    image: wazuh/wazuh-agent:${WAZUH_VERSION:-4.9.0}
+    depends_on:
+      - wazuh.manager
+    environment:
+      - WAZUH_MANAGER=wazuh.manager
+      - WAZUH_AGENT_NAME=cyberrange-agent
+    volumes:
+      - cyberrange_logs:/var/log/cyberrange:ro
+      - ./custom/agent-ossec.conf:/var/ossec/etc/ossec.conf
+    restart: unless-stopped
+
+  # Mount our detection rules and share the manager's alerts with the forwarder.
+  wazuh.manager:
+    volumes:
+      - ./custom/local_rules.xml:/var/ossec/etc/rules/local_rules.xml
+      - cyberrange_alerts:/var/ossec/logs/alerts
+
+  forwarder:
+    build:
+      context: ./forwarder
+    depends_on:
+      - cyberrange
+      - wazuh.manager
+    environment:
+      - CYBERRANGE_URL=http://cyberrange:8080
+      - CR_ADMIN_USER=admin
+      - CR_ADMIN_PASSWORD=${CR_ADMIN_PASSWORD:-admin}
+      - WAZUH_ALERTS_PATH=/var/ossec/logs/alerts/alerts.json
+    volumes:
+      - cyberrange_alerts:/var/ossec/logs/alerts:ro
+    restart: unless-stopped
+
+volumes:
+  cyberrange_logs:
+  cyberrange_alerts:
