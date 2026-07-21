@@ -123,7 +123,8 @@
     "module_ids": [
       "CR-MOD-IDENT-001",
       "CR-MOD-DISC-WIN-001",
-      "CR-MOD-LATERAL-WIN-001"
+      "CR-MOD-LATERAL-WIN-001",
+      "CR-MOD-AD-DISC-001"
     ],
     "objectives": [
       {

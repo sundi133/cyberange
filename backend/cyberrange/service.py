@@ -253,7 +253,12 @@ class CyberRangeService:
         """Stand up / recycle / tear down real per-range containers."""
         try:
             if action == "provision":
-                info = provisioning.provision(range_id)
+                # Identity scenarios also get a real directory (LDAP) target.
+                rrow = self.db.query_one("SELECT scenario_id FROM ranges WHERE id=?", (range_id,))
+                scenario = catalog.get_scenario(rrow["scenario_id"]) if rrow else {}
+                needs_dir = bool(set((scenario or {}).get("technique_ids", []))
+                                 & {"T1087", "T1078"})
+                info = provisioning.provision(range_id, with_directory=needs_dir)
                 self.db.execute("UPDATE ranges SET meta=? WHERE id=?",
                                 (json.dumps({"targets": info["targets"],
                                              "network": info["network"]}), range_id))
@@ -372,18 +377,28 @@ class CyberRangeService:
         # victim host (state persists across steps; targets reachable over the
         # range network). Otherwise fall back to a throwaway container or sim.
         spec = module.get("execution") or {}
+        target = spec.get("target", "victim")
         range_row = self.db.query_one(
             "SELECT range_id FROM exercises WHERE id=?", (exercise_id,))
         range_id = range_row["range_id"] if range_row else None
         timeout = module.get("timeout_seconds", 60)
+        live = self._live_ranges and range_id and spec.get("adapter") == "docker"
         try:
-            if (self._live_ranges and range_id and spec.get("adapter") == "docker"
-                    and provisioning.is_provisioned(range_id)):
+            if live and target == "directory" and provisioning.directory_provisioned(range_id):
+                out, err, rc, dur = provisioning.exec_in_directory(
+                    range_id, spec["cmd"], timeout)
+                result = execution.build_result(
+                    module, out, err, rc, dur, adapter="docker-exec",
+                    image=f"dc@{provisioning.net_name(range_id)}")
+            elif live and target == "victim" and provisioning.is_provisioned(range_id):
                 out, err, rc, dur = provisioning.exec_in_victim(
                     range_id, spec["cmd"], timeout)
                 result = execution.build_result(
                     module, out, err, rc, dur, adapter="docker-exec",
                     image=f"victim@{provisioning.net_name(range_id)}")
+            elif target == "directory":
+                # No live directory to query -> simulate rather than fail.
+                result = execution.SimulatedAdapter().run(module, inputs or {}, timeout)
             else:
                 adapter = execution.select_adapter(module, docker_ok=self._docker_ok)
                 result = adapter.run(module, inputs or {}, timeout)

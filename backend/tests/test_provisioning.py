@@ -91,6 +91,24 @@ class LiveRangeTest(unittest.TestCase):
         self.assertTrue(any(d["technique_id"] == "T1190" and d["basis"] == "log"
                             for d in dets))
 
+    def test_directory_tier_account_discovery(self):
+        # The identity scenario also stands up a real LDAP directory target.
+        rng = self.svc.create_range("red", "instructor", "CR-IDENT-001")
+        self.rid = rng["id"]
+        for a in ("preflight", "provision", "seed", "ready"):
+            self.svc.lifecycle_action("red", "instructor", self.rid, a)
+        self.assertTrue(provisioning.directory_provisioned(self.rid))
+        ex = self.svc.start_exercise("red", "instructor", self.rid)
+        res = self.svc.execute_module("red", "red", ex["id"], "CR-MOD-AD-DISC-001")
+        self.assertEqual(res["adapter"], "docker-exec")
+        lines = [e["payload"].get("line", "") for e in self.svc.timeline(ex["id"])
+                 if e["kind"] == "process-output"]
+        # real accounts enumerated from the seeded directory
+        self.assertTrue(any("svc-backup" in ln for ln in lines))
+        dets = self.svc.list_detections(ex["id"])
+        self.assertTrue(any(d["technique_id"] == "T1087" and d["basis"] == "log"
+                            for d in dets))
+
     def test_reset_recycles_the_foothold(self):
         self._ready_range()
         ex = self.svc.start_exercise("red", "instructor", self.rid)

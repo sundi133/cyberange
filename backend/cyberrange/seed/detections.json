@@ -60,6 +60,12 @@
     "match": {"kinds": ["process-output"], "line_regex": "escape-test|probing container-to-host boundary|docker socket|sensitive host mount"}
   },
   {
+    "id": "DR-AD-ACCOUNT-DISC", "technique_id": "T1087", "rule_version": "v1",
+    "severity": "medium", "title": "Directory account enumeration (LDAP)",
+    "description": "Bulk enumeration of directory person objects — account discovery against the identity service.",
+    "match": {"kinds": ["process-output"], "line_regex": "ad-disc|enumerating directory accounts|uid=svc-backup|ou=people"}
+  },
+  {
     "id": "DR-SECRET-ACCESS", "technique_id": "T1552", "rule_version": "v1",
     "severity": "high", "title": "Secret material read inside a container",
     "description": "A container process read mounted secret files or scanned the environment for credentials.",

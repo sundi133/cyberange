@@ -302,5 +302,19 @@
     "cleanup": "Revoke sessions; reset seeded identities.",
     "detection_notes": "Same credential authenticating to several hosts in a short window.",
     "signed": true
+  },
+  {
+    "id": "CR-MOD-AD-DISC-001", "name": "Directory account discovery (LDAP)", "version": "1.0.0",
+    "technique_ids": ["T1087"], "tactic": "Discovery", "platform": "linux",
+    "safety_class": "S0", "approval": "Scenario author",
+    "inputs": {"scope": "enum[users,groups]"},
+    "preconditions": ["Directory (LDAP) identity target reachable"],
+    "timeout_seconds": 60,
+    "expected_telemetry": ["LDAP search queries", "directory account enumeration"],
+    "cleanup": "None; read-only directory queries.",
+    "detection_notes": "Bulk LDAP enumeration of person objects — account discovery against the identity service.",
+    "execution": {"adapter": "docker", "target": "directory", "image": "n/a",
+      "cmd": ["sh", "-c", "echo '[ad-disc] enumerating directory accounts (LDAP)'; ldapsearch -x -H ldap://localhost -b 'dc=range,dc=lab' -D 'cn=admin,dc=range,dc=lab' -w adminpw '(objectClass=inetOrgPerson)' cn uid 2>/dev/null | grep -iE '^dn:|^cn:|^uid:'; echo '[ad-disc] directory account enumeration complete'"]},
+    "signed": true
   }
 ]

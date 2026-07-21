@@ -199,11 +199,18 @@ reachable **webapp** target. TTP modules then run **inside the victim** (via
 - targets are **reachable over the range network** (e.g. `wget http://webapp`
   from the victim), so behaviors can traverse a connected target set.
 
+Identity scenarios also stand up a **real LDAP directory** target (`dc`, seeded
+with synthetic domain users) — an **AD-style identity attack surface** you can
+enumerate over LDAP (`CR-MOD-AD-DISC-001` → real account discovery, T1087).
+
 `reset` recycles the targets to a clean state (kept the range/network);
 `destroy` tears down all containers + the network. Everything is labelled
-`cyberrange=<range_id>`, non-privileged, and memory/pid-capped. Windows/AD
-targets still need the VM tier (roadmap); this makes the **container** range
-genuinely interactive today.
+`cyberrange=<range_id>`, non-privileged, and memory/pid-capped.
+
+**Real Windows / Active Directory** endpoints (Kerberos/SMB/GPO — the Windows
+attack surface) need full VMs and a hypervisor; that tier and its integration
+seam are documented in [deploy/vm](deploy/vm/README.md) (roadmap, operator-hosted).
+The LDAP directory above is a Linux identity stand-in, not a Windows AD DC.
 
 ## Detection engine (real rules, not a manual verdict)
 
