@@ -14,9 +14,17 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
-from . import catalog, rbac
+from . import catalog, rbac, reporting
 from .db import connect as db_connect
 from .service import CyberRangeService, ServiceError
+
+
+class FileResponse:
+    """Return this from a handler to send a downloadable file."""
+    def __init__(self, body, content_type: str, filename: str):
+        self.body = body.encode("utf-8") if isinstance(body, str) else body
+        self.content_type = content_type
+        self.filename = filename
 
 FRONTEND_DIR = Path(__file__).parent.parent.parent / "frontend"
 
@@ -159,6 +167,20 @@ def build_router(svc: CyberRangeService) -> Router:
     r.add("GET", "/api/exercises/{exid}/report",
           lambda ctx: svc.build_report(ctx["params"]["exid"]))
 
+    def _report_dl(ctx, fmt, renderer, ctype):
+        exid = ctx["params"]["exid"]
+        report = svc.build_report(exid)
+        return FileResponse(renderer(report), ctype, f"cyberrange-report-{exid}.{fmt}")
+    r.add("GET", "/api/exercises/{exid}/report.json",
+          lambda ctx: _report_dl(ctx, "json", reporting.report_json, "application/json"))
+    r.add("GET", "/api/exercises/{exid}/report.csv",
+          lambda ctx: _report_dl(ctx, "csv", reporting.report_csv, "text/csv"))
+    r.add("GET", "/api/exercises/{exid}/report.html",
+          lambda ctx: _report_dl(ctx, "html", reporting.report_html, "text/html; charset=utf-8"))
+    r.add("GET", "/api/exercises/{exid}/report.docx",
+          lambda ctx: _report_dl(ctx, "docx", reporting.report_docx,
+                                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+
     def purple(ctx):
         b = ctx["body"]
         return svc.purple_compare(b["baseline"], b["replay"])
@@ -223,6 +245,10 @@ def build_router(svc: CyberRangeService) -> Router:
     r.add("POST", "/api/cohorts/{cid}/assignments", create_assignment)
     r.add("GET", "/api/cohorts/{cid}/gradebook",
           lambda ctx: svc.gradebook(ctx["user"], ctx["role"], ctx["params"]["cid"]))
+    r.add("GET", "/api/cohorts/{cid}/gradebook.csv",
+          lambda ctx: FileResponse(
+              reporting.gradebook_csv(svc.gradebook(ctx["user"], ctx["role"], ctx["params"]["cid"])),
+              "text/csv", f"gradebook-{ctx['params']['cid']}.csv"))
 
     # ---- learning: student ----
     r.add("GET", "/api/learn/assignments",
@@ -292,6 +318,14 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _send_file(self, fr: "FileResponse"):
+        self.send_response(200)
+        self.send_header("Content-Type", fr.content_type)
+        self.send_header("Content-Disposition", f'attachment; filename="{fr.filename}"')
+        self.send_header("Content-Length", str(len(fr.body)))
+        self.end_headers()
+        self.wfile.write(fr.body)
 
     def _serve_static(self, path):
         if path in ("/", ""):
@@ -378,7 +412,10 @@ class _Handler(BaseHTTPRequestHandler):
         }
         try:
             result = handler(ctx)
-            self._send_json(result if result is not None else {})
+            if isinstance(result, FileResponse):
+                self._send_file(result)
+            else:
+                self._send_json(result if result is not None else {})
         except ServiceError as exc:
             self._send_json({"error": str(exc)}, exc.status)
         except rbac.AuthorizationError as exc:

@@ -580,8 +580,14 @@ async function showReport() {
     const rep = await api("GET", `/exercises/${state.exercise}/report`);
     const m = $main();
     const cov = rep.coverage;
+    const exid = state.exercise;
     m.innerHTML = `<div class="toolbar"><button class="ghost" id="back">← Back</button>
-      <h2 style="margin:0">After-action report</h2></div>
+      <h2 style="margin:0;flex:1">After-action report</h2>
+      <span class="faint" style="font-size:12px">Export:</span>
+      <button class="ghost" data-dl="report.docx">DOCX</button>
+      <button class="ghost" data-dl="report.html">PDF/HTML</button>
+      <button class="ghost" data-dl="report.csv">CSV</button>
+      <button class="ghost" data-dl="report.json">JSON</button></div>
       <div class="card"><h4>${esc(rep.scenario.name)} · ${esc(rep.scenario.mode)}</h4>
         <p class="mono muted">${esc(rep.exercise_id)} · ${esc(rep.status)}</p>
         <div class="kv">
@@ -597,6 +603,25 @@ async function showReport() {
       <div class="card"><ul>${(rep.recommendations || []).map(r => `<li>${esc(r)}</li>`).join("")}</ul></div>
       <h3>Raw report JSON</h3><pre>${esc(JSON.stringify(rep, null, 2))}</pre>`;
     document.getElementById("back").onclick = () => switchView("exercise");
+    m.querySelectorAll("[data-dl]").forEach((b) => {
+      b.onclick = () => downloadFile(`/exercises/${exid}/${b.dataset.dl}`,
+                                     `cyberrange-${b.dataset.dl}`);
+    });
+  } catch (e) { toast(e.message, "err"); }
+}
+
+async function downloadFile(path, filename) {
+  try {
+    const res = await fetch("/api" + path,
+      { headers: session.token ? { Authorization: "Bearer " + session.token } : {} });
+    if (!res.ok) { toast("Export failed", "err"); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    toast(`Downloaded ${filename}`);
   } catch (e) { toast(e.message, "err"); }
 }
 
@@ -943,7 +968,10 @@ async function openClass(cid) {
       </div>
       <div>
         <div class="row" style="justify-content:space-between;align-items:baseline">
-          <h3 style="margin:0">Gradebook</h3><button class="ghost" id="btn-gb" style="padding:5px 10px">↻</button></div>
+          <h3 style="margin:0">Gradebook</h3>
+          <span class="row" style="gap:6px">
+            <button class="ghost" id="btn-gb-csv" style="padding:5px 10px">Export CSV</button>
+            <button class="ghost" id="btn-gb" style="padding:5px 10px">↻</button></span></div>
         <div id="gradebook"></div>
       </div>
     </div>`;
@@ -968,6 +996,8 @@ async function openClass(cid) {
     } catch (e) { toast(e.message, "err"); }
   };
   document.getElementById("btn-gb").onclick = () => loadGradebook(cid);
+  document.getElementById("btn-gb-csv").onclick = () =>
+    downloadFile(`/cohorts/${cid}/gradebook.csv`, `gradebook-${cid}.csv`);
   await loadGradebook(cid);
 }
 
