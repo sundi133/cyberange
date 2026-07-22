@@ -1,4 +1,4 @@
-"""Report rendering — JSON / CSV / HTML / DOCX, pure standard library.
+"""Report rendering - JSON / CSV / HTML / DOCX, pure standard library.
 
 Turns the exercise report dict (service.build_report) and the cohort gradebook
 into downloadable deliverables. DOCX is generated as minimal, valid OOXML
@@ -38,6 +38,13 @@ def report_csv(report: dict) -> str:
     w.writerow(["observed", " ".join(cov.get("observed", []))])
     w.writerow(["detected", " ".join(cov.get("detected", []))])
     w.writerow(["gaps", " ".join(cov.get("gaps", [])) or "none"])
+    fw = report.get("framework_coverage", {})
+    w.writerow([])
+    w.writerow(["framework crosswalk (curated, indicative)"])
+    w.writerow(["NIST CSF functions", " ".join(fw.get("nist_csf", [])) or "-"])
+    w.writerow(["NICE work roles", " | ".join(fw.get("nice", [])) or "-"])
+    w.writerow(["CIS Controls", " | ".join(fw.get("cis", [])) or "-"])
+    w.writerow(["NSA CAE Knowledge Units", " | ".join(fw.get("cae", [])) or "-"])
     w.writerow([])
     w.writerow(["detections:", "technique", "rule", "verdict", "basis", "severity", "latency_s", "detail"])
     for d in report.get("detections", []):
@@ -76,11 +83,12 @@ def gradebook_csv(gb: dict) -> str:
 def report_html(report: dict) -> str:
     s = report.get("scenario", {})
     cov = report.get("coverage", {})
+    fw = report.get("framework_coverage", {})
     score = report.get("score") or {}
     e = html.escape
 
     def chips(items, cls=""):
-        return " ".join(f'<span class="tag {cls}">{e(str(t))}</span>' for t in items) or "—"
+        return " ".join(f'<span class="tag {cls}">{e(str(t))}</span>' for t in items) or "-"
 
     dims = ""
     for d in (score.get("dimensions") or []):
@@ -105,15 +113,20 @@ def report_html(report: dict) -> str:
  .tag.gap{{background:#fdecec;border-color:#f5c2c2;color:#b23}} .total{{font-size:28px;font-weight:700}}
  @media print{{body{{margin:0}}}}
 </style></head><body>
-<h1>CyberRange — After-Action Report</h1>
+<h1>CyberRange - After-Action Report</h1>
 <p class="sub">{e(s.get('name',''))} · {e(s.get('mode',''))} · {e(report.get('exercise_id',''))}</p>
 <p class="sub">Status: {e(str(report.get('status')))} · {e(str(report.get('started_at')))} → {e(str(report.get('ended_at')))}</p>
 <h2>Score</h2>
-<p class="total">{e(str(score.get('total','—')))}</p>
+<p class="total">{e(str(score.get('total','-')))}</p>
 <table><tr><th>Dimension</th><th>Raw</th><th>Weight</th><th>Contribution</th></tr>{dims}</table>
 <h2>ATT&amp;CK coverage</h2>
 <p>Expected: {chips(cov.get('expected',[]))}<br>Observed: {chips(cov.get('observed',[]))}<br>
 Detected: {chips(cov.get('detected',[]))}<br>Gaps: {chips(cov.get('gaps',[]),'gap')}</p>
+<h2>Framework crosswalk <span class="sub" style="text-transform:none;font-size:11px">(curated, indicative)</span></h2>
+<p>NIST CSF: {chips(fw.get('nist_csf', []))}<br>
+NICE roles: {chips(fw.get('nice', []))}<br>
+CIS Controls: {chips(fw.get('cis', []))}<br>
+NSA CAE KUs: {chips(fw.get('cae', []))}</p>
 <h2>Detections</h2>
 <table><tr><th>Technique</th><th>Rule</th><th>Verdict</th><th>Basis</th><th>Severity</th><th>MTTD (s)</th></tr>{dets or '<tr><td colspan=6>none</td></tr>'}</table>
 <h2>Evidence &amp; recommendations</h2>
@@ -154,23 +167,29 @@ def report_docx(report: dict) -> bytes:
     cov = report.get("coverage", {})
     score = report.get("score") or {}
     P = [
-        _para("CyberRange — After-Action Report", bold=True, size=36, color="1F4E79"),
+        _para("CyberRange - After-Action Report", bold=True, size=36, color="1F4E79"),
         _para(f"{s.get('name','')}  ·  {s.get('mode','')}", size=24, color="2E75B6"),
         _para(f"Exercise: {report.get('exercise_id','')}", size=18, color="808080"),
         _para(f"Status: {report.get('status')}   Started: {report.get('started_at')}   Ended: {report.get('ended_at')}", size=18, color="808080"),
         _para("Score", bold=True, size=26, color="1F4E79"),
-        _para(f"Total: {score.get('total','—')}", size=24),
+        _para(f"Total: {score.get('total','-')}", size=24),
     ]
     for d in (score.get("dimensions") or []):
         P.append(_para(f"  • {d['dimension']}: raw {d['raw']} × {d['weight']} = {d['contribution']}", size=20))
     P.append(_para("ATT&CK coverage", bold=True, size=26, color="1F4E79"))
-    P.append(_para(f"Expected:  {', '.join(cov.get('expected', [])) or '—'}", size=20))
-    P.append(_para(f"Detected:  {', '.join(cov.get('detected', [])) or '—'}", size=20))
+    P.append(_para(f"Expected:  {', '.join(cov.get('expected', [])) or '-'}", size=20))
+    P.append(_para(f"Detected:  {', '.join(cov.get('detected', [])) or '-'}", size=20))
     P.append(_para(f"Gaps:      {', '.join(cov.get('gaps', [])) or 'none'}", size=20, color="B22222"))
+    fw = report.get("framework_coverage", {})
+    P.append(_para("Framework crosswalk (curated, indicative)", bold=True, size=26, color="1F4E79"))
+    P.append(_para(f"NIST CSF:  {', '.join(fw.get('nist_csf', [])) or '-'}", size=20))
+    P.append(_para(f"NICE roles:  {', '.join(fw.get('nice', [])) or '-'}", size=20))
+    P.append(_para(f"CIS Controls:  {', '.join(fw.get('cis', [])) or '-'}", size=20))
+    P.append(_para(f"NSA CAE KUs:  {', '.join(fw.get('cae', [])) or '-'}", size=20))
     P.append(_para("Detections", bold=True, size=26, color="1F4E79"))
     for d in report.get("detections", []):
         P.append(_para(f"  • [{d.get('severity')}] {d.get('technique_id')} {d.get('rule_id') or ''} "
-                       f"({d.get('basis')}, MTTD {d.get('latency_s')}s) — {(d.get('detail') or '')[:80]}", size=19))
+                       f"({d.get('basis')}, MTTD {d.get('latency_s')}s) - {(d.get('detail') or '')[:80]}", size=19))
     if not report.get("detections"):
         P.append(_para("  (none)", size=19))
     P.append(_para("Recommendations", bold=True, size=26, color="1F4E79"))

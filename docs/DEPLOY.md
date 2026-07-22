@@ -6,14 +6,14 @@ frontend). It deploys to [Railway](https://railway.app) from the repo's
 
 ## Steps
 
-### Option A — GitHub (recommended)
+### Option A - GitHub (recommended)
 
 1. Push this repo to GitHub.
 2. Railway → **New Project → Deploy from GitHub repo** → pick the repo.
    Railway reads `railway.json` and builds the `Dockerfile`.
 3. **Variables** tab → add:
    - `CR_ADMIN_PASSWORD` = a strong password (this is the seeded `admin`
-     login). **Required** for a public deploy — otherwise the default is
+     login). **Required** for a public deploy - otherwise the default is
      `admin`/`admin`.
    - Do **not** set `CR_DEV_AUTH` (leaving it unset keeps the API token-only).
 4. **Settings → Networking → Generate Domain** to get a public HTTPS URL.
@@ -25,7 +25,7 @@ frontend). It deploys to [Railway](https://railway.app) from the repo's
 6. Open the domain, sign in as `admin` / `CR_ADMIN_PASSWORD`, then use the
    **Admin** tab to provision red/blue/instructor users.
 
-### Option B — Railway CLI
+### Option B - Railway CLI
 
 ```bash
 npm i -g @railway/cli
@@ -64,7 +64,7 @@ RBAC layer, so Supabase Row-Level Security is optional.
 
 ## What works, and what doesn't, on Railway
 
-**Works:** the full control plane — login/RBAC, user provisioning, range
+**Works:** the full control plane - login/RBAC, user provisioning, range
 lifecycle, scenario/module catalog, exercises, evidence timeline, scoring,
 reporting, audit, and the dashboard. Module execution runs in **simulated**
 mode and the detection engine fires **technique-basis** rules.
@@ -82,7 +82,7 @@ Phase-2 VM host adapter.
 - **Single instance only.** State (SQLite, sessions) is node-local; do not set
   replicas > 1. Railway runs one instance by default.
 - **Back the DB with a Volume** at `/app/backend/data` for durability.
-- The server is a threaded stdlib HTTP server — fine for demos and training
+- The server is a threaded stdlib HTTP server - fine for demos and training
   cohorts, not tuned for high concurrency. A production deployment would front
   it with a real WSGI/ASGI server and Postgres (Phase 2).
 

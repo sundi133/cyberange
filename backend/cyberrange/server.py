@@ -88,6 +88,7 @@ def build_router(svc: CyberRangeService) -> Router:
     r.add("GET", "/api/modules/{mid}",
           lambda ctx: catalog.get_module(ctx["params"]["mid"]) or _notfound("module"))
     r.add("GET", "/api/detection-rules", lambda ctx: catalog.detection_rules())
+    r.add("GET", "/api/frameworks", lambda ctx: catalog.frameworks())
 
     # ---- ranges (FR-03) ----
     r.add("GET", "/api/ranges", lambda ctx: svc.list_ranges(_first(ctx["query"], "tenant")))
@@ -363,7 +364,7 @@ class _Handler(BaseHTTPRequestHandler):
 
         # Identity resolution: a Bearer session token is the real path. Header
         # identity (X-CR-Role/X-CR-User) is a dev/testing convenience and is
-        # OFF unless dev_auth is enabled (CR_DEV_AUTH=1) — otherwise a public
+        # OFF unless dev_auth is enabled (CR_DEV_AUTH=1) - otherwise a public
         # deployment would grant admin to any unauthenticated caller.
         token = None
         display_name = None

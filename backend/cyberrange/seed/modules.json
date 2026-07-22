@@ -312,7 +312,7 @@
     "timeout_seconds": 60,
     "expected_telemetry": ["LDAP search queries", "directory account enumeration"],
     "cleanup": "None; read-only directory queries.",
-    "detection_notes": "Bulk LDAP enumeration of person objects — account discovery against the identity service.",
+    "detection_notes": "Bulk LDAP enumeration of person objects - account discovery against the identity service.",
     "execution": {"adapter": "docker", "target": "directory", "image": "n/a",
       "cmd": ["sh", "-c", "echo '[ad-disc] enumerating directory accounts (LDAP)'; ldapsearch -x -H ldap://localhost -b 'dc=range,dc=lab' -D 'cn=admin,dc=range,dc=lab' -w adminpw '(objectClass=inetOrgPerson)' cn uid 2>/dev/null | grep -iE '^dn:|^cn:|^uid:'; echo '[ad-disc] directory account enumeration complete'"]},
     "signed": true

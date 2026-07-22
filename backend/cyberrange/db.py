@@ -2,8 +2,8 @@
 
 Two interchangeable backends behind one interface:
 
-- SQLite (default) — zero dependencies, great for local dev and tests.
-- PostgreSQL / Supabase — used automatically when DATABASE_URL (or
+- SQLite (default) - zero dependencies, great for local dev and tests.
+- PostgreSQL / Supabase - used automatically when DATABASE_URL (or
   SUPABASE_DB_URL) points at a postgres:// DSN. Requires `psycopg`.
 
 Holds mutable operational entities: ranges, exercises, timeline events,

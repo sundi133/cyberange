@@ -1,0 +1,46 @@
+{
+  "_note": "Curated crosswalk from the ATT&CK techniques used in CyberRange to other frameworks. Indicative alignment for curriculum mapping and accreditation evidence, not an official MITRE mapping dataset.",
+  "frameworks": {
+    "nist_csf": {
+      "name": "NIST Cybersecurity Framework 2.0",
+      "functions": {
+        "GV": "Govern", "ID": "Identify", "PR": "Protect",
+        "DE": "Detect", "RS": "Respond", "RC": "Recover"
+      }
+    },
+    "nice": {
+      "name": "NICE Workforce Framework for Cybersecurity (NIST SP 800-181r1)"
+    },
+    "cis": {
+      "name": "CIS Critical Security Controls v8"
+    },
+    "cae": {
+      "name": "NSA/DHS CAE-CD Knowledge Units"
+    }
+  },
+  "techniques": {
+    "T1595": {"tactic": "Reconnaissance", "nist_csf": ["DE.CM", "ID.RA"], "nice": ["Threat/Warning Analyst", "Cyber Defense Analyst"], "cis": ["CIS 13 Network Monitoring & Defense"], "cae": ["Network Defense", "Cyber Threats"]},
+    "T1566": {"tactic": "Initial Access", "nist_csf": ["PR.AT", "DE.CM"], "nice": ["Cyber Defense Analyst", "Cyber Defense Incident Responder"], "cis": ["CIS 9 Email & Web Browser Protections"], "cae": ["Cyber Threats", "Security Awareness"]},
+    "T1204": {"tactic": "Execution", "nist_csf": ["PR.AT", "DE.CM"], "nice": ["Cyber Defense Analyst"], "cis": ["CIS 14 Security Awareness & Skills Training"], "cae": ["Security Awareness"]},
+    "T1059": {"tactic": "Execution", "nist_csf": ["DE.CM", "PR.PS"], "nice": ["Cyber Defense Analyst"], "cis": ["CIS 8 Audit Log Management", "CIS 10 Malware Defenses"], "cae": ["Network Defense", "Operating Systems Concepts"]},
+    "T1053": {"tactic": "Persistence", "nist_csf": ["DE.CM", "PR.PS"], "nice": ["Cyber Defense Analyst"], "cis": ["CIS 8 Audit Log Management"], "cae": ["Operating Systems Concepts", "Network Defense"]},
+    "T1548": {"tactic": "Privilege Escalation", "nist_csf": ["PR.AA", "DE.CM"], "nice": ["Cyber Defense Analyst", "Vulnerability Assessment Analyst"], "cis": ["CIS 5 Account Management", "CIS 6 Access Control Management"], "cae": ["Cybersecurity Principles", "Operating Systems Concepts"]},
+    "T1070": {"tactic": "Defense Evasion", "nist_csf": ["PR.PS", "DE.CM", "PR.DS"], "nice": ["Cyber Defense Incident Responder"], "cis": ["CIS 8 Audit Log Management"], "cae": ["Incident Response", "Network Defense"]},
+    "T1003": {"tactic": "Credential Access", "nist_csf": ["PR.AA", "DE.CM"], "nice": ["Cyber Defense Analyst"], "cis": ["CIS 5 Account Management", "CIS 6 Access Control Management"], "cae": ["Cybersecurity Principles", "IA Fundamentals"]},
+    "T1552": {"tactic": "Credential Access", "nist_csf": ["PR.AA", "PR.DS", "DE.CM"], "nice": ["Cyber Defense Analyst"], "cis": ["CIS 3 Data Protection", "CIS 5 Account Management"], "cae": ["IA Fundamentals", "Cybersecurity Principles"]},
+    "T1087": {"tactic": "Discovery", "nist_csf": ["DE.CM", "PR.AA"], "nice": ["Cyber Defense Analyst"], "cis": ["CIS 5 Account Management"], "cae": ["Network Defense", "IA Fundamentals"]},
+    "T1018": {"tactic": "Discovery", "nist_csf": ["DE.CM", "ID.AM"], "nice": ["Cyber Defense Analyst"], "cis": ["CIS 1 Inventory of Enterprise Assets", "CIS 13 Network Monitoring & Defense"], "cae": ["Network Defense", "Networking Concepts"]},
+    "T1021": {"tactic": "Lateral Movement", "nist_csf": ["PR.AA", "DE.CM"], "nice": ["Cyber Defense Analyst", "Cyber Defense Incident Responder"], "cis": ["CIS 4 Secure Configuration", "CIS 13 Network Monitoring & Defense"], "cae": ["Network Defense", "Operating Systems Concepts"]},
+    "T1078": {"tactic": "Lateral Movement", "nist_csf": ["PR.AA", "DE.CM"], "nice": ["Cyber Defense Analyst", "Cyber Defense Incident Responder"], "cis": ["CIS 5 Account Management", "CIS 6 Access Control Management"], "cae": ["IA Fundamentals", "Cybersecurity Principles"]},
+    "T1005": {"tactic": "Collection", "nist_csf": ["PR.DS", "DE.CM"], "nice": ["Cyber Defense Analyst"], "cis": ["CIS 3 Data Protection"], "cae": ["Cybersecurity Principles", "Network Defense"]},
+    "T1560": {"tactic": "Collection", "nist_csf": ["DE.CM", "PR.DS"], "nice": ["Cyber Defense Analyst"], "cis": ["CIS 3 Data Protection", "CIS 8 Audit Log Management"], "cae": ["Network Defense"]},
+    "T1071": {"tactic": "Command & Control", "nist_csf": ["DE.CM"], "nice": ["Cyber Defense Analyst", "Threat/Warning Analyst"], "cis": ["CIS 13 Network Monitoring & Defense"], "cae": ["Network Defense", "Cyber Threats"]},
+    "T1105": {"tactic": "Command & Control", "nist_csf": ["DE.CM", "PR.DS"], "nice": ["Cyber Defense Analyst"], "cis": ["CIS 10 Malware Defenses", "CIS 13 Network Monitoring & Defense"], "cae": ["Network Defense"]},
+    "T1041": {"tactic": "Exfiltration", "nist_csf": ["PR.DS", "DE.CM"], "nice": ["Cyber Defense Analyst"], "cis": ["CIS 3 Data Protection", "CIS 13 Network Monitoring & Defense"], "cae": ["Network Defense", "Cybersecurity Principles"]},
+    "T1190": {"tactic": "Initial Access", "nist_csf": ["ID.RA", "PR.PS", "DE.CM"], "nice": ["Vulnerability Assessment Analyst", "Cyber Defense Analyst"], "cis": ["CIS 16 Application Software Security", "CIS 7 Continuous Vulnerability Management"], "cae": ["Secure Programming Practices", "Vulnerability Analysis"]},
+    "T1610": {"tactic": "Execution", "nist_csf": ["DE.CM", "PR.PS"], "nice": ["Cyber Defense Analyst"], "cis": ["CIS 1 Inventory of Enterprise Assets", "CIS 4 Secure Configuration"], "cae": ["Cloud Computing", "Network Defense"]},
+    "T1613": {"tactic": "Discovery", "nist_csf": ["DE.CM", "ID.AM"], "nice": ["Cyber Defense Analyst"], "cis": ["CIS 1 Inventory of Enterprise Assets", "CIS 13 Network Monitoring & Defense"], "cae": ["Cloud Computing", "Network Defense"]},
+    "T1611": {"tactic": "Privilege Escalation", "nist_csf": ["PR.PS", "DE.CM"], "nice": ["Cyber Defense Analyst", "Vulnerability Assessment Analyst"], "cis": ["CIS 4 Secure Configuration"], "cae": ["Cloud Computing", "Operating Systems Concepts"]},
+    "T1486": {"tactic": "Impact", "nist_csf": ["RC.RP", "DE.CM", "PR.DS"], "nice": ["Cyber Defense Incident Responder"], "cis": ["CIS 11 Data Recovery"], "cae": ["Incident Response", "Cybersecurity Principles"]}
+  }
+}

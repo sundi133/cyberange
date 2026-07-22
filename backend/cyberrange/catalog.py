@@ -43,6 +43,43 @@ def detection_rules() -> list[dict]:
     return _load("detections")
 
 
+def frameworks() -> dict:
+    return _load("frameworks")
+
+
+def technique_frameworks(technique_id: str) -> dict:
+    """Crosswalk entry (NIST CSF / NICE / CIS / CAE) for one ATT&CK technique."""
+    return frameworks().get("techniques", {}).get(technique_id, {})
+
+
+def framework_coverage(technique_ids) -> dict:
+    """Aggregate the framework crosswalk across a set of ATT&CK techniques.
+
+    Returns, per framework, the distinct set of items those techniques map to
+    (e.g. which NIST CSF functions, NICE roles, CIS controls, CAE units were
+    exercised). Used for accreditation-evidence style coverage reporting.
+    """
+    fw = frameworks().get("techniques", {})
+    out = {"nist_csf": set(), "nice": set(), "cis": set(), "cae": set(),
+           "mapped": [], "unmapped": []}
+    for tid in technique_ids:
+        entry = fw.get(tid)
+        if not entry:
+            out["unmapped"].append(tid)
+            continue
+        out["mapped"].append(tid)
+        for key in ("nist_csf", "nice", "cis", "cae"):
+            out[key].update(entry.get(key, []))
+    return {
+        "nist_csf": sorted(out["nist_csf"]),
+        "nice": sorted(out["nice"]),
+        "cis": sorted(out["cis"]),
+        "cae": sorted(out["cae"]),
+        "mapped_techniques": sorted(out["mapped"]),
+        "unmapped_techniques": sorted(out["unmapped"]),
+    }
+
+
 def get_scenario(scenario_id: str) -> dict | None:
     return next((s for s in scenarios() if s["id"] == scenario_id), None)
 

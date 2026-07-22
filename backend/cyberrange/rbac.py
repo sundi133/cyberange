@@ -80,7 +80,7 @@ ROLE_SUMMARY: dict[str, str] = {
               "improvement between baseline and replay.",
     "solo": "Student / guided learner. Takes assigned lessons that walk through "
             "briefing, hands-on tasks on an auto-provisioned range, and a knowledge "
-            "check — learning within the platform at their own pace.",
+            "check - learning within the platform at their own pace.",
     "security_leader": "Read-only oversight. View the catalog, ranges, exercises, "
                        "scoring, and reports to assess readiness. Cannot change any "
                        "state.",

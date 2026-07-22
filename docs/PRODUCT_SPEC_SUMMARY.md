@@ -1,4 +1,4 @@
-# CyberRange — product spec summary
+# CyberRange - product spec summary
 
 Condensed from `CyberRange_Product_Spec.docx` v1.0 (2026-07-20). This file
 records the product intent this repo implements an MVP of; see the source
@@ -8,7 +8,7 @@ document for the full text.
 
 Give defenders, attackers, and joint teams a safe, repeatable environment to
 execute realistic adversary behaviors, observe telemetry, validate controls,
-and prove measurable readiness — without exposing production systems.
+and prove measurable readiness - without exposing production systems.
 
 ## MVP decision statement
 
@@ -22,7 +22,7 @@ cloud-hosted ranges.
 ## Personas
 
 Red operator, Blue analyst, Purple lead, Instructor, Range administrator,
-Security leader — each with distinct objectives and success measures.
+Security leader - each with distinct objectives and success measures.
 
 ## Reference topology
 
@@ -61,12 +61,12 @@ is reported as baseline-to-replay change, never win/lose.
 
 ## Safety classes
 
-- **S0 Simulation** — synthetic telemetry / benign endpoint (author approval).
-- **S1 Atomic emulation** — bounded behavior on disposable assets, auto-cleanup
+- **S0 Simulation** - synthetic telemetry / benign endpoint (author approval).
+- **S1 Atomic emulation** - bounded behavior on disposable assets, auto-cleanup
   (security content reviewer).
-- **S2 High-impact lab action** — may disrupt a lab VM / change identity state
+- **S2 High-impact lab action** - may disrupt a lab VM / change identity state
   (admin + explicit scenario policy).
-- **Prohibited** — self-propagation, external targeting, real credential theft,
+- **Prohibited** - self-propagation, external targeting, real credential theft,
   live malware. Never permitted.
 
 ## MVP scope (12–16 weeks)
@@ -91,6 +91,6 @@ execution spec run their benign command for real inside an isolated Docker
 container and capture genuine telemetry; others (and any host without Docker)
 fall back to simulation. This is the first real cut of the execution-adapter
 seam. Full hypervisor provisioning (KVM/Proxmox/VMware), live SIEM/EDR sensors
-(Wazuh/Suricata/Falco), and SSO remain clean seams — topology templates, the
-telemetry event contract, and the RBAC-behind-headers/tokens identity layer —
+(Wazuh/Suricata/Falco), and SSO remain clean seams - topology templates, the
+telemetry event contract, and the RBAC-behind-headers/tokens identity layer -
 intended to be backed by real adapters in Phase 2.

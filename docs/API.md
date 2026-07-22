@@ -7,7 +7,7 @@ Authorization: Bearer <token>      # from POST /api/login
 ```
 
 For API/testing convenience, header identity can be enabled by starting the
-server with `CR_DEV_AUTH=1`. It is **off by default** — without it, and without
+server with `CR_DEV_AUTH=1`. It is **off by default** - without it, and without
 a Bearer token, API calls return 401 (so a public deployment is not open):
 
 ```
@@ -20,10 +20,10 @@ X-CR-User: <username>
 | Method | Path | Body | Notes |
 |---|---|---|---|
 | POST | `/api/login` | `{username, password}` | public; returns `{token, role, permissions, …}` |
-| POST | `/api/logout` | — | revokes the caller's session |
-| GET | `/api/me` | — | current identity + permissions |
-| GET | `/api/roles` | — | role → summary + capabilities matrix |
-| GET | `/api/users` | — | list users (`admin:manage_users`) |
+| POST | `/api/logout` | - | revokes the caller's session |
+| GET | `/api/me` | - | current identity + permissions |
+| GET | `/api/roles` | - | role → summary + capabilities matrix |
+| GET | `/api/users` | - | list users (`admin:manage_users`) |
 | POST | `/api/users` | `{username, password, role, display_name?}` | provision (`admin:manage_users`) |
 | POST | `/api/users/{username}/active` | `{active}` | enable/disable + revoke sessions |
 
@@ -53,8 +53,8 @@ status (400 bad request, 401 unknown role, 403 forbidden, 404 not found,
 
 | Method | Path | Body | Permission |
 |---|---|---|---|
-| GET | `/api/ranges` | — | `range:read` |
-| GET | `/api/ranges/{id}` | — | — |
+| GET | `/api/ranges` | - | `range:read` |
+| GET | `/api/ranges/{id}` | - | - |
 | POST | `/api/ranges` | `{scenario_id, tenant?, ttl_hours?}` | `range:create` |
 | POST | `/api/ranges/{id}/actions` | `{action}` | `range:lifecycle` |
 
@@ -66,11 +66,11 @@ return 409. Releasing/destroying a `QUARANTINED` range requires `admin`.
 
 | Method | Path | Body |
 |---|---|---|
-| POST | `/api/exercises` | `{range_id}` — starts a run (auto-advances READY→RUNNING) |
+| POST | `/api/exercises` | `{range_id}` - starts a run (auto-advances READY→RUNNING) |
 | GET | `/api/exercises` / `/api/exercises/{id}` | list / detail |
 | GET | `/api/exercises/{id}/timeline` | synchronized UTC event list (FR-07) |
-| POST | `/api/exercises/{id}/injects` | `{text, type?}` — needs `exercise:inject` |
-| POST | `/api/exercises/{id}/modules` | `{module_id, inputs?}` — needs `module:execute`; runs the module (real container or simulated) and auto-fires detection rules; returns `{real, adapter, events_recorded, detections_fired, …}` |
+| POST | `/api/exercises/{id}/injects` | `{text, type?}` - needs `exercise:inject` |
+| POST | `/api/exercises/{id}/modules` | `{module_id, inputs?}` - needs `module:execute`; runs the module (real container or simulated) and auto-fires detection rules; returns `{real, adapter, events_recorded, detections_fired, …}` |
 | POST | `/api/exercises/{id}/evidence` | `{description, classification?, linked_event?}` |
 | GET | `/api/exercises/{id}/evidence` | list evidence with integrity hashes |
 | POST | `/api/exercises/{id}/detections` | `{technique_id, verdict, rule_version?, latency_s?}` |
@@ -110,5 +110,5 @@ weights: `red_execution` 0.25, `detection` 0.25, `investigation` 0.20,
 ```
 
 The response lists every dimension's raw score, weight, and contribution,
-plus penalties and overrides — every scoring input is explainable and audited
+plus penalties and overrides - every scoring input is explainable and audited
 (spec §7). Overrides require `exercise:score_override`.

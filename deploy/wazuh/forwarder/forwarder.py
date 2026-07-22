@@ -5,7 +5,7 @@ originated from CyberRange events (rule group `cyberrange`, carrying an
 `exercise_id`), and posts each to CyberRange's /api/siem/alert so it becomes a
 real `basis=siem` detection on the exercise timeline.
 
-Standard library only — the forwarder image needs no pip installs.
+Standard library only - the forwarder image needs no pip installs.
 """
 
 from __future__ import annotations
@@ -106,7 +106,7 @@ def main():
         if not body:
             continue
         status, resp = _post("/api/siem/alert", body, token)
-        if status == 401:  # token expired — re-auth and retry once
+        if status == 401:  # token expired - re-auth and retry once
             token = login()
             status, resp = _post("/api/siem/alert", body, token)
         if status == 200:

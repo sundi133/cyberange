@@ -2,7 +2,7 @@
   {
     "id": "DR-CONTAINER-RUNTIME-EXEC", "technique_id": "T1610", "rule_version": "v1",
     "severity": "high", "title": "Binary written and executed inside a container",
-    "description": "A workload container wrote an executable to a writable path and ran it — a hallmark of hands-on-keyboard activity or malware staging.",
+    "description": "A workload container wrote an executable to a writable path and ran it - a hallmark of hands-on-keyboard activity or malware staging.",
     "match": {"kinds": ["process-output"], "line_regex": "payload\\.sh|writing binary to /tmp|spawning nested shell"}
   },
   {
@@ -20,7 +20,7 @@
   {
     "id": "DR-REMOTE-DISCOVERY", "technique_id": "T1018", "rule_version": "v1",
     "severity": "low", "title": "Host and route discovery",
-    "description": "Enumeration of known hosts, routing tables, or ARP cache — reconnaissance for lateral movement.",
+    "description": "Enumeration of known hosts, routing tables, or ARP cache - reconnaissance for lateral movement.",
     "match": {"kinds": ["process-output"], "line_regex": "remote-system discovery|arp cache|--- routes ---"}
   },
   {
@@ -32,7 +32,7 @@
   {
     "id": "DR-WEBAPP-ACCESS", "technique_id": "T1190", "rule_version": "v1",
     "severity": "high", "title": "Web request to a lab target over the range network",
-    "description": "A host reached the webapp target across the range network — recon probe or exploit attempt against the lab web service.",
+    "description": "A host reached the webapp target across the range network - recon probe or exploit attempt against the lab web service.",
     "match": {"kinds": ["process-output"], "line_regex": "vulnerable-app|webapp:80 reachable|reached webapp over range network|response received from webapp|sending crafted request"}
   },
   {
@@ -56,13 +56,13 @@
   {
     "id": "DR-HOST-ESCAPE", "technique_id": "T1611", "rule_version": "v1",
     "severity": "high", "title": "Container-to-host boundary probe",
-    "description": "A container process probed for escape vectors — docker socket exposure, sensitive host mounts, or elevated privileges.",
+    "description": "A container process probed for escape vectors - docker socket exposure, sensitive host mounts, or elevated privileges.",
     "match": {"kinds": ["process-output"], "line_regex": "escape-test|probing container-to-host boundary|docker socket|sensitive host mount"}
   },
   {
     "id": "DR-AD-ACCOUNT-DISC", "technique_id": "T1087", "rule_version": "v1",
     "severity": "medium", "title": "Directory account enumeration (LDAP)",
-    "description": "Bulk enumeration of directory person objects — account discovery against the identity service.",
+    "description": "Bulk enumeration of directory person objects - account discovery against the identity service.",
     "match": {"kinds": ["process-output"], "line_regex": "ad-disc|enumerating directory accounts|uid=svc-backup|ou=people"}
   },
   {

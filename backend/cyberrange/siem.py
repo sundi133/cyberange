@@ -39,7 +39,7 @@ class EventSink:
     def write(self, event: dict) -> None:
         if not self.enabled:
             return
-        # SIEM forwarding must never break an exercise — swallow I/O errors.
+        # SIEM forwarding must never break an exercise - swallow I/O errors.
         try:
             line = json.dumps({"cyberrange": True, **event}, default=str)
             with self._lock, open(self.path, "a", encoding="utf-8") as fh:

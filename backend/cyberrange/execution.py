@@ -17,7 +17,7 @@ so operators can tell genuine container output from simulated stand-ins.
 Safety: DockerAdapter runs with `--network none` (no egress, matching the
 spec's default-deny), constrained memory/cpu/pids, `--no-new-privileges`, no
 host mounts, and `--rm`. It can only run signed modules with an explicit
-execution spec — never arbitrary input.
+execution spec - never arbitrary input.
 """
 
 from __future__ import annotations
@@ -139,7 +139,7 @@ class DockerAdapter:
                     "duration_s": duration,
                 },
             })
-        # Real process output — the actual logs a defender would inspect.
+        # Real process output - the actual logs a defender would inspect.
         for line in stdout_lines[:_MAX_OUTPUT_LINES]:
             records.append({
                 "kind": "process-output",

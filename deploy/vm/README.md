@@ -1,14 +1,14 @@
-# VM tier — real Windows / Active Directory targets (roadmap)
+# VM tier - real Windows / Active Directory targets (roadmap)
 
 CyberRange's live container ranges provide **real, connected Linux targets**
 today (`provisioning.py`): a persistent victim host, a reachable webapp target,
-and — for identity scenarios — a **real LDAP directory** (an AD-*style* identity
+and - for identity scenarios - a **real LDAP directory** (an AD-*style* identity
 attack surface, seeded with domain users you can enumerate over LDAP).
 
 What containers **cannot** give you is a real **Windows** endpoint or a real
 **Windows Active Directory domain controller** (Kerberos, SMB, GPO, NTLM, the
 Windows attack surface). That needs full virtual machines, which need a
-**hypervisor** — and therefore your own infrastructure. This directory
+**hypervisor** - and therefore your own infrastructure. This directory
 documents that tier and the integration seam; it is **not runnable on the app
 host alone** and is intentionally not faked in code.
 
@@ -19,7 +19,7 @@ Container provisioning already defines the exact interface a VM tier implements
 
 | Container provisioner | VM-tier equivalent |
 |---|---|
-| `provision(range_id)` — create network + containers | create an isolated VLAN + clone VM templates |
+| `provision(range_id)` - create network + containers | create an isolated VLAN + clone VM templates |
 | `exec_in_victim(range_id, cmd)` | run a command on a VM (WinRM / SSH / guest agent) |
 | `reset(range_id)` | revert VMs to a clean snapshot |
 | `teardown(range_id)` | destroy the VMs + network |
@@ -32,7 +32,7 @@ modules would carry `"execution": {"adapter": "vm", "target": "win-endpoint", �
 ## What a real deployment needs (operator-provided)
 
 - A **hypervisor**: KVM/libvirt, Proxmox VE, VMware ESXi, or a cloud (AWS EC2 /
-  Azure — Azure is natural for real Windows/AD).
+  Azure - Azure is natural for real Windows/AD).
 - **Windows images**: e.g. Windows Server / Windows 11 **evaluation** ISOs,
   sysprepped into templates. (Licensing is the customer's responsibility.)
 - **Isolation**: per-range VLAN/VXLAN, default-deny like the container `--internal`

@@ -46,7 +46,7 @@ Give the indexer a minute to start, then:
 
 - **CyberRange:** http://localhost:8080  (admin / `CR_ADMIN_PASSWORD`)
 - **Wazuh dashboard:** https://localhost:443  (admin / the Wazuh default in the
-  upstream `.env`, e.g. `SecretPassword` — change it)
+  upstream `.env`, e.g. `SecretPassword` - change it)
 
 ### Verify the SIEM path end-to-end
 
@@ -54,7 +54,7 @@ Give the indexer a minute to start, then:
 CR_ADMIN_PASSWORD=... ./verify.sh
 ```
 It runs a real container TTP (T1610) in CyberRange and waits for a **basis=siem**
-detection — i.e. a genuine Wazuh alert forwarded back to the timeline. You'll
+detection - i.e. a genuine Wazuh alert forwarded back to the timeline. You'll
 also see the alert in the Wazuh dashboard under *Threat Hunting* (rule ids
 `100100`–`100122`, group `cyberrange`).
 
@@ -68,7 +68,7 @@ also see the alert in the Wazuh dashboard under *Threat Hunting* (rule ids
 | `forwarder` | Tails `alerts.json`, keeps `cyberrange`-group alerts, and POSTs them to `/api/siem/alert` → a `basis=siem` detection. |
 | `wazuh.indexer` / `wazuh.dashboard` | Store and visualize the alerts (standard Wazuh UI). |
 
-Detection rules live in [`custom/local_rules.xml`](custom/local_rules.xml) —
+Detection rules live in [`custom/local_rules.xml`](custom/local_rules.xml) -
 edit them to tune coverage; they key on the CyberRange fields `kind`,
 `technique_id`, and real `payload.line` content.
 
@@ -83,7 +83,7 @@ WAZUH_INGEST_ENABLED=0     # or forward over syslog to your Wazuh host
 Host the **Wazuh stack** here (VM/VPS). If you want Railway's app to feed this
 Wazuh, expose the manager's syslog/agent port and run the forwarder alongside
 Wazuh pointed at the Railway app's public URL (`CYBERRANGE_URL`). The app and
-SIEM don't need to be co-located — only the forwarder needs to reach both.
+SIEM don't need to be co-located - only the forwarder needs to reach both.
 
 ## Verification status
 

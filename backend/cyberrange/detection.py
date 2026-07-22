@@ -1,15 +1,15 @@
 """Detection-rule engine (FR-08).
 
-Evaluates versioned, Sigma-like rules against the exercise timeline — including
-the *real* container output captured by the Docker execution adapter — and
+Evaluates versioned, Sigma-like rules against the exercise timeline - including
+the *real* container output captured by the Docker execution adapter - and
 produces automatic, evidence-backed detection verdicts. This replaces the
 manual "type a verdict" flow: a detection fires because a rule matched real
 telemetry, and it records which rule, which line, and how long after the
 activity it triggered (detection latency / MTTD).
 
 Two match bases:
-- `log`   — a regex matched a real log line (high fidelity).
-- `technique` — the technique was observed in the range (coverage rule; used
+- `log`   - a regex matched a real log line (high fidelity).
+- `technique` - the technique was observed in the range (coverage rule; used
   for behaviors that are simulated rather than executed in a container).
 
 Kernel-level runtime detection (Falco) is the Phase-2 sensor; this engine is

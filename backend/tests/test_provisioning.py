@@ -9,7 +9,7 @@ DOCKER = execution.docker_available()
 
 
 class LifecycleResetTest(unittest.TestCase):
-    """No Docker needed — just the state machine."""
+    """No Docker needed - just the state machine."""
 
     def test_reset_action_returns_to_ready(self):
         self.assertEqual(lifecycle.apply_action("READY", "reset"), "READY")

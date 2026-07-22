@@ -129,7 +129,7 @@ class CyberRangeService:
 
     def login(self, username: str, password: str) -> dict:
         row = self.db.query_one("SELECT * FROM users WHERE username=?", (username,))
-        # Generic error — never reveal whether the username exists.
+        # Generic error - never reveal whether the username exists.
         if not row or not row["active"] \
                 or not auth.verify_password(password, row["pw_salt"], row["pw_hash"]):
             raise ServiceError("invalid credentials", 401)
@@ -329,7 +329,7 @@ class CyberRangeService:
             (exercise_id, ts, source, actor_name or actor, kind, technique_id,
              payload_json, integrity),
         )
-        # Forward to the SIEM (Wazuh) when enabled — never on the detection path.
+        # Forward to the SIEM (Wazuh) when enabled - never on the detection path.
         if kind != "detection":
             self.siem.write({
                 "id": new_id, "exercise_id": exercise_id, "ts_utc": ts,
@@ -678,6 +678,7 @@ class CyberRangeService:
                 "detected": detected,
                 "gaps": gaps,
             },
+            "framework_coverage": catalog.framework_coverage(techniques_seen),
             "timeline_events": len(timeline),
             "evidence_count": len(evidence),
             "evidence": evidence,

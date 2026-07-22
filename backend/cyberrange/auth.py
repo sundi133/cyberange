@@ -1,6 +1,6 @@
 """Password hashing and session tokens (stdlib only).
 
-Passwords are stored as PBKDF2-HMAC-SHA256 with a per-user random salt — never
+Passwords are stored as PBKDF2-HMAC-SHA256 with a per-user random salt - never
 in plaintext. Session tokens are cryptographically random opaque strings.
 This is the MVP stand-in for the SSO/OIDC identity described in spec section 6;
 the RBAC layer downstream is identical either way.

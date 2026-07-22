@@ -15,7 +15,7 @@ async function api(method, path, body) {
   const res = await fetch("/api" + path, opts);
   const data = await res.json().catch(() => ({}));
   if (res.status === 401 && session.token) {
-    // Session expired or revoked — force re-login.
+    // Session expired or revoked - force re-login.
     clearSession();
     showLogin("Your session expired. Please sign in again.");
     throw new Error(data.error || "session expired");
@@ -57,7 +57,7 @@ async function viewCatalog() {
       </div>
     </div>` : `
     <div class="guide"><div class="steps muted">
-      You're signed in as <strong>${esc(session.role)}</strong> — browse the catalog here,
+      You're signed in as <strong>${esc(session.role)}</strong> - browse the catalog here,
       then join a running exercise from the <strong>Exercise</strong> tab once an instructor starts one.
     </div></div>`;
 
@@ -146,7 +146,7 @@ function moduleCard(m) {
     <p class="mono muted">${esc(m.id)} · <span class="tag ${esc(m.platform)}">${esc(m.platform)}</span></p>
     <div class="row">${techs}</div>
     <p>${esc(m.detection_notes || "")}</p>
-    <p class="muted">Cleanup: ${esc(m.cleanup || "—")}</p>
+    <p class="muted">Cleanup: ${esc(m.cleanup || "-")}</p>
   </div>`);
 }
 
@@ -272,7 +272,7 @@ async function prepareRange(rid) {
   try {
     toast("Preparing range…");
     for (const s of steps) await api("POST", `/ranges/${rid}/actions`, { action: s });
-    toast("Range ready — you can start the exercise", "ok");
+    toast("Range ready - you can start the exercise", "ok");
     await loadRanges();
   } catch (e) { toast(e.message, "err"); await loadRanges(); }
 }
@@ -483,7 +483,7 @@ async function buildScorePanel() {
   let derived = { detection: 0, red_execution: 0, _detail: {} };
   try { derived = await api("GET", `/exercises/${state.exercise}/derived-scores`); } catch { /* none yet */ }
   const d = derived._detail || {};
-  const mttd = d.mean_mttd_s == null ? "—" : `${d.mean_mttd_s}s`;
+  const mttd = d.mean_mttd_s == null ? "-" : `${d.mean_mttd_s}s`;
 
   const derivedRows = DERIVED_DIMS.map((dim) =>
     `<div class="row" style="justify-content:space-between;margin-bottom:6px">
@@ -500,7 +500,7 @@ async function buildScorePanel() {
 
   p.innerHTML = derivedRows +
     `<p class="muted" style="font-size:11px;margin:2px 0 8px">Detection &amp; red-execution are
-      derived from the timeline — coverage ${((d.coverage ?? 0) * 100).toFixed(0)}% ·
+      derived from the timeline - coverage ${((d.coverage ?? 0) * 100).toFixed(0)}% ·
       log-fidelity ${((d.log_fidelity ?? 0) * 100).toFixed(0)}% · mean MTTD ${mttd}.</p>` +
     manualRows +
     `<button class="act" id="btn-score" style="margin-top:8px">Compute score</button>
@@ -560,11 +560,11 @@ async function loadTimeline() {
     ul.appendChild(el(`<li class="${liClass}">
       <div class="ts">${esc(ev.ts_utc.slice(11, 23))} · ${esc(ev.source)}</div>
       <div>${kindHtml} ${tech} ${realTag}
-        <span class="faint">— ${esc(ev.actor || "")}</span></div>
+        <span class="faint">- ${esc(ev.actor || "")}</span></div>
       ${extra}
     </li>`));
   });
-  if (!events.length) ul.innerHTML = `<li class="faint" style="padding-left:0">No activity yet — run a module to populate the timeline.</li>`;
+  if (!events.length) ul.innerHTML = `<li class="faint" style="padding-left:0">No activity yet - run a module to populate the timeline.</li>`;
 }
 
 async function endExercise() {
@@ -591,14 +591,16 @@ async function showReport() {
       <div class="card"><h4>${esc(rep.scenario.name)} · ${esc(rep.scenario.mode)}</h4>
         <p class="mono muted">${esc(rep.exercise_id)} · ${esc(rep.status)}</p>
         <div class="kv">
-          <dt>Expected techniques</dt><dd>${(cov.expected || []).join(", ") || "—"}</dd>
-          <dt>Observed</dt><dd>${(cov.observed || []).join(", ") || "—"}</dd>
-          <dt>Detected</dt><dd>${(cov.detected || []).join(", ") || "—"}</dd>
+          <dt>Expected techniques</dt><dd>${(cov.expected || []).join(", ") || "-"}</dd>
+          <dt>Observed</dt><dd>${(cov.observed || []).join(", ") || "-"}</dd>
+          <dt>Detected</dt><dd>${(cov.detected || []).join(", ") || "-"}</dd>
           <dt>Coverage gaps</dt><dd style="color:var(--red)">${(cov.gaps || []).join(", ") || "none"}</dd>
           <dt>Timeline events</dt><dd>${rep.timeline_events}</dd>
           <dt>Evidence items</dt><dd>${rep.evidence_count}</dd>
           <dt>Score</dt><dd>${rep.score ? rep.score.total : "not scored"}</dd>
         </div></div>
+      <h3>Framework alignment <span class="faint" style="font-size:11px;text-transform:none">(curated crosswalk from ATT&amp;CK)</span></h3>
+      <div class="card">${fwBlock(rep.framework_coverage || {})}</div>
       <h3>Recommendations</h3>
       <div class="card"><ul>${(rep.recommendations || []).map(r => `<li>${esc(r)}</li>`).join("")}</ul></div>
       <h3>Raw report JSON</h3><pre>${esc(JSON.stringify(rep, null, 2))}</pre>`;
@@ -608,6 +610,16 @@ async function showReport() {
                                      `cyberrange-${b.dataset.dl}`);
     });
   } catch (e) { toast(e.message, "err"); }
+}
+
+function fwBlock(fw) {
+  const row = (label, items) =>
+    `<div style="margin:8px 0"><div class="muted" style="font-size:12px;margin-bottom:4px">${label}</div>
+      <div class="row">${(items || []).map(x => `<span class="tag">${esc(x)}</span>`).join("") || '<span class="faint">none</span>'}</div></div>`;
+  return row("NIST CSF 2.0 functions", fw.nist_csf) +
+         row("NICE work roles", fw.nice) +
+         row("CIS Controls v8", fw.cis) +
+         row("NSA CAE Knowledge Units", fw.cae);
 }
 
 async function downloadFile(path, filename) {
@@ -628,12 +640,13 @@ async function downloadFile(path, filename) {
 // ---------------- Reference view ----------------
 async function viewReference() {
   const m = $main();
-  const [ref, tactics, topos, roles] = await Promise.all([
+  const [ref, tactics, topos, roles, fw] = await Promise.all([
     api("GET", "/reference"), api("GET", "/tactics"), api("GET", "/topologies"),
-    api("GET", "/roles"),
+    api("GET", "/roles"), api("GET", "/frameworks"),
   ]);
+  const fwt = fw.techniques || {};
   m.innerHTML = `<h2>Reference</h2>
-    <h3>Roles &amp; permissions — what each role can do</h3>
+    <h3>Roles &amp; permissions - what each role can do</h3>
     <div class="role-matrix">${roles.map(r => `<div class="card">
       <div class="row" style="justify-content:space-between">
         <h4>${esc(r.role)}</h4>
@@ -645,6 +658,15 @@ async function viewReference() {
     <table><thead><tr><th>Tactic</th><th>ATT&CK</th><th>Lab behavior</th><th>Expected evidence</th></tr></thead>
       <tbody>${tactics.map(t => `<tr><td>${esc(t.tactic)}</td><td class="mono">${esc(t.attack)}</td>
         <td>${esc(t.lab_behavior)}</td><td class="muted">${esc(t.expected_evidence)}</td></tr>`).join("")}</tbody></table>
+    <h3>Framework alignment <span class="faint" style="font-size:11px;text-transform:none">(curated crosswalk from ATT&amp;CK to ${esc(fw.frameworks.nist_csf.name)}, NICE, CIS v8, NSA CAE)</span></h3>
+    <div class="table-wrap"><table><thead><tr><th>ATT&CK</th><th>NIST CSF</th><th>NICE work roles</th><th>CIS Controls</th><th>NSA CAE KUs</th></tr></thead>
+      <tbody>${Object.keys(fwt).sort().map(tid => { const e = fwt[tid]; return `<tr>
+        <td class="mono">${esc(tid)}</td>
+        <td>${(e.nist_csf||[]).map(x=>`<span class="tag">${esc(x)}</span>`).join(" ")}</td>
+        <td class="muted">${(e.nice||[]).join(", ")}</td>
+        <td class="muted">${(e.cis||[]).join(", ")}</td>
+        <td class="muted">${(e.cae||[]).join(", ")}</td></tr>`; }).join("")}</tbody></table></div>
+    <p class="faint" style="font-size:11.5px">${esc(fw._note)}</p>
     <h3>Scoring dimensions</h3>
     <table><thead><tr><th>Dimension</th><th>Weight</th><th>Metrics</th></tr></thead>
       <tbody>${ref.scoring_dimensions.map(d => `<tr><td>${esc(d.label)}</td>
@@ -842,7 +864,7 @@ async function openLesson(scenarioId, assignmentId) {
       </div>
       <div>
         <div class="row" style="justify-content:space-between;align-items:baseline">
-          <h3 style="margin:0">Your range — live timeline</h3>
+          <h3 style="margin:0">Your range - live timeline</h3>
           <button class="ghost" id="btn-tl-refresh" style="padding:5px 10px">↻</button>
         </div>
         <div class="legend">
@@ -876,7 +898,7 @@ async function runLessonStep(i) {
     const ex = r.execution || {};
     const how = ex.real ? `ran for real via ${ex.adapter}` : "ran";
     document.getElementById(`lstep-out-${i}`).innerHTML =
-      `<span style="color:var(--green)">✓ ${esc(how)} — ${ex.events_recorded || 0} events, ${ex.detections_fired || 0} detection(s). See the timeline →</span>`;
+      `<span style="color:var(--green)">✓ ${esc(how)} - ${ex.events_recorded || 0} events, ${ex.detections_fired || 0} detection(s). See the timeline →</span>`;
     document.getElementById(`lstep-badge-${i}`).innerHTML = statusBadge("completed");
     btn.disabled = false; btn.textContent = "✓ Run again";
     await loadTimeline();
@@ -903,7 +925,7 @@ async function submitLessonQuiz(quiz) {
       `<div class="panel"><div class="row" style="justify-content:space-between">
         <h4 style="margin:0">Score: ${res.score}/${res.total} (${res.pct}%)</h4>
         ${done ? statusBadge("completed") : `<span class="muted">complete the hands-on steps to finish</span>`}</div></div>`;
-    toast(`Quiz ${res.pct}%${done ? " — lesson complete!" : ""}`, "ok");
+    toast(`Quiz ${res.pct}%${done ? " - lesson complete!" : ""}`, "ok");
   } catch (e) { toast(e.message, "err"); }
 }
 
@@ -912,7 +934,7 @@ async function viewClasses() {
   const m = $main();
   m.innerHTML = `<h2>Classes</h2>
     <div class="toolbar">
-      <input id="new-class" placeholder="New class name, e.g. Intro to Cyber — Fall" style="min-width:280px" />
+      <input id="new-class" placeholder="New class name, e.g. Intro to Cyber - Fall" style="min-width:280px" />
       <button class="act" id="btn-new-class">＋ Create class</button>
     </div>
     <div class="grid" id="class-cards"></div>`;
@@ -924,7 +946,7 @@ async function viewClasses() {
   };
   const classes = await api("GET", "/cohorts");
   const wrap = document.getElementById("class-cards");
-  if (!classes.length) { wrap.innerHTML = `<p class="muted">No classes yet — create one above.</p>`; return; }
+  if (!classes.length) { wrap.innerHTML = `<p class="muted">No classes yet - create one above.</p>`; return; }
   classes.forEach((c) => {
     const card = el(`<div class="card">
       <h4>${esc(c.name)}</h4>
@@ -948,7 +970,7 @@ async function openClass(cid) {
       <div>
         <div class="panel">
           <div class="phead">Enroll students</div>
-          <div class="phelp">Paste a CSV: <span class="mono">username,display name,password</span> (one per line; password optional — we'll generate one).</div>
+          <div class="phelp">Paste a CSV: <span class="mono">username,display name,password</span> (one per line; password optional - we'll generate one).</div>
           <textarea id="roster-csv" rows="4" style="width:100%" placeholder="alice,Alice Ng&#10;bob,Bob Lee,bobpass123"></textarea>
           <button class="ghost" id="btn-import" style="margin-top:8px">Import roster</button>
           <div id="import-out" style="margin-top:8px;font-size:12px"></div>
@@ -1012,10 +1034,10 @@ async function loadGradebook(cid) {
     ${gb.assignments.map(a => {
       const c = r.cells[a.id] || {};
       const v = c.status === "completed" ? `<span class="tag s0">${c.score == null ? "done" : c.score + "%"}</span>`
-        : (c.status === "in_progress" ? `<span class="tag s1">${c.steps_done ? c.steps_done.length : 0}/${c.total_steps}</span>` : `<span class="faint">—</span>`);
+        : (c.status === "in_progress" ? `<span class="tag s1">${c.steps_done ? c.steps_done.length : 0}/${c.total_steps}</span>` : `<span class="faint">-</span>`);
       return `<td>${v}</td>`;
     }).join("")}
-    <td>${r.avg_score == null ? "—" : "<strong>" + r.avg_score + "%</strong>"}</td></tr>`).join("");
+    <td>${r.avg_score == null ? "-" : "<strong>" + r.avg_score + "%</strong>"}</td></tr>`).join("");
   box.innerHTML = `<div class="table-wrap"><table>
     <thead><tr><th>Student</th>${head}<th>Avg</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
@@ -1028,14 +1050,14 @@ const VIEWS = {
 };
 
 const VIEW_HELP = {
-  learn: "<strong>Learn</strong> — your assigned lessons. Each one guides you through a briefing, hands-on tasks on your own range, and a knowledge check.",
-  classes: "<strong>Classes</strong> — create a class, enroll students, assign lessons, and track progress in the gradebook.",
-  catalog: "<strong>Catalog</strong> — browse scenarios and attacker techniques. Launch a scenario to create an isolated range.",
-  ranges: "<strong>Ranges</strong> — prepare a range through its lifecycle, then start the exercise. Each range is isolated with no internet access.",
-  exercise: "<strong>Exercise</strong> — run attacker techniques (red), watch detections fire on the live timeline, submit evidence (blue), and score the run.",
-  reference: "<strong>Reference</strong> — ATT&amp;CK coverage, scoring model, safety classes, detection stack, topologies, and what each role can do.",
-  audit: "<strong>Audit</strong> — an append-only ledger of every action, attributed to a user and role.",
-  admin: "<strong>Admin</strong> — provision user accounts and assign each a role.",
+  learn: "<strong>Learn</strong> - your assigned lessons. Each one guides you through a briefing, hands-on tasks on your own range, and a knowledge check.",
+  classes: "<strong>Classes</strong> - create a class, enroll students, assign lessons, and track progress in the gradebook.",
+  catalog: "<strong>Catalog</strong> - browse scenarios and attacker techniques. Launch a scenario to create an isolated range.",
+  ranges: "<strong>Ranges</strong> - prepare a range through its lifecycle, then start the exercise. Each range is isolated with no internet access.",
+  exercise: "<strong>Exercise</strong> - run attacker techniques (red), watch detections fire on the live timeline, submit evidence (blue), and score the run.",
+  reference: "<strong>Reference</strong> - ATT&amp;CK coverage, scoring model, safety classes, detection stack, topologies, and what each role can do.",
+  audit: "<strong>Audit</strong> - an append-only ledger of every action, attributed to a user and role.",
+  admin: "<strong>Admin</strong> - provision user accounts and assign each a role.",
 };
 
 function switchView(name) {

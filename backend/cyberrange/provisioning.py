@@ -23,7 +23,7 @@ import subprocess
 
 BASE_IMAGE = "alpine:3.19"
 
-# Directory / identity target (a real Linux OpenLDAP domain — an AD-style
+# Directory / identity target (a real Linux OpenLDAP domain - an AD-style
 # identity attack surface; NOT a Windows AD DC, which needs the VM tier).
 DIR_IMAGE = "osixia/openldap:1.5.0"
 DIR_BASE = "dc=range,dc=lab"
@@ -149,7 +149,7 @@ def provision_directory(range_id: str) -> bool:
               "-e", f"LDAP_ADMIN_PASSWORD={DIR_ADMIN_PW}", DIR_IMAGE])
     elif not _running(dc):
         _run(["docker", "start", dc])
-    # Wait for slapd, then seed users (idempotent — ignores "already exists").
+    # Wait for slapd, then seed users (idempotent - ignores "already exists").
     import time
     for _ in range(30):
         chk = _run(["docker", "exec", dc, "ldapsearch", "-x", "-H", "ldap://localhost",
