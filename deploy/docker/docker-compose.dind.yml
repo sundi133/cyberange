@@ -1,0 +1,49 @@
+# Real container execution with a Docker-in-Docker (dind) sidecar.
+#
+# The app does not need a Docker daemon of its own: it drives one over the
+# network via DOCKER_HOST. Here a privileged `docker:dind` service runs the
+# daemon, and the app talks to it on the internal network only. This is the
+# same shape you use on Railway (a dind service + the app service, wired with
+# DOCKER_HOST over private networking) if your plan allows privileged services.
+#
+#   docker compose -f deploy/docker/docker-compose.dind.yml up --build
+#   open http://127.0.0.1:8080   (sign in as admin / the password below)
+#
+# The dind TCP endpoint is INSECURE (no TLS) and is intentionally NOT published
+# to the host; only the app service can reach it over the compose network. Do
+# not expose port 2375 publicly.
+
+services:
+  dind:
+    image: docker:27-dind
+    privileged: true            # required for the Docker daemon
+    environment:
+      DOCKER_TLS_CERTDIR: ""     # listen on plain TCP 2375 (internal network only)
+    command: ["--host=tcp://0.0.0.0:2375", "--tls=false"]
+    networks: [cr]
+    healthcheck:
+      test: ["CMD", "docker", "-H", "tcp://127.0.0.1:2375", "info"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  cyberrange:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    image: cyberrange:latest
+    depends_on:
+      dind:
+        condition: service_healthy
+    environment:
+      DOCKER_HOST: tcp://dind:2375        # drive the sidecar daemon
+      CR_ADMIN_PASSWORD: change-me-please  # the seeded admin login
+      # DATABASE_URL: postgresql://postgres:<pw>@db.<ref>.supabase.co:5432/postgres?sslmode=require
+    ports:
+      - "8080:8080"
+    networks: [cr]
+    restart: unless-stopped
+
+networks:
+  cr:
+    driver: bridge

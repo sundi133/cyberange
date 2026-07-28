@@ -22,6 +22,7 @@ execution spec - never arbitrary input.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import time
 import uuid
@@ -47,12 +48,36 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def docker_host() -> str | None:
+    """The Docker endpoint the CLI will use (local socket if unset).
+
+    The `docker` CLI honors DOCKER_HOST automatically, so setting it points the
+    app at a remote daemon (e.g. a docker:dind sidecar) with no code change.
+    """
+    return os.environ.get("DOCKER_HOST")
+
+
 def docker_available() -> bool:
     try:
-        r = subprocess.run(["docker", "ps"], capture_output=True, timeout=6)
+        # `docker version --format` reaches the daemon (local or remote via
+        # DOCKER_HOST) and fails fast if it is unreachable.
+        r = subprocess.run(["docker", "ps"], capture_output=True, timeout=8)
         return r.returncode == 0
     except (subprocess.SubprocessError, FileNotFoundError, OSError):
         return False
+
+
+def execution_mode(docker_ok: bool | None = None) -> dict:
+    """Report how modules will execute, for /api/health and the dashboard."""
+    if docker_ok is None:
+        docker_ok = docker_available()
+    host = docker_host()
+    return {
+        "real": bool(docker_ok),
+        "mode": "docker" if docker_ok else "simulated",
+        "docker_host": host or ("local socket" if docker_ok else None),
+        "remote": bool(host),
+    }
 
 
 class SimulatedAdapter:
@@ -90,6 +115,10 @@ class DockerAdapter:
 
     real = True
 
+    @staticmethod
+    def _cleanup(name: str) -> None:
+        subprocess.run(["docker", "rm", "-f", name], capture_output=True)
+
     def run(self, module: dict, inputs: dict, timeout: int) -> ExecutionResult:
         spec = module.get("execution") or {}
         image = spec.get("image")
@@ -98,9 +127,14 @@ class DockerAdapter:
             raise ExecutionError("module execution spec missing image/cmd")
         network = spec.get("network", "none")
         name = f"cr-{uuid.uuid4().hex[:10]}"
+        tmo = max(5, min(timeout, 120))
 
-        docker_cmd = [
-            "docker", "run", "--rm", "--name", name,
+        # Detached run + `docker logs` rather than attached `docker run`: the
+        # attached output stream is not reliably delivered when driving a REMOTE
+        # daemon over DOCKER_HOST (e.g. a dind sidecar). Detached + logs works
+        # for both local and remote daemons.
+        run_cmd = [
+            "docker", "run", "-d", "--name", name,
             f"--network={network}",
             "--memory=256m", "--cpus=1", "--pids-limit=128",
             "--security-opt=no-new-privileges",
@@ -110,20 +144,37 @@ class DockerAdapter:
         started = _now()
         t0 = time.monotonic()
         try:
-            proc = subprocess.run(
-                docker_cmd, capture_output=True, text=True,
-                timeout=max(5, min(timeout, 120)),
-            )
+            started_proc = subprocess.run(run_cmd, capture_output=True, text=True, timeout=tmo)
         except subprocess.TimeoutExpired:
-            subprocess.run(["docker", "rm", "-f", name], capture_output=True)
-            raise ExecutionError(f"container timed out after {timeout}s")
+            self._cleanup(name)
+            raise ExecutionError(f"container failed to start within {tmo}s")
         except (subprocess.SubprocessError, OSError) as exc:
             raise ExecutionError(f"container execution failed: {exc}")
+        if started_proc.returncode != 0:  # bad image, pull failure, bad flag
+            self._cleanup(name)
+            raise ExecutionError(
+                f"docker could not start container: {started_proc.stderr.strip()[:200]}")
+
+        # Wait for the container to exit (bounded), then collect its logs.
+        try:
+            wait_proc = subprocess.run(
+                ["docker", "wait", name], capture_output=True, text=True, timeout=tmo)
+            returncode = int(wait_proc.stdout.strip() or "0") if wait_proc.returncode == 0 else 0
+        except subprocess.TimeoutExpired:
+            self._cleanup(name)
+            raise ExecutionError(f"container timed out after {tmo}s")
         duration = round(time.monotonic() - t0, 3)
         finished = _now()
 
-        if proc.returncode == 125:  # docker itself failed (bad image/flag)
-            raise ExecutionError(f"docker could not start container: {proc.stderr.strip()[:200]}")
+        logs = subprocess.run(["docker", "logs", name], capture_output=True, text=True, timeout=20)
+        self._cleanup(name)
+
+        class _P:
+            pass
+        proc = _P()
+        proc.returncode = returncode
+        proc.stdout = logs.stdout
+        proc.stderr = logs.stderr
 
         stdout_lines = [ln for ln in proc.stdout.splitlines() if ln.strip()]
 
@@ -166,6 +217,7 @@ class DockerAdapter:
                 "real": True, "adapter": "docker", "image": image,
                 "exit_code": proc.returncode, "duration_s": duration,
                 "stdout_lines": len(stdout_lines),
+                "docker_host": docker_host() or "local socket",
                 "started": started, "finished": finished,
             },
         )

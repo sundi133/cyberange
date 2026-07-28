@@ -43,6 +43,7 @@ railway domain                     # generate a public URL
 | `PORT` | Bind port | Injected by Railway; the app reads it. |
 | `CR_ADMIN_PASSWORD` | Seeded admin password | **Set this.** Applied only on first run against an empty DB. |
 | `DATABASE_URL` | Postgres/Supabase DSN | Set to your Supabase URI (with `?sslmode=require`) to use Postgres; unset = SQLite. |
+| `DOCKER_HOST` | Remote Docker daemon endpoint | Set (e.g. `tcp://dind:2375`) to get **real** container execution against a remote daemon; unset = simulation on a hostless container. |
 | `CR_DEV_AUTH` | Enable `X-CR-Role`/`X-CR-User` header identity | Leave **unset** in production; it bypasses login. |
 | `HOST` | Bind host | Defaults to `0.0.0.0` via the Dockerfile CMD. |
 
@@ -69,8 +70,21 @@ lifecycle, scenario/module catalog, exercises, evidence timeline, scoring,
 reporting, audit, and the dashboard. Module execution runs in **simulated**
 mode and the detection engine fires **technique-basis** rules.
 
-**Does not work:** real container execution. The `DockerAdapter` shells out to
-a Docker daemon; a Railway app container has no Docker daemon, so
+**Real execution via a remote Docker daemon (DOCKER_HOST):** the app does not
+need its own Docker daemon. The image now ships the `docker` CLI, and the
+execution adapter drives whatever daemon `DOCKER_HOST` points at (using a
+detached run + `docker logs`, which streams reliably from a remote daemon).
+So you can get **real** container execution on Railway by running a
+`docker:dind` sidecar and setting `DOCKER_HOST=tcp://<dind>:2375` on the app.
+See [deploy/docker/docker-compose.dind.yml](../deploy/docker/docker-compose.dind.yml)
+for the exact shape (verified locally: the app on the host ran the container on
+a separate dind daemon, captured its real output, and fired log-basis
+detections). Two caveats: the dind service must run **privileged**, which your
+Railway plan has to allow; and the dind TCP endpoint is plaintext, so keep it on
+private networking only, never public.
+
+**Falls back to simulation without a daemon.** With no local daemon and no
+`DOCKER_HOST`, the `DockerAdapter` finds no Docker, so
 `docker_available()` returns false and modules degrade to simulation
 automatically. Consequently **log-basis** detections (rules that match real
 container stdout) won't fire on Railway. To exercise real execution + log-basis

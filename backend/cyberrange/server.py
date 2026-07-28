@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
-from . import catalog, rbac, reporting
+from . import catalog, execution, rbac, reporting
 from .db import connect as db_connect
 from .service import CyberRangeService, ServiceError
 
@@ -59,7 +59,10 @@ def build_router(svc: CyberRangeService) -> Router:
     r = Router()
 
     # ---- catalog (FR-01) ----
-    r.add("GET", "/api/health", lambda ctx: {"status": "ok", "service": "cyberrange"})
+    r.add("GET", "/api/health", lambda ctx: {
+        "status": "ok", "service": "cyberrange",
+        "execution": execution.execution_mode(svc._docker_ok),
+    })
     r.add("GET", "/api/tactics", lambda ctx: catalog.tactics())
     r.add("GET", "/api/reference", lambda ctx: catalog.reference())
     r.add("GET", "/api/topologies", lambda ctx: catalog.topologies())

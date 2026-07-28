@@ -1,5 +1,13 @@
 FROM python:3.12-slim
 
+# Install the Docker CLI (client only, not the daemon) so the app can drive a
+# remote Docker daemon via DOCKER_HOST for real container execution (e.g. a
+# docker:dind sidecar on Railway, or an external Docker host). Without
+# DOCKER_HOST and no local daemon, the app cleanly falls back to simulation.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends docker.io ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY backend /app/backend
 COPY frontend /app/frontend
