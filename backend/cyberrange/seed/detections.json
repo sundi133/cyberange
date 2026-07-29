@@ -1,74 +1,203 @@
 [
   {
-    "id": "DR-CONTAINER-RUNTIME-EXEC", "technique_id": "T1610", "rule_version": "v1",
-    "severity": "high", "title": "Binary written and executed inside a container",
+    "id": "DR-CONTAINER-RUNTIME-EXEC",
+    "technique_id": "T1610",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Binary written and executed inside a container",
     "description": "A workload container wrote an executable to a writable path and ran it - a hallmark of hands-on-keyboard activity or malware staging.",
-    "match": {"kinds": ["process-output"], "line_regex": "payload\\.sh|writing binary to /tmp|spawning nested shell"}
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "payload\\.sh|writing binary to /tmp|spawning nested shell"
+    }
   },
   {
-    "id": "DR-CONTAINER-DISCOVERY", "technique_id": "T1613", "rule_version": "v1",
-    "severity": "medium", "title": "Container/orchestration context enumeration",
+    "id": "DR-CONTAINER-DISCOVERY",
+    "technique_id": "T1613",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "Container/orchestration context enumeration",
     "description": "A process inspected cgroup, mount, or capability data to learn it is running inside a container.",
-    "match": {"kinds": ["process-output"], "line_regex": "container-discovery|/proc/1/cgroup|overlay on / type overlay|CapEff"}
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "container-discovery|/proc/1/cgroup|overlay on / type overlay|CapEff"
+    }
   },
   {
-    "id": "DR-INTERPRETER-ROOT", "technique_id": "T1059", "rule_version": "v1",
-    "severity": "medium", "title": "Interactive interpreter running as root",
+    "id": "DR-INTERPRETER-ROOT",
+    "technique_id": "T1059",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "Interactive interpreter running as root",
     "description": "A shell/interpreter executed identity and process-enumeration commands as uid 0.",
-    "match": {"kinds": ["process-output"], "line_regex": "interpreter behavior|uid=0\\(root\\)"}
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "interpreter behavior|uid=0\\(root\\)"
+    }
   },
   {
-    "id": "DR-REMOTE-DISCOVERY", "technique_id": "T1018", "rule_version": "v1",
-    "severity": "low", "title": "Host and route discovery",
+    "id": "DR-REMOTE-DISCOVERY",
+    "technique_id": "T1018",
+    "rule_version": "v1",
+    "severity": "low",
+    "title": "Host and route discovery",
     "description": "Enumeration of known hosts, routing tables, or ARP cache - reconnaissance for lateral movement.",
-    "match": {"kinds": ["process-output"], "line_regex": "remote-system discovery|arp cache|--- routes ---"}
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "remote-system discovery|arp cache|--- routes ---"
+    }
   },
   {
-    "id": "DR-NETWORK-RECON", "technique_id": "T1595", "rule_version": "v1",
-    "severity": "low", "title": "Local network reconnaissance",
+    "id": "DR-NETWORK-RECON",
+    "technique_id": "T1595",
+    "rule_version": "v1",
+    "severity": "low",
+    "title": "Local network reconnaissance",
     "description": "Enumeration of local interfaces, hosts, and resolver configuration.",
-    "match": {"kinds": ["process-output"], "line_regex": "enumerating local network context|probing lab web service"}
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "enumerating local network context|probing lab web service"
+    }
   },
   {
-    "id": "DR-WEBAPP-ACCESS", "technique_id": "T1190", "rule_version": "v1",
-    "severity": "high", "title": "Web request to a lab target over the range network",
+    "id": "DR-WEBAPP-ACCESS",
+    "technique_id": "T1190",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Web request to a lab target over the range network",
     "description": "A host reached the webapp target across the range network - recon probe or exploit attempt against the lab web service.",
-    "match": {"kinds": ["process-output"], "line_regex": "vulnerable-app|webapp:80 reachable|reached webapp over range network|response received from webapp|sending crafted request"}
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "vulnerable-app|webapp:80 reachable|reached webapp over range network|response received from webapp|sending crafted request"
+    }
   },
   {
-    "id": "DR-PHISH-DELIVERY", "technique_id": "T1566", "rule_version": "v1",
-    "severity": "medium", "title": "Phishing delivery observed",
+    "id": "DR-PHISH-DELIVERY",
+    "technique_id": "T1566",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "Phishing delivery observed",
     "description": "Technique-coverage rule: a phishing initial-access behavior was emulated in the range.",
-    "match": {"technique": "T1566"}
+    "match": {
+      "technique": "T1566"
+    }
   },
   {
-    "id": "DR-CRED-DUMP-SIM", "technique_id": "T1003", "rule_version": "v1",
-    "severity": "high", "title": "Credential-access behavior",
+    "id": "DR-CRED-DUMP-SIM",
+    "technique_id": "T1003",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Credential-access behavior",
     "description": "Technique-coverage rule: a credential-dump behavior was emulated.",
-    "match": {"technique": "T1003"}
+    "match": {
+      "technique": "T1003"
+    }
   },
   {
-    "id": "DR-CANARY-ENCRYPT", "technique_id": "T1486", "rule_version": "v1",
-    "severity": "high", "title": "Canary-file encryption / impact",
+    "id": "DR-CANARY-ENCRYPT",
+    "technique_id": "T1486",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Canary-file encryption / impact",
     "description": "Technique-coverage rule: a safe canary-encryption impact behavior was emulated.",
-    "match": {"technique": "T1486"}
+    "match": {
+      "technique": "T1486"
+    }
   },
   {
-    "id": "DR-HOST-ESCAPE", "technique_id": "T1611", "rule_version": "v1",
-    "severity": "high", "title": "Container-to-host boundary probe",
+    "id": "DR-HOST-ESCAPE",
+    "technique_id": "T1611",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Container-to-host boundary probe",
     "description": "A container process probed for escape vectors - docker socket exposure, sensitive host mounts, or elevated privileges.",
-    "match": {"kinds": ["process-output"], "line_regex": "escape-test|probing container-to-host boundary|docker socket|sensitive host mount"}
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "escape-test|probing container-to-host boundary|docker socket|sensitive host mount"
+    }
   },
   {
-    "id": "DR-AD-ACCOUNT-DISC", "technique_id": "T1087", "rule_version": "v1",
-    "severity": "medium", "title": "Directory account enumeration (LDAP)",
+    "id": "DR-AD-ACCOUNT-DISC",
+    "technique_id": "T1087",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "Directory account enumeration (LDAP)",
     "description": "Bulk enumeration of directory person objects - account discovery against the identity service.",
-    "match": {"kinds": ["process-output"], "line_regex": "ad-disc|enumerating directory accounts|uid=svc-backup|ou=people"}
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "ad-disc|enumerating directory accounts|uid=svc-backup|ou=people"
+    }
   },
   {
-    "id": "DR-SECRET-ACCESS", "technique_id": "T1552", "rule_version": "v1",
-    "severity": "high", "title": "Secret material read inside a container",
+    "id": "DR-SECRET-ACCESS",
+    "technique_id": "T1552",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Secret material read inside a container",
     "description": "A container process read mounted secret files or scanned the environment for credentials.",
-    "match": {"kinds": ["process-output"], "line_regex": "secret-access|reading mounted secret|SECRET_ACCESS_KEY|synthetic credential retrieved"}
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "secret-access|reading mounted secret|SECRET_ACCESS_KEY|synthetic credential retrieved"
+    }
+  },
+  {
+    "id": "DR-CRON-PERSISTENCE",
+    "technique_id": "T1053",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Scheduled job (cron) persistence installed",
+    "description": "A new cron entry pointing at a user-writable script is a classic persistence mechanism.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "new cron entry|/etc/cron.d|scheduled job installed|beacon\\.sh"
+    }
+  },
+  {
+    "id": "DR-PRIVESC-ENUM",
+    "technique_id": "T1548",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "Privilege-escalation enumeration",
+    "description": "Enumerating SUID binaries and sudo rules is reconnaissance for local privilege escalation.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "privilege escalation paths|SUID binaries|--- sudo rules ---"
+    }
+  },
+  {
+    "id": "DR-LOG-TAMPER",
+    "technique_id": "T1070",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Log and history tampering",
+    "description": "Truncating auth logs or wiping shell history is anti-forensics / defence evasion.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "clearing traces|truncating auth log|cleared /var/log|history removed|traces cleared"
+    }
   }
 ]

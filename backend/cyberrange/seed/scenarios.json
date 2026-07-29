@@ -629,5 +629,310 @@
         }
       ]
     }
+  },
+  {
+    "id": "CR-RECON-001",
+    "name": "Reconnaissance and discovery",
+    "version": "1.0.0",
+    "mode": "solo",
+    "difficulty": "introductory",
+    "duration_min": [
+      30,
+      45
+    ],
+    "topology_id": "TOPO-STD5",
+    "team_objective": "Beginner lab: run basic discovery on a target and learn how it looks in the logs.",
+    "technique_ids": [
+      "T1595",
+      "T1018"
+    ],
+    "module_ids": [
+      "CR-MOD-RECON-001",
+      "CR-MOD-DISC-LNX-001"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Enumerate the host and its network neighbours.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Find the discovery activity in the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [
+      {
+        "at_min": 10,
+        "type": "hint",
+        "text": "Discovery is noisy: look for host and network enumeration in a short burst."
+      }
+    ],
+    "expected_evidence": [
+      "network enumeration",
+      "host discovery",
+      "process output"
+    ],
+    "safety_class": "S1",
+    "learning": {
+      "overview": "Your first lab. Every intrusion starts with reconnaissance. Run two discovery techniques and learn to recognise them in the telemetry.",
+      "concepts": [
+        "Reconnaissance (T1595) probes what services and hosts exist.",
+        "Remote system discovery (T1018) maps neighbours for later movement.",
+        "Discovery is high-volume and short-lived, which is itself a signal."
+      ],
+      "steps": [
+        {
+          "title": "Enumerate the local host and network",
+          "module_id": "CR-MOD-RECON-001",
+          "instructions": "Run the recon scan. It inspects interfaces, hosts, and resolver config.",
+          "observe": "A local network reconnaissance detection is recorded."
+        },
+        {
+          "title": "Discover remote systems",
+          "module_id": "CR-MOD-DISC-LNX-001",
+          "instructions": "Run remote-system discovery to list known hosts and routes.",
+          "observe": "Host and route discovery output lands on the timeline."
+        }
+      ],
+      "quiz": [
+        {
+          "q": "What is usually the first stage of an intrusion?",
+          "options": [
+            "Impact",
+            "Reconnaissance",
+            "Exfiltration"
+          ],
+          "answer": 1,
+          "explain": "Attackers gather information before acting; recon is stage one."
+        },
+        {
+          "q": "Why is discovery activity a useful signal for defenders?",
+          "options": [
+            "It is silent",
+            "It is a short, high-volume burst of enumeration",
+            "It never appears in logs"
+          ],
+          "answer": 1,
+          "explain": "A sudden burst of host/network enumeration stands out from normal activity."
+        }
+      ]
+    }
+  },
+  {
+    "id": "CR-LINUX-001",
+    "name": "Linux server intrusion",
+    "version": "1.0.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-STD5",
+    "team_objective": "Follow a full Linux kill chain from recon to persistence; blue reconstructs it from the logs.",
+    "technique_ids": [
+      "T1595",
+      "T1059",
+      "T1053",
+      "T1018"
+    ],
+    "module_ids": [
+      "CR-MOD-RECON-001",
+      "CR-MOD-EXEC-LNX-001",
+      "CR-MOD-PERSIST-LNX-001",
+      "CR-MOD-DISC-LNX-001"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Gain execution and establish persistence on the Linux host.",
+        "points": 45
+      },
+      {
+        "role": "blue",
+        "text": "Reconstruct the kill chain and find the persistence mechanism.",
+        "points": 55
+      }
+    ],
+    "injects": [
+      {
+        "at_min": 20,
+        "type": "alert",
+        "text": "Unusual process spawned on the app host."
+      },
+      {
+        "at_min": 45,
+        "type": "hint",
+        "text": "Persistence often lives in /etc/cron.d or a user crontab."
+      }
+    ],
+    "expected_evidence": [
+      "recon burst",
+      "shell execution",
+      "cron persistence",
+      "host discovery"
+    ],
+    "safety_class": "S1",
+    "learning": {
+      "overview": "A complete Linux attack chain that runs for real: recon, shell execution, scheduled-job persistence, and discovery. Blue reconstructs the whole thing from host logs.",
+      "concepts": [
+        "A kill chain is a sequence: recon, execution, persistence, discovery.",
+        "Interpreter execution (T1059) by a service account is a strong signal.",
+        "Cron persistence (T1053) survives reboots and is easy to miss."
+      ],
+      "steps": [
+        {
+          "title": "Recon the target",
+          "module_id": "CR-MOD-RECON-001",
+          "instructions": "Enumerate the host and network.",
+          "observe": "Recon detection fires."
+        },
+        {
+          "title": "Gain execution",
+          "module_id": "CR-MOD-EXEC-LNX-001",
+          "instructions": "Run an interpreter as the target user.",
+          "observe": "Process execution as root/uid."
+        },
+        {
+          "title": "Establish persistence",
+          "module_id": "CR-MOD-PERSIST-LNX-001",
+          "instructions": "Install a cron job that re-runs a payload.",
+          "observe": "A cron-persistence alert fires."
+        },
+        {
+          "title": "Discover neighbours",
+          "module_id": "CR-MOD-DISC-LNX-001",
+          "instructions": "Enumerate remote systems for the next hop.",
+          "observe": "Host discovery output."
+        }
+      ],
+      "quiz": [
+        {
+          "q": "Which technique gives an attacker a foothold that survives a reboot?",
+          "options": [
+            "T1595 Recon",
+            "T1053 Scheduled Task/Job",
+            "T1018 Remote System Discovery"
+          ],
+          "answer": 1,
+          "explain": "Scheduled jobs (cron) re-execute the payload persistently."
+        },
+        {
+          "q": "Where should blue look first for Linux persistence?",
+          "options": [
+            "/tmp only",
+            "/etc/cron.d and crontabs",
+            "The kernel"
+          ],
+          "answer": 1,
+          "explain": "Cron directories and user crontabs are the classic persistence locations."
+        }
+      ]
+    }
+  },
+  {
+    "id": "CR-PRIVESC-001",
+    "name": "Privilege escalation and evasion",
+    "version": "1.0.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-STD5",
+    "team_objective": "Red escalates privileges then covers its tracks; blue catches the enumeration and the log tampering.",
+    "technique_ids": [
+      "T1059",
+      "T1548",
+      "T1070"
+    ],
+    "module_ids": [
+      "CR-MOD-EXEC-LNX-001",
+      "CR-MOD-PRIVESC-LNX-001",
+      "CR-MOD-EVADE-LNX-001"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Enumerate privilege-escalation paths, then tamper with logs.",
+        "points": 45
+      },
+      {
+        "role": "blue",
+        "text": "Detect the SUID/sudo enumeration and the anti-forensics.",
+        "points": 55
+      }
+    ],
+    "injects": [
+      {
+        "at_min": 25,
+        "type": "alert",
+        "text": "SUID enumeration observed on the host."
+      },
+      {
+        "at_min": 55,
+        "type": "escalation",
+        "text": "Auth log gap detected."
+      }
+    ],
+    "expected_evidence": [
+      "shell execution",
+      "privesc enumeration",
+      "log tampering"
+    ],
+    "safety_class": "S2",
+    "learning": {
+      "overview": "After a foothold, attackers escalate and then hide. This lab runs SUID/sudo enumeration and safe log tampering, and teaches blue to spot both.",
+      "concepts": [
+        "Privilege escalation (T1548) often starts by enumerating SUID binaries and sudo rules.",
+        "Defence evasion (T1070) includes truncating logs and wiping history.",
+        "A gap in a log is itself evidence: absence of data is a signal."
+      ],
+      "steps": [
+        {
+          "title": "Gain execution",
+          "module_id": "CR-MOD-EXEC-LNX-001",
+          "instructions": "Run an interpreter on the host.",
+          "observe": "Process execution."
+        },
+        {
+          "title": "Hunt for privesc paths",
+          "module_id": "CR-MOD-PRIVESC-LNX-001",
+          "instructions": "Enumerate SUID binaries and sudo rules.",
+          "observe": "A privesc-enumeration alert fires."
+        },
+        {
+          "title": "Cover the tracks",
+          "module_id": "CR-MOD-EVADE-LNX-001",
+          "instructions": "Truncate the auth log and wipe history.",
+          "observe": "A log-tampering alert fires."
+        }
+      ],
+      "quiz": [
+        {
+          "q": "What does enumerating SUID binaries usually precede?",
+          "options": [
+            "Exfiltration",
+            "Local privilege escalation",
+            "Phishing"
+          ],
+          "answer": 1,
+          "explain": "SUID/sudo enumeration is reconnaissance for privilege escalation."
+        },
+        {
+          "q": "Why is a truncated auth log suspicious even though it is empty?",
+          "options": [
+            "Empty logs are normal",
+            "The absence of expected entries is itself evidence of tampering",
+            "It improves performance"
+          ],
+          "answer": 1,
+          "explain": "Anti-forensics leaves a gap; the missing data is the tell."
+        }
+      ]
+    }
   }
 ]

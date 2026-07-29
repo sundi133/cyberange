@@ -66,7 +66,7 @@ async function viewCatalog() {
     <div class="toolbar">
       <input id="q" placeholder="Search scenarios…" style="min-width:200px" />
       <select id="f-diff"><option value="">Any difficulty</option>
-        <option>intermediate</option><option>advanced</option></select>
+        <option>introductory</option><option>intermediate</option><option>advanced</option></select>
       <select id="f-plat"><option value="">Any platform</option>
         <option>windows</option><option>linux</option><option>docker</option></select>
       <button class="ghost" id="btn-search">Filter</button>

@@ -1,320 +1,832 @@
 [
   {
-    "id": "CR-MOD-RECON-001", "name": "Lab service discovery scan", "version": "1.0.0",
-    "technique_ids": ["T1595", "T1018"], "tactic": "Reconnaissance", "platform": "linux",
-    "safety_class": "S1", "approval": "Security content reviewer",
-    "inputs": {"subnet": "cidr", "port_set": "enum[top100,full]"},
-    "preconditions": ["Range READY", "Attacker host healthy"],
+    "id": "CR-MOD-RECON-001",
+    "name": "Lab service discovery scan",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1595",
+      "T1018"
+    ],
+    "tactic": "Reconnaissance",
+    "platform": "linux",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "subnet": "cidr",
+      "port_set": "enum[top100,full]"
+    },
+    "preconditions": [
+      "Range READY",
+      "Attacker host healthy"
+    ],
     "timeout_seconds": 300,
-    "expected_telemetry": ["Suricata scan alert", "network flow spike", "target auth logs"],
+    "expected_telemetry": [
+      "Suricata scan alert",
+      "network flow spike",
+      "target auth logs"
+    ],
     "cleanup": "None required; read-only discovery.",
     "detection_notes": "Blue should observe a burst of short-lived connections from the attacker host across the target subnet.",
-    "execution": {"adapter": "docker", "image": "alpine:3.19", "network": "none",
-      "cmd": ["sh", "-c", "echo '[recon] enumerating local network context'; ip -o addr 2>/dev/null || ifconfig -a; echo '--- hosts ---'; cat /etc/hosts; echo '--- probing lab web service (webapp:80) ---'; wget -qO- -T 3 http://webapp 2>/dev/null && echo ' [+] webapp:80 reachable' || echo ' [-] webapp unreachable'; echo '[recon] complete'"]},
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo '[recon] enumerating local network context'; ip -o addr 2>/dev/null || ifconfig -a; echo '--- hosts ---'; cat /etc/hosts; echo '--- probing lab web service (webapp:80) ---'; wget -qO- -T 3 http://webapp 2>/dev/null && echo ' [+] webapp:80 reachable' || echo ' [-] webapp unreachable'; echo '[recon] complete'"
+      ]
+    },
     "signed": true
   },
   {
-    "id": "CR-MOD-PHISH-001", "name": "Simulated phishing attachment delivery", "version": "1.0.0",
-    "technique_ids": ["T1566", "T1204"], "tactic": "Initial Access", "platform": "windows",
-    "safety_class": "S0", "approval": "Scenario author",
-    "inputs": {"mailbox": "string", "template": "enum[invoice,it-reset,hr-doc]"},
-    "preconditions": ["Mail simulator seeded", "Synthetic user mailbox present"],
+    "id": "CR-MOD-PHISH-001",
+    "name": "Simulated phishing attachment delivery",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1566",
+      "T1204"
+    ],
+    "tactic": "Initial Access",
+    "platform": "windows",
+    "safety_class": "S0",
+    "approval": "Scenario author",
+    "inputs": {
+      "mailbox": "string",
+      "template": "enum[invoice,it-reset,hr-doc]"
+    },
+    "preconditions": [
+      "Mail simulator seeded",
+      "Synthetic user mailbox present"
+    ],
     "timeout_seconds": 120,
-    "expected_telemetry": ["mail event", "browser/download event", "user report"],
+    "expected_telemetry": [
+      "mail event",
+      "browser/download event",
+      "user report"
+    ],
     "cleanup": "Remove delivered synthetic message.",
     "detection_notes": "A benign attachment lands in the seeded mailbox; no real payload executes.",
     "signed": true
   },
   {
-    "id": "CR-MOD-EXEC-WIN-001", "name": "PowerShell interpreter behavior", "version": "1.0.0",
-    "technique_ids": ["T1059"], "tactic": "Execution", "platform": "windows",
-    "safety_class": "S1", "approval": "Security content reviewer",
-    "inputs": {"command_profile": "enum[enc-cmd,download-cradle,inline]"},
-    "preconditions": ["Windows endpoint enrolled in Wazuh", "Sysmon installed"],
+    "id": "CR-MOD-EXEC-WIN-001",
+    "name": "PowerShell interpreter behavior",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1059"
+    ],
+    "tactic": "Execution",
+    "platform": "windows",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "command_profile": "enum[enc-cmd,download-cradle,inline]"
+    },
+    "preconditions": [
+      "Windows endpoint enrolled in Wazuh",
+      "Sysmon installed"
+    ],
     "timeout_seconds": 90,
-    "expected_telemetry": ["process creation (4688/Sysmon 1)", "PowerShell script block log", "parent/child lineage"],
+    "expected_telemetry": [
+      "process creation (4688/Sysmon 1)",
+      "PowerShell script block log",
+      "parent/child lineage"
+    ],
     "cleanup": "Terminate spawned processes; clear temp artifacts.",
     "detection_notes": "Look for an unusual parent (Office/browser) spawning powershell.exe with encoded arguments.",
     "signed": true
   },
   {
-    "id": "CR-MOD-EXEC-LNX-001", "name": "Bash interpreter behavior", "version": "1.0.0",
-    "technique_ids": ["T1059"], "tactic": "Execution", "platform": "linux",
-    "safety_class": "S1", "approval": "Security content reviewer",
-    "inputs": {"command_profile": "enum[reverse-benign,curl-run,inline]"},
-    "preconditions": ["Linux endpoint enrolled in Wazuh", "auditd active"],
+    "id": "CR-MOD-EXEC-LNX-001",
+    "name": "Bash interpreter behavior",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1059"
+    ],
+    "tactic": "Execution",
+    "platform": "linux",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "command_profile": "enum[reverse-benign,curl-run,inline]"
+    },
+    "preconditions": [
+      "Linux endpoint enrolled in Wazuh",
+      "auditd active"
+    ],
     "timeout_seconds": 90,
-    "expected_telemetry": ["execve audit record", "process tree", "command line"],
+    "expected_telemetry": [
+      "execve audit record",
+      "process tree",
+      "command line"
+    ],
     "cleanup": "Kill spawned processes; remove staged scripts.",
     "detection_notes": "Blue should trace a web/app service account spawning an interactive shell.",
-    "execution": {"adapter": "docker", "image": "alpine:3.19", "network": "none",
-      "cmd": ["sh", "-c", "echo '[exec] interpreter behavior on target'; id; echo '--- whoami ---'; whoami; echo '--- process list ---'; ps -ef 2>/dev/null | head -20; echo '--- environment ---'; env | sort | head -20; echo '[exec] complete'"]},
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo '[exec] interpreter behavior on target'; id; echo '--- whoami ---'; whoami; echo '--- process list ---'; ps -ef 2>/dev/null | head -20; echo '--- environment ---'; env | sort | head -20; echo '[exec] complete'"
+      ]
+    },
     "signed": true
   },
   {
-    "id": "CR-MOD-PERSIST-WIN-001", "name": "Scheduled task persistence", "version": "1.0.0",
-    "technique_ids": ["T1053"], "tactic": "Persistence", "platform": "windows",
-    "safety_class": "S1", "approval": "Security content reviewer",
-    "inputs": {"task_name": "string", "trigger": "enum[logon,interval]"},
-    "preconditions": ["Windows endpoint enrolled"],
+    "id": "CR-MOD-PERSIST-WIN-001",
+    "name": "Scheduled task persistence",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1053"
+    ],
+    "tactic": "Persistence",
+    "platform": "windows",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "task_name": "string",
+      "trigger": "enum[logon,interval]"
+    },
+    "preconditions": [
+      "Windows endpoint enrolled"
+    ],
     "timeout_seconds": 60,
-    "expected_telemetry": ["task creation (4698)", "autorun entry", "EDR alert"],
+    "expected_telemetry": [
+      "task creation (4698)",
+      "autorun entry",
+      "EDR alert"
+    ],
     "cleanup": "Delete created scheduled task.",
     "detection_notes": "Autorun/scheduled task pointing at a user-writable path is the tell.",
     "signed": true
   },
   {
-    "id": "CR-MOD-PERSIST-LNX-001", "name": "Cron job persistence", "version": "1.0.0",
-    "technique_ids": ["T1053"], "tactic": "Persistence", "platform": "linux",
-    "safety_class": "S1", "approval": "Security content reviewer",
-    "inputs": {"schedule": "cron", "payload": "enum[beacon-benign,noop]"},
-    "preconditions": ["Linux endpoint enrolled"],
+    "id": "CR-MOD-PERSIST-LNX-001",
+    "name": "Cron job persistence",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1053"
+    ],
+    "tactic": "Persistence",
+    "platform": "linux",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "schedule": "cron",
+      "payload": "enum[beacon-benign,noop]"
+    },
+    "preconditions": [
+      "Linux endpoint enrolled"
+    ],
     "timeout_seconds": 60,
-    "expected_telemetry": ["cron file change (FIM)", "audit rule hit", "new process on schedule"],
+    "expected_telemetry": [
+      "cron file change (FIM)",
+      "audit rule hit",
+      "new process on schedule"
+    ],
     "cleanup": "Remove cron entry and staged script.",
     "detection_notes": "File integrity monitoring on /etc/cron.* surfaces the new job.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo '[persistence] installing scheduled job'; mkdir -p /etc/cron.d; printf '#!/bin/sh\\necho beacon\\n' > /tmp/beacon.sh; chmod +x /tmp/beacon.sh; echo '*/5 * * * * root /tmp/beacon.sh' > /etc/cron.d/beacon; echo '--- new cron entry ---'; cat /etc/cron.d/beacon; ls -la /etc/cron.d/; echo '[persistence] scheduled job installed'"
+      ]
+    }
   },
   {
-    "id": "CR-MOD-PRIVESC-WIN-001", "name": "Local misconfiguration privilege path", "version": "1.0.0",
-    "technique_ids": ["T1548"], "tactic": "Privilege Escalation", "platform": "windows",
-    "safety_class": "S2", "approval": "Administrator + explicit scenario policy",
-    "inputs": {"misconfig": "enum[unquoted-service,alwaysinstallelevated]"},
-    "preconditions": ["Preconfigured vulnerable service present", "Checkpoint available"],
+    "id": "CR-MOD-PRIVESC-WIN-001",
+    "name": "Local misconfiguration privilege path",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1548"
+    ],
+    "tactic": "Privilege Escalation",
+    "platform": "windows",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "misconfig": "enum[unquoted-service,alwaysinstallelevated]"
+    },
+    "preconditions": [
+      "Preconfigured vulnerable service present",
+      "Checkpoint available"
+    ],
     "timeout_seconds": 120,
-    "expected_telemetry": ["auth elevation", "process integrity change", "policy telemetry"],
+    "expected_telemetry": [
+      "auth elevation",
+      "process integrity change",
+      "policy telemetry"
+    ],
     "cleanup": "Restore checkpoint; revert service config.",
     "detection_notes": "A standard user context spawns a SYSTEM process via a weak service ACL.",
     "signed": true
   },
   {
-    "id": "CR-MOD-PRIVESC-LNX-001", "name": "SUID/sudo misconfiguration path", "version": "1.0.0",
-    "technique_ids": ["T1548"], "tactic": "Privilege Escalation", "platform": "linux",
-    "safety_class": "S2", "approval": "Administrator + explicit scenario policy",
-    "inputs": {"misconfig": "enum[sudo-nopasswd,suid-binary]"},
-    "preconditions": ["Preconfigured misconfig present", "Checkpoint available"],
+    "id": "CR-MOD-PRIVESC-LNX-001",
+    "name": "SUID/sudo misconfiguration path",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1548"
+    ],
+    "tactic": "Privilege Escalation",
+    "platform": "linux",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "misconfig": "enum[sudo-nopasswd,suid-binary]"
+    },
+    "preconditions": [
+      "Preconfigured misconfig present",
+      "Checkpoint available"
+    ],
     "timeout_seconds": 120,
-    "expected_telemetry": ["sudo audit record", "uid transition", "process telemetry"],
+    "expected_telemetry": [
+      "sudo audit record",
+      "uid transition",
+      "process telemetry"
+    ],
     "cleanup": "Restore checkpoint; revert sudoers/binary.",
     "detection_notes": "Watch for a uid=0 transition from a service account via a permitted sudo rule.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo '[privesc] probing for privilege escalation paths'; echo '--- current user ---'; id; echo '--- SUID binaries ---'; find / -perm -4000 -type f 2>/dev/null | head; echo '--- sudo rules ---'; cat /etc/sudoers 2>/dev/null | grep -vE '^#|^$' || echo 'sudoers not readable'; echo '[privesc] enumeration complete'"
+      ]
+    }
   },
   {
-    "id": "CR-MOD-EVADE-WIN-001", "name": "Windows event log tamper (benign)", "version": "1.0.0",
-    "technique_ids": ["T1070"], "tactic": "Defense Evasion", "platform": "windows",
-    "safety_class": "S1", "approval": "Security content reviewer",
-    "inputs": {"target_log": "enum[security,system,application]"},
-    "preconditions": ["Windows endpoint enrolled", "Forwarding active"],
+    "id": "CR-MOD-EVADE-WIN-001",
+    "name": "Windows event log tamper (benign)",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1070"
+    ],
+    "tactic": "Defense Evasion",
+    "platform": "windows",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "target_log": "enum[security,system,application]"
+    },
+    "preconditions": [
+      "Windows endpoint enrolled",
+      "Forwarding active"
+    ],
     "timeout_seconds": 60,
-    "expected_telemetry": ["log clear event (1102)", "tamper alert", "audit gap"],
+    "expected_telemetry": [
+      "log clear event (1102)",
+      "tamper alert",
+      "audit gap"
+    ],
     "cleanup": "No destructive action; benign marker only.",
     "detection_notes": "1102 log-clear plus a forwarding gap should trip a tamper detection.",
     "signed": true
   },
   {
-    "id": "CR-MOD-EVADE-LNX-001", "name": "Linux log/artifact manipulation (benign)", "version": "1.0.0",
-    "technique_ids": ["T1070"], "tactic": "Defense Evasion", "platform": "linux",
-    "safety_class": "S1", "approval": "Security content reviewer",
-    "inputs": {"target": "enum[bash_history,auth_log]"},
-    "preconditions": ["Linux endpoint enrolled"],
+    "id": "CR-MOD-EVADE-LNX-001",
+    "name": "Linux log/artifact manipulation (benign)",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1070"
+    ],
+    "tactic": "Defense Evasion",
+    "platform": "linux",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "target": "enum[bash_history,auth_log]"
+    },
+    "preconditions": [
+      "Linux endpoint enrolled"
+    ],
     "timeout_seconds": 60,
-    "expected_telemetry": ["FIM change", "audit gap", "file events"],
+    "expected_telemetry": [
+      "FIM change",
+      "audit gap",
+      "file events"
+    ],
     "cleanup": "Restore original synthetic log content.",
     "detection_notes": "Truncation/rewrite of history or auth logs raises a FIM tamper alert.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo '[defense-evasion] clearing traces'; printf 'ls\\nwhoami\\n' > /root/.ash_history; echo '--- truncating auth log ---'; mkdir -p /var/log; : > /var/log/auth.log; echo 'cleared /var/log/auth.log'; echo '--- wiping shell history ---'; rm -f /root/.ash_history; echo 'history removed'; echo '[defense-evasion] traces cleared'"
+      ]
+    }
   },
   {
-    "id": "CR-MOD-CRED-WIN-001", "name": "Synthetic credential-dump simulation", "version": "1.0.0",
-    "technique_ids": ["T1003"], "tactic": "Credential Access", "platform": "windows",
-    "safety_class": "S1", "approval": "Security content reviewer",
-    "inputs": {"method_signature": "enum[lsass-access-sim,ntds-sim]"},
-    "preconditions": ["Windows endpoint enrolled", "No real secrets present"],
+    "id": "CR-MOD-CRED-WIN-001",
+    "name": "Synthetic credential-dump simulation",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1003"
+    ],
+    "tactic": "Credential Access",
+    "platform": "windows",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "method_signature": "enum[lsass-access-sim,ntds-sim]"
+    },
+    "preconditions": [
+      "Windows endpoint enrolled",
+      "No real secrets present"
+    ],
     "timeout_seconds": 90,
-    "expected_telemetry": ["sensitive-process access alert (Sysmon 10)", "handle to lsass sim"],
+    "expected_telemetry": [
+      "sensitive-process access alert (Sysmon 10)",
+      "handle to lsass sim"
+    ],
     "cleanup": "None; simulation only, no memory read of real secrets.",
     "detection_notes": "A process opening a handle to the LSASS stand-in is the detection anchor.",
     "signed": true
   },
   {
-    "id": "CR-MOD-DISC-WIN-001", "name": "Active Directory account discovery", "version": "1.0.0",
-    "technique_ids": ["T1087"], "tactic": "Discovery", "platform": "windows",
-    "safety_class": "S0", "approval": "Scenario author",
-    "inputs": {"scope": "enum[users,groups,admins]"},
-    "preconditions": ["AD server seeded", "Endpoint domain-joined"],
+    "id": "CR-MOD-DISC-WIN-001",
+    "name": "Active Directory account discovery",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1087"
+    ],
+    "tactic": "Discovery",
+    "platform": "windows",
+    "safety_class": "S0",
+    "approval": "Scenario author",
+    "inputs": {
+      "scope": "enum[users,groups,admins]"
+    },
+    "preconditions": [
+      "AD server seeded",
+      "Endpoint domain-joined"
+    ],
     "timeout_seconds": 120,
-    "expected_telemetry": ["directory query", "LDAP telemetry", "host events"],
+    "expected_telemetry": [
+      "directory query",
+      "LDAP telemetry",
+      "host events"
+    ],
     "cleanup": "None; read-only queries.",
     "detection_notes": "Bulk LDAP enumeration from a workstation account is the signal.",
     "signed": true
   },
   {
-    "id": "CR-MOD-DISC-LNX-001", "name": "Remote-system discovery", "version": "1.0.0",
-    "technique_ids": ["T1018"], "tactic": "Discovery", "platform": "linux",
-    "safety_class": "S0", "approval": "Scenario author",
-    "inputs": {"scope": "cidr"},
-    "preconditions": ["Range READY"],
+    "id": "CR-MOD-DISC-LNX-001",
+    "name": "Remote-system discovery",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1018"
+    ],
+    "tactic": "Discovery",
+    "platform": "linux",
+    "safety_class": "S0",
+    "approval": "Scenario author",
+    "inputs": {
+      "scope": "cidr"
+    },
+    "preconditions": [
+      "Range READY"
+    ],
     "timeout_seconds": 120,
-    "expected_telemetry": ["network events", "arp/host sweep", "connection metadata"],
+    "expected_telemetry": [
+      "network events",
+      "arp/host sweep",
+      "connection metadata"
+    ],
     "cleanup": "None; read-only.",
     "detection_notes": "Host sweep pattern across the server zone from a non-admin host.",
-    "execution": {"adapter": "docker", "image": "alpine:3.19", "network": "none",
-      "cmd": ["sh", "-c", "echo '[discovery] remote-system discovery'; echo '--- known hosts ---'; cat /etc/hosts; echo '--- routes ---'; ip route 2>/dev/null || route -n; echo '--- reaching webapp host ---'; wget -qO- -T 3 http://webapp 2>/dev/null | head -1 && echo ' [+] reached webapp over range network' || echo ' [-] webapp not reachable'; echo '[discovery] complete'"]},
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo '[discovery] remote-system discovery'; echo '--- known hosts ---'; cat /etc/hosts; echo '--- routes ---'; ip route 2>/dev/null || route -n; echo '--- reaching webapp host ---'; wget -qO- -T 3 http://webapp 2>/dev/null | head -1 && echo ' [+] reached webapp over range network' || echo ' [-] webapp not reachable'; echo '[discovery] complete'"
+      ]
+    },
     "signed": true
   },
   {
-    "id": "CR-MOD-LATERAL-WIN-001", "name": "Remote service lateral movement", "version": "1.0.0",
-    "technique_ids": ["T1021"], "tactic": "Lateral Movement", "platform": "windows",
-    "safety_class": "S1", "approval": "Security content reviewer",
-    "inputs": {"seeded_account": "string", "method": "enum[wmi,winrm,smb]"},
-    "preconditions": ["Seeded account provisioned", "Two endpoints enrolled"],
+    "id": "CR-MOD-LATERAL-WIN-001",
+    "name": "Remote service lateral movement",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1021"
+    ],
+    "tactic": "Lateral Movement",
+    "platform": "windows",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "seeded_account": "string",
+      "method": "enum[wmi,winrm,smb]"
+    },
+    "preconditions": [
+      "Seeded account provisioned",
+      "Two endpoints enrolled"
+    ],
     "timeout_seconds": 120,
-    "expected_telemetry": ["logon type 3/10", "remote service creation", "network flow"],
+    "expected_telemetry": [
+      "logon type 3/10",
+      "remote service creation",
+      "network flow"
+    ],
     "cleanup": "Remove remote artifacts; revoke session.",
     "detection_notes": "Network logon followed by remote service/process creation across hosts.",
     "signed": true
   },
   {
-    "id": "CR-MOD-COLLECT-001", "name": "Tagged synthetic file collection", "version": "1.0.0",
-    "technique_ids": ["T1005", "T1560"], "tactic": "Collection", "platform": "windows",
-    "safety_class": "S1", "approval": "Security content reviewer",
-    "inputs": {"tag": "string", "archive": "bool"},
-    "preconditions": ["Tagged synthetic files seeded"],
+    "id": "CR-MOD-COLLECT-001",
+    "name": "Tagged synthetic file collection",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1005",
+      "T1560"
+    ],
+    "tactic": "Collection",
+    "platform": "windows",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "tag": "string",
+      "archive": "bool"
+    },
+    "preconditions": [
+      "Tagged synthetic files seeded"
+    ],
     "timeout_seconds": 120,
-    "expected_telemetry": ["file reads", "archive creation", "DLP signal"],
+    "expected_telemetry": [
+      "file reads",
+      "archive creation",
+      "DLP signal"
+    ],
     "cleanup": "Remove staged archive.",
     "detection_notes": "Mass reads of DLP-tagged files followed by archive creation.",
     "signed": true
   },
   {
-    "id": "CR-MOD-C2-001", "name": "Internal C2 beacon simulation", "version": "1.0.0",
-    "technique_ids": ["T1071"], "tactic": "Command & Control", "platform": "linux",
-    "safety_class": "S0", "approval": "Scenario author",
-    "inputs": {"jitter": "int", "protocol": "enum[dns,https]"},
-    "preconditions": ["Internal C2 simulator reachable", "No public egress"],
+    "id": "CR-MOD-C2-001",
+    "name": "Internal C2 beacon simulation",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1071"
+    ],
+    "tactic": "Command & Control",
+    "platform": "linux",
+    "safety_class": "S0",
+    "approval": "Scenario author",
+    "inputs": {
+      "jitter": "int",
+      "protocol": "enum[dns,https]"
+    },
+    "preconditions": [
+      "Internal C2 simulator reachable",
+      "No public egress"
+    ],
     "timeout_seconds": 600,
-    "expected_telemetry": ["periodic DNS/HTTP pattern", "proxy/network alert"],
+    "expected_telemetry": [
+      "periodic DNS/HTTP pattern",
+      "proxy/network alert"
+    ],
     "cleanup": "Stop beacon process.",
     "detection_notes": "Regular low-and-slow callbacks to the internal C2 sink with fixed jitter.",
     "signed": true
   },
   {
-    "id": "CR-MOD-EXFIL-001", "name": "Synthetic data exfiltration to internal sink", "version": "1.0.0",
-    "technique_ids": ["T1041"], "tactic": "Exfiltration", "platform": "linux",
-    "safety_class": "S1", "approval": "Security content reviewer",
-    "inputs": {"volume_mb": "int", "sink": "enum[internal-http,internal-dns]"},
-    "preconditions": ["Internal sink reachable", "Synthetic dataset staged", "No public egress"],
+    "id": "CR-MOD-EXFIL-001",
+    "name": "Synthetic data exfiltration to internal sink",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1041"
+    ],
+    "tactic": "Exfiltration",
+    "platform": "linux",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "volume_mb": "int",
+      "sink": "enum[internal-http,internal-dns]"
+    },
+    "preconditions": [
+      "Internal sink reachable",
+      "Synthetic dataset staged",
+      "No public egress"
+    ],
     "timeout_seconds": 300,
-    "expected_telemetry": ["DLP", "flow volume", "destination alert"],
+    "expected_telemetry": [
+      "DLP",
+      "flow volume",
+      "destination alert"
+    ],
     "cleanup": "Purge staged dataset; reset sink.",
     "detection_notes": "Outbound volume anomaly to a non-business internal destination.",
     "signed": true
   },
   {
-    "id": "CR-MOD-DOCKER-DISC-001", "name": "Container/image/network enumeration", "version": "1.0.0",
-    "technique_ids": ["T1613"], "tactic": "Container Discovery", "platform": "docker",
-    "safety_class": "S1", "approval": "Security content reviewer",
-    "inputs": {"scope": "enum[containers,images,networks,volumes]"},
-    "preconditions": ["Docker host healthy", "Falco active"],
+    "id": "CR-MOD-DOCKER-DISC-001",
+    "name": "Container/image/network enumeration",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1613"
+    ],
+    "tactic": "Container Discovery",
+    "platform": "docker",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "scope": "enum[containers,images,networks,volumes]"
+    },
+    "preconditions": [
+      "Docker host healthy",
+      "Falco active"
+    ],
     "timeout_seconds": 120,
-    "expected_telemetry": ["Docker API audit", "runtime telemetry", "process events"],
+    "expected_telemetry": [
+      "Docker API audit",
+      "runtime telemetry",
+      "process events"
+    ],
     "cleanup": "None; read-only enumeration.",
     "detection_notes": "docker ps/images/inspect from inside a workload container is unusual.",
-    "execution": {"adapter": "docker", "image": "alpine:3.19", "network": "none",
-      "cmd": ["sh", "-c", "echo '[container-discovery] enumerating container context'; echo '--- cgroup (are we containerized?) ---'; cat /proc/1/cgroup 2>/dev/null | head; echo '--- mounts ---'; mount 2>/dev/null | head -15; echo '--- container id ---'; cat /etc/hostname; echo '--- capabilities ---'; cat /proc/self/status | grep -i cap; echo '[container-discovery] complete'"]},
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo '[container-discovery] enumerating container context'; echo '--- cgroup (are we containerized?) ---'; cat /proc/1/cgroup 2>/dev/null | head; echo '--- mounts ---'; mount 2>/dev/null | head -15; echo '--- container id ---'; cat /etc/hostname; echo '--- capabilities ---'; cat /proc/self/status | grep -i cap; echo '[container-discovery] complete'"
+      ]
+    },
     "signed": true
   },
   {
-    "id": "CR-MOD-DOCKER-SECRET-001", "name": "Exposed synthetic secret access", "version": "1.0.0",
-    "technique_ids": ["T1552", "T1613"], "tactic": "Credential Access", "platform": "docker",
-    "safety_class": "S1", "approval": "Security content reviewer",
-    "inputs": {"secret_path": "string"},
-    "preconditions": ["Synthetic secret mounted", "Falco active"],
+    "id": "CR-MOD-DOCKER-SECRET-001",
+    "name": "Exposed synthetic secret access",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1552",
+      "T1613"
+    ],
+    "tactic": "Credential Access",
+    "platform": "docker",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "secret_path": "string"
+    },
+    "preconditions": [
+      "Synthetic secret mounted",
+      "Falco active"
+    ],
     "timeout_seconds": 90,
-    "expected_telemetry": ["sensitive file read", "runtime alert", "process telemetry"],
+    "expected_telemetry": [
+      "sensitive file read",
+      "runtime alert",
+      "process telemetry"
+    ],
     "cleanup": "Rotate synthetic secret.",
     "detection_notes": "Read of a mounted secret/env by an unexpected process.",
-    "execution": {"adapter": "docker", "image": "alpine:3.19", "network": "none",
-      "cmd": ["sh", "-c", "echo '[secret-access] searching container for exposed secrets'; mkdir -p /run/secrets; printf 'AWS_SECRET_ACCESS_KEY=SYNTHETIC-DO-NOT-USE-abc123\\n' > /run/secrets/app.env; echo '--- reading mounted secret ---'; cat /run/secrets/app.env; echo '--- scanning env for tokens ---'; env | grep -iE 'key|token|secret|password' || echo 'no secrets in environment'; echo '[secret-access] synthetic credential retrieved'"]},
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo '[secret-access] searching container for exposed secrets'; mkdir -p /run/secrets; printf 'AWS_SECRET_ACCESS_KEY=SYNTHETIC-DO-NOT-USE-abc123\\n' > /run/secrets/app.env; echo '--- reading mounted secret ---'; cat /run/secrets/app.env; echo '--- scanning env for tokens ---'; env | grep -iE 'key|token|secret|password' || echo 'no secrets in environment'; echo '[secret-access] synthetic credential retrieved'"
+      ]
+    },
     "signed": true
   },
   {
-    "id": "CR-MOD-DOCKER-RUNTIME-001", "name": "Abnormal container runtime activity", "version": "1.0.0",
-    "technique_ids": ["T1610"], "tactic": "Execution", "platform": "docker",
-    "safety_class": "S1", "approval": "Security content reviewer",
-    "inputs": {"behavior": "enum[spawn-shell,write-binary,curl-internal]"},
-    "preconditions": ["Docker host healthy", "Falco active"],
+    "id": "CR-MOD-DOCKER-RUNTIME-001",
+    "name": "Abnormal container runtime activity",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1610"
+    ],
+    "tactic": "Execution",
+    "platform": "docker",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "behavior": "enum[spawn-shell,write-binary,curl-internal]"
+    },
+    "preconditions": [
+      "Docker host healthy",
+      "Falco active"
+    ],
     "timeout_seconds": 90,
-    "expected_telemetry": ["Falco shell-in-container", "unexpected write", "syscall alert"],
+    "expected_telemetry": [
+      "Falco shell-in-container",
+      "unexpected write",
+      "syscall alert"
+    ],
     "cleanup": "Kill offending process; reset container.",
     "detection_notes": "Interactive shell or binary write inside a service container.",
-    "execution": {"adapter": "docker", "image": "alpine:3.19", "network": "none",
-      "cmd": ["sh", "-c", "echo '[runtime] abnormal activity inside container'; echo '--- spawning nested shell ---'; sh -c 'whoami; id'; echo '--- writing binary to /tmp ---'; printf '#!/bin/sh\\necho payload\\n' > /tmp/payload.sh && chmod +x /tmp/payload.sh && ls -la /tmp/payload.sh; echo '--- executing it ---'; /tmp/payload.sh; echo '[runtime] complete'"]},
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo '[runtime] abnormal activity inside container'; echo '--- spawning nested shell ---'; sh -c 'whoami; id'; echo '--- writing binary to /tmp ---'; printf '#!/bin/sh\\necho payload\\n' > /tmp/payload.sh && chmod +x /tmp/payload.sh && ls -la /tmp/payload.sh; echo '--- executing it ---'; /tmp/payload.sh; echo '[runtime] complete'"
+      ]
+    },
     "signed": true
   },
   {
-    "id": "CR-MOD-DOCKER-ESCAPE-001", "name": "Container-to-host boundary test (safe)", "version": "1.0.0",
-    "technique_ids": ["T1611"], "tactic": "Escape to Host", "platform": "docker",
-    "safety_class": "S2", "approval": "Administrator + explicit scenario policy",
-    "inputs": {"vector": "enum[sensitive-mount,privileged-flag]"},
-    "preconditions": ["Preconfigured boundary-test container", "Checkpoint available", "Falco active"],
+    "id": "CR-MOD-DOCKER-ESCAPE-001",
+    "name": "Container-to-host boundary test (safe)",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1611"
+    ],
+    "tactic": "Escape to Host",
+    "platform": "docker",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "vector": "enum[sensitive-mount,privileged-flag]"
+    },
+    "preconditions": [
+      "Preconfigured boundary-test container",
+      "Checkpoint available",
+      "Falco active"
+    ],
     "timeout_seconds": 120,
-    "expected_telemetry": ["Falco escape alert", "host mount access", "host process events"],
+    "expected_telemetry": [
+      "Falco escape alert",
+      "host mount access",
+      "host process events"
+    ],
     "cleanup": "Restore checkpoint; remove test container.",
     "detection_notes": "Access to host paths via a sensitive mount from a container context.",
-    "execution": {"adapter": "docker", "image": "alpine:3.19", "network": "none",
-      "cmd": ["sh", "-c", "echo '[escape-test] probing container-to-host boundary'; echo '--- effective privilege check ---'; grep -E 'CapEff|CapBnd' /proc/self/status | sed 's/Cap/Privilege-/'; echo '--- docker socket exposed? ---'; ls -la /var/run/docker.sock 2>&1 || echo 'docker socket not present (boundary intact)'; echo '--- sensitive host mount check ---'; mount | grep -iE '/host|docker.sock' || echo 'no sensitive host mounts detected'; echo '[escape-test] boundary held; no host access achieved'"]},
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo '[escape-test] probing container-to-host boundary'; echo '--- effective privilege check ---'; grep -E 'CapEff|CapBnd' /proc/self/status | sed 's/Cap/Privilege-/'; echo '--- docker socket exposed? ---'; ls -la /var/run/docker.sock 2>&1 || echo 'docker socket not present (boundary intact)'; echo '--- sensitive host mount check ---'; mount | grep -iE '/host|docker.sock' || echo 'no sensitive host mounts detected'; echo '[escape-test] boundary held; no host access achieved'"
+      ]
+    },
     "signed": true
   },
   {
-    "id": "CR-MOD-WEBAPP-001", "name": "Vulnerable web-app entry to host", "version": "1.0.0",
-    "technique_ids": ["T1190", "T1059"], "tactic": "Initial Access", "platform": "linux",
-    "safety_class": "S1", "approval": "Security content reviewer",
-    "inputs": {"endpoint": "string", "payload": "enum[cmd-injection-benign,path-traversal]"},
-    "preconditions": ["Preconfigured vulnerable app deployed", "Endpoint enrolled"],
+    "id": "CR-MOD-WEBAPP-001",
+    "name": "Vulnerable web-app entry to host",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1190",
+      "T1059"
+    ],
+    "tactic": "Initial Access",
+    "platform": "linux",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "endpoint": "string",
+      "payload": "enum[cmd-injection-benign,path-traversal]"
+    },
+    "preconditions": [
+      "Preconfigured vulnerable app deployed",
+      "Endpoint enrolled"
+    ],
     "timeout_seconds": 180,
-    "expected_telemetry": ["web access log anomaly", "app-spawned process", "network connection"],
+    "expected_telemetry": [
+      "web access log anomaly",
+      "app-spawned process",
+      "network connection"
+    ],
     "cleanup": "Restart app container; restore checkpoint.",
     "detection_notes": "Web request that results in a shell/child process on the app host.",
-    "execution": {"adapter": "docker", "image": "alpine:3.19", "network": "none",
-      "cmd": ["sh", "-c", "echo '[webapp] sending crafted request to lab web app'; wget -qO- -T 3 'http://webapp/?cmd=id' 2>/dev/null && echo ' [+] response received from webapp' || echo ' [-] webapp unreachable'; echo '[webapp] emulating follow-on host command'; id; echo '[webapp] complete'"]},
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo '[webapp] sending crafted request to lab web app'; wget -qO- -T 3 'http://webapp/?cmd=id' 2>/dev/null && echo ' [+] response received from webapp' || echo ' [-] webapp unreachable'; echo '[webapp] emulating follow-on host command'; id; echo '[webapp] complete'"
+      ]
+    },
     "signed": true
   },
   {
-    "id": "CR-MOD-IMPACT-001", "name": "Canary-file encryption simulation", "version": "1.0.0",
-    "technique_ids": ["T1486"], "tactic": "Impact", "platform": "windows",
-    "safety_class": "S2", "approval": "Administrator + explicit scenario policy",
-    "inputs": {"canary_dir": "string"},
-    "preconditions": ["Canary file set seeded", "Checkpoint available", "Recovery action defined"],
+    "id": "CR-MOD-IMPACT-001",
+    "name": "Canary-file encryption simulation",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1486"
+    ],
+    "tactic": "Impact",
+    "platform": "windows",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "canary_dir": "string"
+    },
+    "preconditions": [
+      "Canary file set seeded",
+      "Checkpoint available",
+      "Recovery action defined"
+    ],
     "timeout_seconds": 120,
-    "expected_telemetry": ["rapid file modifications", "extension change", "recovery action"],
+    "expected_telemetry": [
+      "rapid file modifications",
+      "extension change",
+      "recovery action"
+    ],
     "cleanup": "Restore checkpoint; recover canary files.",
     "detection_notes": "Burst of writes/renames confined to the canary directory only.",
     "signed": true
   },
   {
-    "id": "CR-MOD-IDENT-001", "name": "Seeded password-reuse remote logon", "version": "1.0.0",
-    "technique_ids": ["T1078", "T1021"], "tactic": "Lateral Movement", "platform": "windows",
-    "safety_class": "S1", "approval": "Security content reviewer",
-    "inputs": {"seeded_account": "string", "targets": "list"},
-    "preconditions": ["Seeded reused credential present", "Multiple endpoints enrolled"],
+    "id": "CR-MOD-IDENT-001",
+    "name": "Seeded password-reuse remote logon",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1078",
+      "T1021"
+    ],
+    "tactic": "Lateral Movement",
+    "platform": "windows",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "seeded_account": "string",
+      "targets": "list"
+    },
+    "preconditions": [
+      "Seeded reused credential present",
+      "Multiple endpoints enrolled"
+    ],
     "timeout_seconds": 180,
-    "expected_telemetry": ["successful remote logons", "impossible-travel-like pattern", "session creation"],
+    "expected_telemetry": [
+      "successful remote logons",
+      "impossible-travel-like pattern",
+      "session creation"
+    ],
     "cleanup": "Revoke sessions; reset seeded identities.",
     "detection_notes": "Same credential authenticating to several hosts in a short window.",
     "signed": true
   },
   {
-    "id": "CR-MOD-AD-DISC-001", "name": "Directory account discovery (LDAP)", "version": "1.0.0",
-    "technique_ids": ["T1087"], "tactic": "Discovery", "platform": "linux",
-    "safety_class": "S0", "approval": "Scenario author",
-    "inputs": {"scope": "enum[users,groups]"},
-    "preconditions": ["Directory (LDAP) identity target reachable"],
+    "id": "CR-MOD-AD-DISC-001",
+    "name": "Directory account discovery (LDAP)",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1087"
+    ],
+    "tactic": "Discovery",
+    "platform": "linux",
+    "safety_class": "S0",
+    "approval": "Scenario author",
+    "inputs": {
+      "scope": "enum[users,groups]"
+    },
+    "preconditions": [
+      "Directory (LDAP) identity target reachable"
+    ],
     "timeout_seconds": 60,
-    "expected_telemetry": ["LDAP search queries", "directory account enumeration"],
+    "expected_telemetry": [
+      "LDAP search queries",
+      "directory account enumeration"
+    ],
     "cleanup": "None; read-only directory queries.",
     "detection_notes": "Bulk LDAP enumeration of person objects - account discovery against the identity service.",
-    "execution": {"adapter": "docker", "target": "directory", "image": "n/a",
-      "cmd": ["sh", "-c", "echo '[ad-disc] enumerating directory accounts (LDAP)'; ldapsearch -x -H ldap://localhost -b 'dc=range,dc=lab' -D 'cn=admin,dc=range,dc=lab' -w adminpw '(objectClass=inetOrgPerson)' cn uid 2>/dev/null | grep -iE '^dn:|^cn:|^uid:'; echo '[ad-disc] directory account enumeration complete'"]},
+    "execution": {
+      "adapter": "docker",
+      "target": "directory",
+      "image": "n/a",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo '[ad-disc] enumerating directory accounts (LDAP)'; ldapsearch -x -H ldap://localhost -b 'dc=range,dc=lab' -D 'cn=admin,dc=range,dc=lab' -w adminpw '(objectClass=inetOrgPerson)' cn uid 2>/dev/null | grep -iE '^dn:|^cn:|^uid:'; echo '[ad-disc] directory account enumeration complete'"
+      ]
+    },
     "signed": true
   }
 ]
