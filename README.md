@@ -37,6 +37,10 @@ platform seeds a single admin account - **`admin` / `admin`** (override with
 and assign each a role. See [docs/ROLES.md](docs/ROLES.md) for what every role
 can do and the full provisioning flow.
 
+**New here? Run a lab end to end:** [docs/LAB_GUIDE.md](docs/LAB_GUIDE.md) walks
+through both sides, red launching a real attack and blue hunting it in the SOC
+log search.
+
 Other entrypoints:
 
 ```bash

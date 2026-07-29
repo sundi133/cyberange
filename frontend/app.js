@@ -310,14 +310,18 @@ async function viewExercise() {
     state.exercise = exercises[0].id;
   }
 
+  const isBlue = session.role === "blue";
+
   // Role-aware action panels.
   const panels = [];
+  panels.push(missionBrief());
   if (can("module:execute")) panels.push(`
     <div class="panel">
-      <div class="phead">Run a TTP module <span class="tag tech">red</span></div>
-      <div class="phelp">Executes the attacker behavior. Docker modules run for real in an isolated container; others simulate. S2 modules need instructor/admin.</div>
+      <div class="phead">① Attack console <span class="tag tech">red</span></div>
+      <div class="phelp">Pick a technique and launch it. Docker modules run <strong>for real</strong> inside the target container; the output they produce becomes the logs the blue team has to find.</div>
       <div class="row"><select id="mod-select" style="flex:1"></select>
-        <button class="act" id="btn-run-mod">Execute</button></div>
+        <button class="act" id="btn-run-mod">▶ Launch attack</button></div>
+      <div id="attack-result" style="margin-top:10px"></div>
     </div>`);
   if (can("exercise:inject")) panels.push(`
     <div class="panel">
@@ -328,15 +332,19 @@ async function viewExercise() {
     </div>`);
   if (can("exercise:submit_evidence")) panels.push(`
     <div class="panel">
-      <div class="phead">Submit evidence <span class="tag" style="color:var(--blue);border-color:var(--blue)">blue</span></div>
-      <div class="phelp">Record a finding or containment action. Each item is hashed for integrity.</div>
+      <div class="phead">${isBlue ? "③ Raise a finding" : "Submit evidence"} <span class="tag" style="color:var(--blue);border-color:var(--blue)">blue</span></div>
+      <div class="phelp">${isBlue
+        ? "When a log line proves malicious activity, hit <strong>Use as evidence</strong> on it in the search results, or type your finding here. Each item is hashed for integrity."
+        : "Record a finding or containment action. Each item is hashed for integrity."}</div>
       <div class="row"><input id="ev-text" placeholder="e.g. Isolated host, killed process tree" style="flex:1" />
         <button class="ghost" id="btn-ev">Submit</button></div>
     </div>`);
   panels.push(`
     <div class="panel">
-      <div class="phead">Detection</div>
-      <div class="phelp">Rules fire <strong>automatically</strong> when a module runs. Add a manual verdict only if needed.</div>
+      <div class="phead">${isBlue ? "④ Attribute the technique" : "Detection"}</div>
+      <div class="phelp">${isBlue
+        ? "Alerts fire <strong>automatically</strong> from detection rules. Once you have worked out which ATT&amp;CK technique the activity maps to, record your verdict here."
+        : "Rules fire <strong>automatically</strong> when a module runs. Add a manual verdict only if needed."}</div>
       <div class="row">
         <input id="det-tech" placeholder="T1059" style="width:88px" />
         <select id="det-verdict"><option>detected</option><option>missed</option><option>false_positive</option></select>
@@ -363,6 +371,7 @@ async function viewExercise() {
         ${panels.join("")}
       </div>
       <div>
+        ${isBlue ? socConsole() : `
         <div class="row" style="justify-content:space-between;align-items:baseline">
           <h3 style="margin:0">Live timeline <span class="faint">(UTC)</span></h3>
           <button class="ghost" id="btn-tl-refresh" style="padding:5px 10px">↻</button>
@@ -372,7 +381,7 @@ async function viewExercise() {
           <span><span class="tag" style="opacity:.6">sim</span> simulated telemetry</span>
           <span><span style="color:var(--amber)">◈</span> detection fired</span>
         </div>
-        <ul class="timeline" id="timeline"></ul>
+        <ul class="timeline" id="timeline"></ul>`}
       </div>
     </div>`;
 
@@ -384,7 +393,7 @@ async function viewExercise() {
   const scenario = await loadExerciseMeta();
   if (can("module:execute")) await loadModuleSelect(scenario);
   if (can("scoring:read")) await buildScorePanel();
-  await loadTimeline();
+  if (isBlue) { await initSocConsole(); } else { await loadTimeline(); }
 
   bind("btn-run-mod", runModule);
   bind("btn-inject", doInject);
@@ -393,6 +402,135 @@ async function viewExercise() {
   bind("btn-report", showReport);
   bind("btn-end", endExercise);
   bind("btn-tl-refresh", loadTimeline);
+}
+
+// ---------------- Mission brief (what am I supposed to do?) --------------
+const BRIEFS = {
+  red: {
+    title: "You are RED (attacker)",
+    goal: "Compromise the target and complete the scenario's techniques.",
+    steps: ["Pick a technique in the <strong>Attack console</strong> and launch it.",
+            "Read the result: it shows what actually ran on the target host.",
+            "Chain the next technique. Your actions generate the real logs blue must find."],
+  },
+  blue: {
+    title: "You are BLUE (defender)",
+    goal: "Detect what the attacker did, prove it with evidence, and attribute the technique.",
+    steps: ["Start from <strong>Alerts</strong> in the SOC console, or search the logs.",
+            "Search for suspicious activity (try <span class='mono'>root</span>, <span class='mono'>/tmp</span>, <span class='mono'>shell</span>).",
+            "Hit <strong>Use as evidence</strong> on a damning log line, then record the ATT&amp;CK technique."],
+  },
+  purple: {
+    title: "You are PURPLE (detection engineering)",
+    goal: "Replay attacker behaviour and improve detection coverage.",
+    steps: ["Launch a technique from the attack console.",
+            "Check which rules fired and which did not (coverage gaps).",
+            "Tune, replay, and compare before/after in the report."],
+  },
+  instructor: {
+    title: "You are the INSTRUCTOR",
+    goal: "Run the exercise, inject events, and grade the outcome.",
+    steps: ["Launch techniques yourself, or let red drive.",
+            "Use <strong>Inject</strong> to push a user report or escalation.",
+            "End the exercise, then open the <strong>Report</strong> to score and export."],
+  },
+};
+
+function missionBrief() {
+  const b = BRIEFS[session.role] || BRIEFS.instructor;
+  return `<div class="panel" style="border-color:rgba(76,159,255,.35)">
+    <div class="phead">${esc(b.title)}</div>
+    <div class="phelp"><strong>Goal:</strong> ${b.goal}</div>
+    <ol style="margin:8px 0 0;padding-left:20px;font-size:12.5px;color:var(--muted);line-height:1.7">
+      ${b.steps.map((s) => `<li>${s}</li>`).join("")}
+    </ol></div>`;
+}
+
+// ---------------- Blue SOC console (log search) --------------------------
+function socConsole() {
+  return `
+    <div class="row" style="justify-content:space-between;align-items:baseline">
+      <h3 style="margin:0">② SOC console <span class="faint">log search</span></h3>
+      <button class="ghost" id="btn-log-search" style="padding:5px 10px">↻ Refresh</button>
+    </div>
+    <div class="phelp" style="margin:2px 0 10px">
+      You are seeing the telemetry the environment produced. The attacker's own
+      tooling is hidden, so work it out from the evidence, like a real SOC.
+    </div>
+    <div class="toolbar" style="margin-bottom:8px">
+      <input id="log-q" placeholder="Search logs, e.g. root, /tmp, shell" style="flex:1;min-width:180px" />
+      <select id="log-kind" style="max-width:150px"><option value="">All event types</option></select>
+      <select id="log-source" style="max-width:150px"><option value="">All sources</option></select>
+    </div>
+    <div class="row" style="gap:6px;margin-bottom:10px">
+      <span class="faint" style="font-size:11.5px">Quick hunts:</span>
+      ${["root", "/tmp", "shell", "payload", "secret", "curl"]
+        .map((h) => `<button class="ghost hunt" data-hunt="${h}" style="padding:3px 9px;font-size:11.5px">${h}</button>`).join("")}
+    </div>
+    <div id="log-count" class="faint" style="font-size:11.5px;margin-bottom:6px"></div>
+    <ul class="timeline" id="log-results"></ul>`;
+}
+
+async function initSocConsole() {
+  try {
+    const meta = await api("GET", `/exercises/${state.exercise}/log-sources`);
+    const kindSel = document.getElementById("log-kind");
+    const srcSel = document.getElementById("log-source");
+    (meta.kinds || []).forEach((k) => kindSel.appendChild(el(`<option value="${esc(k)}">${esc(k)}</option>`)));
+    (meta.sources || []).forEach((s) => srcSel.appendChild(el(`<option value="${esc(s)}">${esc(s)}</option>`)));
+    kindSel.onchange = runLogSearch;
+    srcSel.onchange = runLogSearch;
+    const q = document.getElementById("log-q");
+    let t; q.oninput = () => { clearTimeout(t); t = setTimeout(runLogSearch, 250); };
+    document.querySelectorAll(".hunt").forEach((b) => {
+      b.onclick = () => { q.value = b.dataset.hunt; runLogSearch(); };
+    });
+    bind("btn-log-search", runLogSearch);
+  } catch (e) { /* meta is best-effort */ }
+  await runLogSearch();
+}
+
+async function runLogSearch() {
+  const p = new URLSearchParams();
+  const q = document.getElementById("log-q")?.value.trim();
+  const kind = document.getElementById("log-kind")?.value;
+  const source = document.getElementById("log-source")?.value;
+  if (q) p.set("q", q);
+  if (kind) p.set("kind", kind);
+  if (source) p.set("source", source);
+  try {
+    const res = await api("GET", `/exercises/${state.exercise}/logs?` + p.toString());
+    const ul = document.getElementById("log-results");
+    const countEl = document.getElementById("log-count");
+    countEl.textContent = `${res.count} event(s)${q ? ` matching "${q}"` : ""}`;
+    ul.innerHTML = "";
+    if (!res.results.length) {
+      ul.innerHTML = `<li class="faint" style="padding-left:0">No matching logs. Clear the filters, or wait for the attacker to act.</li>`;
+      return;
+    }
+    res.results.forEach((ev) => ul.appendChild(logRow(ev)));
+  } catch (e) { toast(e.message, "err"); }
+}
+
+function logRow(ev) {
+  const p = ev.payload || {};
+  const isAlert = ev.kind === "detection";
+  const text = p.line || p.stderr || p.title || p.text || ev.kind;
+  const li = el(`<li class="${isAlert ? "det" : "out"}">
+    <div class="ts">${esc(ev.ts_utc.slice(11, 23))} · <strong>${esc(ev.source || "")}</strong> · ${esc(ev.kind)}</div>
+    ${isAlert
+      ? `<div class="detline"><strong>ALERT</strong> ${esc(p.title || "")}
+           <span class="tag">${esc((p.severity || "").toUpperCase())}</span></div>`
+      : `<div class="logline">${esc(text)}</div>`}
+    <div class="row" style="margin-top:4px"><button class="ghost use-ev" style="padding:3px 9px;font-size:11px">Use as evidence</button></div>
+  </li>`);
+  li.querySelector(".use-ev").onclick = async () => {
+    const box = document.getElementById("ev-text");
+    const desc = `${ev.source}: ${String(text).slice(0, 160)}`;
+    if (box) { box.value = desc; box.focus(); }
+    toast("Copied to the finding box. Review, then Submit.");
+  };
+  return li;
 }
 
 function bind(id, fn) {
@@ -438,6 +576,20 @@ async function runModule() {
     const how = res.real ? `ran for real via ${res.adapter}` : "simulated";
     const det = res.detections_fired ? `, ${res.detections_fired} detection(s) fired` : "";
     toast(`${res.executed} ${how} → ${res.events_recorded} events${det}`);
+    const out = document.getElementById("attack-result");
+    if (out) {
+      const s = res.summary || {};
+      out.innerHTML = `<div class="detline" style="border-left-color:var(--green)">
+        <div><strong>${res.real ? "✓ Executed for real" : "✓ Simulated"}</strong>
+          ${res.real ? `<span class="tag s0">real</span>` : `<span class="tag">sim</span>`}
+          <span class="tag tech">${(res.techniques || []).join(", ")}</span></div>
+        <div class="faint" style="font-size:11.5px;margin-top:3px">
+          ${res.real ? `Ran on ${esc(s.image || "target")} (exit ${esc(String(s.exit_code))}, ${esc(String(s.duration_s))}s). ` : ""}
+          Generated <strong>${res.events_recorded}</strong> log event(s);
+          <strong>${res.detections_fired || 0}</strong> detection(s) fired.
+          ${res.detections_fired ? "Blue can now see the alert." : "Blue must find this in the raw logs."}
+        </div></div>`;
+    }
     await loadTimeline();
   } catch (e) { toast(e.message, "err"); }
 }
@@ -532,6 +684,11 @@ async function computeScore() {
 }
 
 async function loadTimeline() {
+  // Blue works from the SOC console instead of the raw timeline; refresh that.
+  if (!document.getElementById("timeline")) {
+    if (document.getElementById("log-results")) await runLogSearch();
+    return;
+  }
   const events = await api("GET", `/exercises/${state.exercise}/timeline`);
   const ul = document.getElementById("timeline");
   ul.innerHTML = "";
@@ -1054,7 +1211,7 @@ const VIEW_HELP = {
   classes: "<strong>Classes</strong> - create a class, enroll students, assign lessons, and track progress in the gradebook.",
   catalog: "<strong>Catalog</strong> - browse scenarios and attacker techniques. Launch a scenario to create an isolated range.",
   ranges: "<strong>Ranges</strong> - prepare a range through its lifecycle, then start the exercise. Each range is isolated with no internet access.",
-  exercise: "<strong>Exercise</strong> - run attacker techniques (red), watch detections fire on the live timeline, submit evidence (blue), and score the run.",
+  exercise: "<strong>Exercise</strong> - the live lab. Your panels change with your role: red launches attacks, blue hunts through the logs they leave behind.",
   reference: "<strong>Reference</strong> - ATT&amp;CK coverage, scoring model, safety classes, detection stack, topologies, and what each role can do.",
   audit: "<strong>Audit</strong> - an append-only ledger of every action, attributed to a user and role.",
   admin: "<strong>Admin</strong> - provision user accounts and assign each a role.",

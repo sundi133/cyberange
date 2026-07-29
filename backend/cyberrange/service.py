@@ -354,6 +354,105 @@ class CyberRangeService:
         )
         return [row_to_dict(r) for r in rows]
 
+    # ---- SOC log search (blue-team investigation) ------------------------
+    # Events that reveal the attacker's hand: they name the module and the
+    # ATT&CK technique, i.e. the answer key. Defenders must not see these, or
+    # there is nothing to investigate. They still see everything those actions
+    # *produced* (process output, alerts), which is what a real SOC works from.
+    ANSWER_KEY_KINDS = ("ttp-exec", "ttp-emulation", "expected-telemetry")
+    FOG_OF_WAR_ROLES = ("blue",)
+
+    def search_logs(self, exercise_id: str, role: str, *, q: str | None = None,
+                    kind: str | None = None, source: str | None = None,
+                    technique: str | None = None, limit: int = 300) -> dict:
+        """Query the exercise log store like a SIEM.
+
+        Free-text `q` matches the log line, source, actor, and kind. Defender
+        roles get a redacted view (see ANSWER_KEY_KINDS) so the investigation
+        is real.
+        """
+        self.get_exercise(exercise_id)
+        redacted = role in self.FOG_OF_WAR_ROLES
+
+        sql = "SELECT * FROM events WHERE exercise_id=?"
+        params: list = [exercise_id]
+        if redacted:
+            placeholders = ",".join("?" for _ in self.ANSWER_KEY_KINDS)
+            sql += f" AND kind NOT IN ({placeholders})"
+            params.extend(self.ANSWER_KEY_KINDS)
+        if kind:
+            sql += " AND kind=?"
+            params.append(kind)
+        if source:
+            sql += " AND source LIKE ?"
+            params.append(f"%{source}%")
+        if technique and not redacted:
+            sql += " AND technique_id=?"
+            params.append(technique)
+        sql += " ORDER BY ts_utc DESC, id DESC LIMIT ?"
+        params.append(max(1, min(limit, 1000)))
+
+        rows = [row_to_dict(r) for r in self.db.query(sql, tuple(params))]
+
+        if q:
+            needle = q.lower()
+            def _hit(e: dict) -> bool:
+                payload = e.get("payload") or {}
+                haystack = " ".join(str(x) for x in (
+                    payload.get("line", ""), payload.get("stderr", ""),
+                    payload.get("title", ""), payload.get("rule_id", ""),
+                    payload.get("evidence", ""), payload.get("text", ""),
+                    e.get("source", ""), e.get("actor", ""), e.get("kind", ""),
+                )).lower()
+                return needle in haystack
+            rows = [e for e in rows if _hit(e)]
+
+        if redacted:
+            for e in rows:
+                # Strip technique attribution from raw telemetry: the defender's
+                # job is to work out which technique this represents.
+                e.pop("technique_id", None)
+                payload = e.get("payload") or {}
+                for key in ("module", "cmd", "safety_class", "adapter"):
+                    payload.pop(key, None)
+                # A real log line is attributed to the host that produced it,
+                # not to the attacker's tooling. "module:CR-MOD-..." would name
+                # the module, so relabel it as the affected asset.
+                src = e.get("source") or ""
+                if src.startswith("module:"):
+                    e["source"] = self._defender_source_label(payload)
+
+        return {
+            "exercise_id": exercise_id,
+            "count": len(rows),
+            "redacted": redacted,
+            "results": rows,
+        }
+
+    @staticmethod
+    def _defender_source_label(payload: dict) -> str:
+        """Host-style label for a log line, as a defender would see it."""
+        host = payload.get("host") or payload.get("container")
+        if host:
+            return f"host:{host}"
+        image = payload.get("image") or ""
+        if "webapp" in image or "nginx" in image or "http" in image:
+            return "host:web-app"
+        if "ldap" in image or "openldap" in image:
+            return "host:directory"
+        return "host:victim"
+
+    def log_sources(self, exercise_id: str, role: str) -> dict:
+        """Distinct sources and kinds present, to drive search filters."""
+        data = self.search_logs(exercise_id, role, limit=1000)
+        sources, kinds = set(), set()
+        for e in data["results"]:
+            if e.get("source"):
+                sources.add(e["source"])
+            if e.get("kind"):
+                kinds.add(e["kind"])
+        return {"sources": sorted(sources), "kinds": sorted(kinds)}
+
     # ---- module execution ------------------------------------------------
     def execute_module(self, actor: str, role: str, exercise_id: str,
                        module_id: str, inputs: dict | None = None,

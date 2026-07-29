@@ -172,6 +172,37 @@ def _schema_for(dialect: str) -> str:
     return _SCHEMA.replace("{AUTOPK}", autopk)
 
 
+# Columns added after the first release. `CREATE TABLE IF NOT EXISTS` will not
+# alter an existing table, so a database created by an older build is missing
+# them. Each entry is applied with ADD COLUMN if absent (safe and idempotent).
+_ADDED_COLUMNS: dict[str, dict[str, str]] = {
+    "detections": {
+        "rule_id": "TEXT",
+        "basis": "TEXT",
+        "severity": "TEXT",
+        "detail": "TEXT",
+    },
+}
+
+
+def _migrate(existing_columns, add_column) -> list[str]:
+    """Apply additive column migrations. Returns the columns that were added.
+
+    `existing_columns(table)` returns a set of column names (empty if the table
+    does not exist); `add_column(table, name, coltype)` performs the ALTER.
+    """
+    applied = []
+    for table, columns in _ADDED_COLUMNS.items():
+        have = existing_columns(table)
+        if not have:
+            continue  # table absent: the CREATE statement already made it current
+        for name, coltype in columns.items():
+            if name not in have:
+                add_column(table, name, coltype)
+                applied.append(f"{table}.{name}")
+    return applied
+
+
 def is_postgres_dsn(dsn) -> bool:
     return isinstance(dsn, str) and dsn.startswith(("postgres://", "postgresql://"))
 
@@ -192,6 +223,20 @@ class Database:
         with self._lock:
             self._conn.executescript(_schema_for("sqlite"))
             self._conn.commit()
+            self._migrate_schema()
+
+    def _migrate_schema(self) -> None:
+        def existing_columns(table: str) -> set:
+            rows = self._conn.execute(f"PRAGMA table_info({table})").fetchall()
+            return {r[1] for r in rows}
+
+        def add_column(table: str, name: str, coltype: str) -> None:
+            self._conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {coltype}")
+
+        applied = _migrate(existing_columns, add_column)
+        if applied:
+            self._conn.commit()
+            print(f"[cyberrange] migrated database: added {', '.join(applied)}")
 
     def execute(self, sql: str, params: tuple = ()):
         with self._lock:
@@ -263,6 +308,23 @@ class PostgresDatabase:
             for stmt in _schema_for("postgres").split(";"):
                 if stmt.strip():
                     self._run(stmt, ())
+            self._migrate_schema()
+
+    def _migrate_schema(self) -> None:
+        def existing_columns(table: str) -> set:
+            cur = self._run(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name=%s", (table,))
+            return {r["column_name"] for r in cur.fetchall()}
+
+        def add_column(table: str, name: str, coltype: str) -> None:
+            # IF NOT EXISTS keeps this safe against a concurrent boot.
+            self._run(
+                f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {name} {coltype}", ())
+
+        applied = _migrate(existing_columns, add_column)
+        if applied:
+            print(f"[cyberrange] migrated database: added {', '.join(applied)}")
 
     def execute(self, sql: str, params: tuple = ()):
         with self._lock:

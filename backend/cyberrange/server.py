@@ -119,8 +119,23 @@ def build_router(svc: CyberRangeService) -> Router:
         return svc.start_exercise(ctx["user"], ctx["role"], ctx["body"]["range_id"])
     r.add("POST", "/api/exercises", start_exercise)
 
-    r.add("GET", "/api/exercises/{exid}/timeline",
-          lambda ctx: svc.timeline(ctx["params"]["exid"]))
+    def timeline(ctx):
+        # Role-aware: defenders get the redacted view so the timeline is
+        # telemetry to investigate, not a list of what the attacker just did.
+        return svc.search_logs(ctx["params"]["exid"], ctx["role"], limit=1000)["results"]
+    r.add("GET", "/api/exercises/{exid}/timeline", timeline)
+
+    def log_search(ctx):
+        qs = ctx["query"]
+        return svc.search_logs(
+            ctx["params"]["exid"], ctx["role"],
+            q=_first(qs, "q"), kind=_first(qs, "kind"),
+            source=_first(qs, "source"), technique=_first(qs, "technique"),
+            limit=int(_first(qs, "limit") or 300),
+        )
+    r.add("GET", "/api/exercises/{exid}/logs", log_search)
+    r.add("GET", "/api/exercises/{exid}/log-sources",
+          lambda ctx: svc.log_sources(ctx["params"]["exid"], ctx["role"]))
 
     def inject(ctx):
         b = ctx["body"]
