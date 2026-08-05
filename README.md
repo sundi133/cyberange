@@ -45,7 +45,7 @@ Other entrypoints:
 
 ```bash
 make demo             # run a full exercise lifecycle end-to-end in memory
-make test             # run the 38-test suite (stdlib unittest)
+make test             # run the 132-test suite (stdlib unittest)
 make catalog          # print the seeded content summary
 ```
 
@@ -56,7 +56,7 @@ make catalog          # print the seeded content summary
 | FR-01 Scenario catalog | `catalog.py` + `seed/` - search/filter scenarios & modules |
 | FR-02 Topology templates | `seed/topologies.json` - declarative VM/network/identity templates |
 | FR-03 Lifecycle | `lifecycle.py` - full state machine incl. QUARANTINED (admin-only release) |
-| FR-06 TTP emulation | 24 signed S0/S1/S2 modules across Windows/Linux/Docker; **real container execution** for modules with an execution spec (see below), simulated otherwise |
+| FR-06 TTP emulation | 25 signed S0/S1/S2 modules across Windows/Linux/Docker; **real container execution** for modules with an execution spec (see below), simulated otherwise |
 | FR-07 Telemetry/timeline | `service.py` - synchronized UTC event timeline with integrity hashes |
 | FR-08 Detection content | `detection.py` + `seed/detections.json` - versioned Sigma-like rules that **fire automatically** against real telemetry (MTTD, severity, evidence) |
 | FR-09 Scoring | `scoring.py` - weighted, explainable, penalty- and override-aware |
@@ -66,9 +66,10 @@ make catalog          # print the seeded content summary
 | FR-14 APIs | `server.py` - REST endpoints for lifecycle, catalog, evidence, scoring |
 | §8 Safety | unsigned/prohibited modules blocked; S2 gated to instructor/admin |
 
-Seeded content: **7 launch scenarios**, **24 signed behavior modules**,
-**15 ATT&CK techniques**, **2 topology templates** - matching the MVP scope in
-the spec (§10).
+Seeded content: **10 launch scenarios**, **25 signed behavior modules**,
+**22 ATT&CK techniques**, **15 detection rules**, **2 topology templates** -
+exceeding the MVP scope in the spec (§10, which called for 7 scenarios and 24
+modules).
 
 ## Roles & auth
 
@@ -101,6 +102,12 @@ curl -s $H $BASE/exercises/$EX/report                     # FR-11 report
 ```
 
 Full endpoint list: [docs/API.md](docs/API.md).
+
+For a single document covering the whole platform - content library, execution
+model, detection, scoring, governance, deployment, and what is roadmap rather
+than shipping - see [docs/CAPABILITIES.md](docs/CAPABILITIES.md). A formatted
+customer-facing version is at
+[sales/CyberRange_Capabilities.docx](sales/CyberRange_Capabilities.docx).
 
 ## Database - SQLite or Supabase/Postgres
 
@@ -164,9 +171,9 @@ backend/
     server.py       stdlib HTTP router + static file serving (FR-14)
     __main__.py     CLI: serve | demo | catalog
     seed/           scenarios, modules, topologies, tactics, reference
-  tests/            38 unittest tests
+  tests/            132 unittest tests
 frontend/           single-page operator dashboard (no build step)
-docs/               spec summary, API reference
+docs/               spec summary, API reference, capabilities document
 ```
 
 ## Real vs. simulated execution
@@ -177,9 +184,9 @@ Behavior modules run through an **execution adapter** (`execution.py`):
   `execution` spec, the module's benign command runs for real inside a
   throwaway, **network-isolated** container (`--network none`, constrained
   memory/cpu/pids, `--no-new-privileges`, no host mounts, `--rm`). Its actual
-  stdout/stderr, exit code, and timing are captured as timeline events. Five
+  stdout/stderr, exit code, and timing are captured as timeline events. Twelve
   Linux/Docker modules ship with real execution specs (recon, Linux exec,
-  Linux discovery, container discovery, container runtime).
+  Linux discovery, container discovery, container runtime, and more).
 - **SimulatedAdapter** - for modules without an execution spec (e.g. the
   Windows modules) or when Docker is down, the module emits the telemetry it
   *declares* it would produce. The system degrades gracefully to simulation.
