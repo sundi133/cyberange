@@ -1,0 +1,188 @@
+[
+ {
+  "sl": "1",
+  "title": "Red, Blue and Purple Team Exercise Delivery",
+  "body": "The solution MUST deliver red team, blue team and purple team training from a single platform, supporting red-blue collaborative exercises, solo guided exercises in which one learner runs both attacker and defender phases on a single timeline, and purple detection sprints, without requiring separate products, environments or licences.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "2",
+  "title": "Real Adversary Execution, Not Scripted Transcripts",
+  "body": "The solution MUST execute adversary behavior as genuine commands inside isolated targets, capturing actual stdout, stderr, exit code and timing as timeline telemetry rather than replaying pre-recorded transcripts. Execution containers MUST be network-isolated for atomic runs, capped for memory, CPU and process count, started with no-new-privileges, given no host mounts, removed on exit, and bounded by a per-module timeout of 60 to 600 seconds.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "3",
+  "title": "Persistent, Connected Live Ranges",
+  "body": "The solution MUST support persistent live ranges in which provisioning stands up a per-range internal network with no egress plus persistent hosts, so that a foothold established in one step survives into the next and behaviors traverse a connected environment rather than a series of disconnected atomic actions. Identity scenarios MUST stand up a real LDAP directory seeded with synthetic domain users to provide a genuine directory-enumeration attack surface (T1087). Range reset MUST recycle targets to a clean state while preserving the range and its network; destroy MUST remove all containers and the network.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "4",
+  "title": "Graceful Degradation and Honest Fidelity Labelling",
+  "body": "Where a container execution tier is unavailable, or where a module carries no execution specification, the solution MUST fall back to a simulated adapter that emits the declared telemetry rather than failing the exercise. Every timeline event MUST record and display which mode produced it, so an operator is never in doubt whether an event is real or simulated.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "5",
+  "title": "Content Library Depth",
+  "body": "The solution MUST ship with a populated content library comprising, in the current build, 10 launch scenarios (1 introductory, 5 intermediate, 4 advanced), 25 behavior modules of which 12 execute a genuine command inside an isolated container, 2 topology templates (five-VM enterprise range and container range), and guided lessons for all 10 scenarios. All behavior modules MUST be cryptographically signed, and unsigned modules MUST be refused at execution.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "6",
+  "title": "MITRE ATT&CK Alignment and Tactic Coverage",
+  "body": "Scenario and module content MUST be mapped to MITRE ATT&CK, covering 22 techniques (T1003, T1005, T1018, T1021, T1041, T1053, T1059, T1070, T1071, T1078, T1087, T1190, T1204, T1486, T1548, T1552, T1560, T1566, T1595, T1610, T1611, T1613) across the full chain: Reconnaissance, Initial Access, Execution, Persistence, Privilege Escalation, Defense Evasion, Credential Access, Discovery, Lateral Movement, Collection, Command and Control, Exfiltration and Impact, plus container-specific Container Discovery and Escape-to-Host.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "7",
+  "title": "Safety Classification of All Executable Content",
+  "body": "Every module MUST carry an explicit safety class with a defined approval authority: S0 simulation (synthetic telemetry or benign endpoint call, scenario author), S1 atomic emulation (bounded behavior on disposable assets with auto-cleanup, security content reviewer), S2 high-impact lab action (may disrupt a lab VM or change identity state, admin plus explicit scenario policy), and Prohibited (self-propagation, external targeting, real credential theft and live malware, not executable by anyone).",
+  "comp": "Yes"
+ },
+ {
+  "sl": "8",
+  "title": "Automatic Detection Engine",
+  "body": "The solution MUST evaluate versioned, Sigma-style detection rules against the exercise timeline automatically and without human input. The shipping build provides 15 rules, of which 12 are log-basis rules that regex-match real captured log lines and 3 are technique-basis rules covering simulated behaviors, at 8 high, 5 medium and 2 low severity. Each detection MUST record the rule that fired, the evidence line matched, the severity, and the latency from activity to verdict. Manual analyst verdicts MUST be supported in addition to, not in place of, the automatic baseline.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "9",
+  "title": "Defender-Side Redaction (Fog of War)",
+  "body": "Blue analysts MUST work from a SIEM-style search console over the exercise log store with free-text matching across log line, source, actor and event kind, plus filters by source and kind. The defender view MUST be redacted at the query layer rather than by participant instruction: technique attribution, module identifiers, executed command lines, safety class and adapter metadata MUST be stripped, and the event source relabelled from attacker tooling to the affected asset.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "10",
+  "title": "Synchronized Evidence Timeline with Integrity Hashing",
+  "body": "All activity MUST land on one synchronized UTC timeline carrying integrity hashes and shared across roles, covering module execution, real process output, detections, instructor injects and analyst evidence submissions. Evidence MUST be lockable at exercise completion to provide an immutable record for after-action review or accreditation.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "11",
+  "title": "Real SIEM Integration",
+  "body": "The solution MUST optionally support detection in a production SIEM rather than the built-in engine. A full Wazuh deployment (manager, indexer and dashboard) ships with the platform; with ingest enabled, every event is streamed as JSON to a file a Wazuh agent tails, the manager evaluates detection rules and raises genuine alerts, and a forwarder posts those alerts back onto the exercise timeline while they remain visible in the Wazuh dashboard. The telemetry contract MUST be normalized so that substituting Elastic, Sentinel, Splunk or an existing customer SOC stack is an adapter exercise rather than a redesign. Requires a Docker host with approximately 4 GB of RAM for the indexer.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "12",
+  "title": "Explainable, Override-Audited Scoring",
+  "body": "Scoring MUST be a weighted sum of five dimensions less safety and policy penalties: red execution 25%, detection 25%, investigation 20%, response 20%, collaboration 10%. The scoring response MUST return every dimension raw score, its weight and its contribution, alongside each penalty and each override. Every instructor override MUST be audited with a named instructor and a written justification. Dimension scores MUST also be derived directly from observed exercise activity so that a score exists before any human judgement is applied.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "13",
+  "title": "Purple Replay Coverage Comparison",
+  "body": "Purple exercises MUST be reported as a baseline-to-replay detection coverage delta, per technique and in aggregate, rather than as a win or loss outcome, so that the report answers whether a specific control improvement changed detection coverage for a given technique.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "14",
+  "title": "After-Action Reporting and Export Formats",
+  "body": "The solution MUST generate after-action reports covering technique coverage, detection gaps, evidence inventory and recommendations, exportable in JSON for machine ingestion and downstream analytics, CSV for spreadsheet analysis, HTML for sharing or print, and DOCX as a formal deliverable for management or accreditation. Class gradebooks MUST export to CSV separately.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "15",
+  "title": "Role-Based Access Control",
+  "body": "The solution MUST enforce role-based access control server-side on every API call across seven roles with explicit permission sets: admin (20 permissions, including user provisioning, image management, any lifecycle step, S2 execution, score override, audit ledger, emergency pause and kill, and sole authority to release a quarantined range), instructor (11), red, blue, purple and solo (8 each), and security_leader (5, read-only oversight). The live permission matrix MUST be served by the API and rendered inside the product.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "16",
+  "title": "Authentication and Session Security",
+  "body": "Passwords MUST be stored as PBKDF2-HMAC-SHA256 with a per-user random salt and never in plaintext. Login MUST issue an opaque random session token with a 12-hour time to live. Login failures MUST return a generic error whether the username is unknown, the password is wrong or the account is disabled, so that the endpoint does not enumerate accounts. Disabling a user MUST immediately revoke all live sessions. Unauthenticated API calls MUST be rejected, and any developer header-identity shortcut MUST be off by default.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "17",
+  "title": "Integrated Learning and Delivery Platform",
+  "body": "The solution MUST deliver instruction inside the product without requiring an external learning management system. Instructors MUST be able to create classes and bulk-enrol students from CSV, with missing accounts created as learners and generated passwords returned for distribution; assign any scenario carrying a lesson to a class; and track per-student status and score, with class completion and average score exportable as CSV for accreditation evidence.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "18",
+  "title": "Guided Lessons with Auto-Graded Assessment",
+  "body": "Every scenario MUST carry a guided lesson comprising a briefing, key concepts, ordered hands-on steps that run a real or simulated module on the learner's own auto-provisioned range with explicit guidance on what to watch for, and an auto-graded knowledge check with explanations. The platform MUST run curated S2 steps on the learner's behalf so that students receive the full experience without holding S2 authority themselves.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "19",
+  "title": "Framework Crosswalks for Curriculum and Accreditation",
+  "body": "Techniques used in the platform MUST be crosswalked to NIST Cybersecurity Framework 2.0 (Govern, Identify, Protect, Detect, Respond, Recover), the NICE Workforce Framework (NIST SP 800-181r1 work roles), CIS Critical Security Controls version 8, and NSA/DHS CAE-CD Knowledge Units, and served through the API for curriculum mapping and accreditation evidence. This is a curated, indicative alignment for curriculum purposes rather than an official MITRE mapping dataset, and is presented as such in the product.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "20",
+  "title": "Safety Enforcement in the Service Layer",
+  "body": "Safety controls MUST be enforced in code rather than documented as policy. Unsigned modules MUST be refused at execution; the Prohibited class MUST NOT be executable by any role including admin; S2 execution MUST be gated to instructor and admin except for curated S2 steps run on a learner's behalf within a guided lesson; ranges MUST default to egress-deny with the control plane placed on a network never reachable from tenant workloads; and any anomalous workload MUST transition to QUARANTINED, releasable or destroyable only by an administrator.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "21",
+  "title": "Range Lifecycle State Machine",
+  "body": "Range state MUST be governed by an enforced state machine (REQUESTED, PREFLIGHT, PROVISIONING, SEEDING, READY, RUNNING, PAUSED, COMPLETING, EVIDENCE_LOCKED, ARCHIVED, DESTROYED, with a QUARANTINED branch under administrator-only release). Illegal transitions MUST be rejected with a conflict response rather than silently tolerated.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "22",
+  "title": "Append-Only Audit Ledger",
+  "body": "Every state change MUST be written to an append-only audit ledger readable by administrators, providing an auditable trail of platform activity for governance and accreditation review.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "23",
+  "title": "Deployment Flexibility",
+  "body": "The solution MUST offer multiple deployment options: local execution (Python 3.10 or later, no package install and no build step), Docker Compose as a single service on port 8080, hosted deployment via Dockerfile with managed TLS, and customer-hosted deployment on any Docker host, which is recommended where real container execution is required. Real container execution requires a reachable Docker daemon, local or remote; a hosted platform providing no Docker daemon inside the application container will fall back to simulation with technique-basis detection, while lifecycle, scoring, reporting, learning platform and audit ledger continue to operate normally.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "24",
+  "title": "Data Residency and Persistence Options",
+  "body": "The solution MUST support on-premises and private-infrastructure deployment to satisfy data-residency requirements. Persistence MUST sit behind a single interface: SQLite by default with zero configuration, switching to PostgreSQL or Supabase by setting a connection string with no code change. Tables MUST be created on boot, and a standalone schema file MUST be provided for customers who prefer to provision the schema and apply row-level security in advance. The same code MUST be verified against real PostgreSQL in the automated test suite.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "25",
+  "title": "Complete Programmatic API Surface",
+  "body": "A complete REST and JSON API MUST sit under /api with bearer-token authentication, exposing everything the dashboard does, across authentication and users, catalog, ranges, exercises, SOC and blue team log access, evidence and detection, scoring, reporting, purple replay, learning, SIEM and admin. Errors MUST be structured with meaningful status codes (400, 401, 403, 404, 409 for illegal lifecycle transition, and 500), and catalog queries MUST support filtering by role, tactic, difficulty, technique, platform, safety class and free text.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "26",
+  "title": "Quality Assurance and Verifiable Build",
+  "body": "The solution MUST ship with an automated test suite. The current build carries 132 tests covering the API surface, catalog, database layer including PostgreSQL migration, detection engine, execution adapters, framework crosswalks, learning platform, lifecycle state machine, log search and redaction, provisioning, reporting formats, scoring, service orchestration, SIEM integration and user management. The suite MUST run against the standard library with no external services required, with Docker and PostgreSQL dependent tests skipping cleanly when unavailable.",
+  "comp": "Yes"
+ },
+ {
+  "sl": "27",
+  "title": "Hypervisor Provisioning (KVM, Proxmox, VMware)",
+  "body": "Full virtual-machine targets provisioned through a hypervisor. The integration seam is defined via topology templates and the execution adapter interface already present in the product; the adapter itself is on the delivery roadmap and is not part of the shipping container tier.",
+  "comp": "No \u2014 Roadmap"
+ },
+ {
+  "sl": "28",
+  "title": "Real Windows Endpoints and Active Directory Domain",
+  "body": "Real Windows endpoints and a genuine Active Directory domain (Kerberos, SMB, Group Policy) require the virtual machine tier above and are operator-hosted. The shipping build provides a Linux identity stand-in using a real LDAP directory, which is described as such in the product and is not presented as a Windows domain controller. On the delivery roadmap.",
+  "comp": "No \u2014 Roadmap"
+ },
+ {
+  "sl": "29",
+  "title": "Kernel-Level Runtime Sensing and Network Intrusion Detection",
+  "body": "Kernel-level runtime sensors and network intrusion detection feeds. The telemetry contract is defined; sensor integration is on the delivery roadmap.",
+  "comp": "No \u2014 Roadmap"
+ },
+ {
+  "sl": "30",
+  "title": "SSO and OIDC Identity Integration",
+  "body": "Enterprise single sign-on and OIDC in place of local login. The RBAC layer is already isolated from the identity layer, so this is an identity swap rather than a permissions redesign, but it is on the delivery roadmap and does not ship today.",
+  "comp": "No \u2014 Roadmap"
+ },
+ {
+  "sl": "31",
+  "title": "Kubernetes-Managed Hypervisor Pools and Cloud-Hosted Ranges",
+  "body": "Elastic, Kubernetes-managed hypervisor pools and multi-tenant cloud-hosted ranges. The control plane is designed to scale to this; the capability is on the delivery roadmap.",
+  "comp": "No \u2014 Roadmap"
+ }
+]
