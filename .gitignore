@@ -10,8 +10,11 @@ venv/
 # CyberRange runtime
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 *.sqlite3
 data/*.db
+data/*.db-*
 run_data/
 evidence_store/
 
