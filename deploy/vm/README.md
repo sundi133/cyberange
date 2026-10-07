@@ -103,3 +103,27 @@ itself on first provision).
 - **Windows modules** still carry no `vm` execution specs, so Windows behaviour
   remains simulated even with the tier configured. Wiring those is the next
   step after conformance passes.
+
+## Decisions and TODO
+
+**Chosen path: Proxmox on GCP.** Where there is no spare hardware, the VM tier
+runs against Proxmox VE on a nested-virtualization GCP instance. This drives the
+existing, tested `ProxmoxProvisioner` unchanged — see
+[PROXMOX_SETUP.md](PROXMOX_SETUP.md), including the GCP appendix.
+
+Open work, in priority order:
+
+- [ ] **Write `vm` execution specs for the Windows modules.** All 11 Windows
+      modules simulate today because none carry a command for the tier to run.
+      This is the blocker for real Windows/AD telemetry, and the next step once
+      `scripts/proxmox_conformance.py` passes on a real node.
+- [ ] **Run the conformance script against a live Proxmox node** and record the
+      result. The adapter is unit-tested against a stubbed API but unverified on
+      hardware until this passes.
+- [ ] **(Optional, if GCP becomes the permanent home) a native `GCEProvisioner`.**
+      The provisioner seam (`cyberrange/provisioners/base.py`) makes this a
+      drop-in third tier alongside Docker and Proxmox: create instances from
+      images, snapshot/revert for reset, guest-agent or OS Login for exec — no
+      nested virtualization, likely cheaper and faster than Proxmox-on-GCP.
+      Not started; only worth it if GCP is the target rather than a stopgap.
+      Would need the same stub-tests-plus-conformance treatment.
