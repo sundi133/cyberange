@@ -528,8 +528,17 @@ function socConsole() {
         `<button class="hunt" data-hunt="${esc(h)}" title="${esc(why)}">${esc(h)}</button>`).join("")}
     </div>
 
-    <div id="log-count" class="log-count"></div>
-    <ul class="timeline" id="log-results"></ul>`;
+    <div class="siem">
+      <div class="siem-bar">
+        <div id="log-count" class="log-count"></div>
+        <div class="histo" id="log-histo" title="Events over the exercise timeline"></div>
+      </div>
+      <div class="pivots" id="log-pivots"></div>
+      <div class="loghead">
+        <span>Time</span><span>Source</span><span>Event</span><span>Message</span>
+      </div>
+      <ul class="logtable" id="log-results"></ul>
+    </div>`;
 }
 
 async function initSocConsole() {
@@ -622,19 +631,68 @@ async function runLogSearch() {
     countEl.innerHTML = `<strong>${res.count}</strong> event${res.count === 1 ? "" : "s"}`
       + (bits.length ? ` ${bits.join(", ")}` : "");
 
+    renderHisto(res.results);
+    renderPivots(res.results);
+
     ul.innerHTML = "";
     if (!res.results.length) {
       // Distinguish "your filter is too narrow" from "nothing has happened yet":
       // they need opposite actions from the analyst.
       ul.innerHTML = filtered
-        ? `<li class="out">${emptyState("⌕", "No events match",
+        ? `<li class="logempty">${emptyState("⌕", "No events match",
             "Nothing in this exercise matches that filter. Widen it with Reset filters, or try one of the hunts above.")}</li>`
-        : `<li class="out">${emptyState("◷", "Nothing has happened yet",
+        : `<li class="logempty">${emptyState("◷", "Nothing has happened yet",
             "The attacker has not acted in this exercise. Press Refresh once they do.")}</li>`;
       return;
     }
     res.results.forEach((ev) => ul.appendChild(logRow(ev, q)));
   } catch (e) { toast(e.message, "err"); }
+}
+
+/* Events bucketed over the window the results span - the "when did this spike"
+   read every SIEM puts above its result list. */
+function renderHisto(results) {
+  const host = document.getElementById("log-histo");
+  if (!host) return;
+  if (results.length < 2) { host.innerHTML = ""; return; }
+  const ts = results.map((e) => Date.parse(e.ts_utc)).filter(Number.isFinite);
+  const min = Math.min(...ts), max = Math.max(...ts);
+  const BUCKETS = 28;
+  const span = Math.max(max - min, 1);
+  const counts = new Array(BUCKETS).fill(0);
+  ts.forEach((t) => {
+    const i = Math.min(BUCKETS - 1, Math.floor(((t - min) / span) * BUCKETS));
+    counts[i] += 1;
+  });
+  const peak = Math.max(...counts, 1);
+  host.innerHTML = counts.map((c) =>
+    `<span class="hbar" style="height:${Math.max(2, Math.round((c / peak) * 100))}%"
+       title="${c} event${c === 1 ? "" : "s"}"></span>`).join("");
+}
+
+/* Clickable field summary: the pivot that turns a list of lines into an
+   investigation ("which host is noisiest, what kind of event is this"). */
+function renderPivots(results) {
+  const host = document.getElementById("log-pivots");
+  if (!host) return;
+  const tally = (key) => {
+    const m = new Map();
+    results.forEach((e) => { const v = e[key]; if (v) m.set(v, (m.get(v) || 0) + 1); });
+    return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  };
+  const group = (label, key, rows) => rows.length
+    ? `<div class="pivot"><span class="pivot-h">${label}</span>${rows.map(([v, n]) =>
+        `<button class="pivot-v" data-field="${key}" data-value="${esc(v)}">
+           ${esc(v)}<span class="pivot-n">${n}</span></button>`).join("")}</div>`
+    : "";
+  host.innerHTML = group("Sources", "source", tally("source"))
+                 + group("Event types", "kind", tally("kind"));
+  host.querySelectorAll(".pivot-v").forEach((b) => {
+    b.onclick = () => {
+      const sel = document.getElementById(b.dataset.field === "source" ? "log-source" : "log-kind");
+      if (sel) { sel.value = b.dataset.value; runLogSearch(); }
+    };
+  });
 }
 
 /* Highlight the matched term so the analyst can see WHY a line came back,
@@ -654,15 +712,32 @@ function logRow(ev, needle) {
   const isAlert = ev.kind === "detection";
   const text = p.line || p.stderr || p.title || p.text || ev.kind;
   const sev = (p.severity || "").toLowerCase();
-  const li = el(`<li class="${isAlert ? "det" : "out"}">
-    <div class="ts">${esc(ev.ts_utc.slice(11, 23))} · <strong>${esc(ev.source || "")}</strong> · ${esc(ev.kind)}</div>
-    ${isAlert
-      ? `<div class="detline"><strong>ALERT</strong> ${esc(p.title || "")}
-           <span class="tag sev-${esc(sev)}">${esc(sev.toUpperCase())}</span>
-           ${p.latency_s !== undefined ? `<span class="faint" style="font-size:11.5px">MTTD ${esc(p.latency_s)}s</span>` : ""}</div>`
-      : `<div class="logline">${highlight(String(text), needle)}</div>`}
-    <div class="row" style="margin-top:4px"><button class="ghost use-ev" style="padding:3px 9px;font-size:11px">Use as evidence</button></div>
+  const msg = isAlert
+    ? `<strong class="alert-k">ALERT</strong> ${esc(p.title || "")}
+       <span class="tag sev-${esc(sev)}">${esc(sev.toUpperCase())}</span>
+       ${p.latency_s !== undefined ? `<span class="faint">MTTD ${esc(p.latency_s)}s</span>` : ""}`
+    : `<span class="msg">${highlight(String(text), needle)}</span>`;
+
+  const li = el(`<li class="logrow ${isAlert ? "det" : "out"}">
+    <div class="lr">
+      <span class="lr-t">${esc(ev.ts_utc.slice(11, 23))}</span>
+      <span class="lr-s" title="${esc(ev.source || "")}">${esc(ev.source || "-")}</span>
+      <span class="lr-k">${esc(ev.kind)}</span>
+      <span class="lr-m">${msg}</span>
+    </div>
+    <div class="lr-actions">
+      <button class="ghost use-ev">Use as evidence</button>
+      <button class="ghost lr-expand">Raw event</button>
+    </div>
+    <pre class="lr-raw" hidden>${esc(JSON.stringify(ev, null, 2))}</pre>
   </li>`);
+
+  const raw = li.querySelector(".lr-raw");
+  const exp = li.querySelector(".lr-expand");
+  exp.onclick = () => {
+    raw.hidden = !raw.hidden;
+    exp.textContent = raw.hidden ? "Raw event" : "Hide raw";
+  };
   li.querySelector(".use-ev").onclick = async () => {
     const box = document.getElementById("ev-text");
     const desc = `${ev.source}: ${String(text).slice(0, 160)}`;
