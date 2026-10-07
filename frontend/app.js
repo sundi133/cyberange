@@ -440,9 +440,9 @@ const BRIEFS = {
   blue: {
     title: "You are BLUE (defender)",
     goal: "Detect what the attacker did, prove it with evidence, and attribute the technique.",
-    steps: ["Start from <strong>Alerts</strong> in the SOC console, or search the logs.",
-            "Search for suspicious activity (try <span class='mono'>root</span>, <span class='mono'>/tmp</span>, <span class='mono'>shell</span>).",
-            "Hit <strong>Use as evidence</strong> on a damning log line, then record the ATT&amp;CK technique."],
+    steps: ["Open <strong>Alerts</strong> in the SOC console. That is your lead, not your answer.",
+            "Switch to <strong>All activity</strong> and hunt the raw logs around it (try <span class='mono'>root</span>, <span class='mono'>/tmp</span>, <span class='mono'>shell</span>).",
+            "Hit <strong>Use as evidence</strong> on a damning line, then attribute the ATT&amp;CK technique."],
   },
   purple: {
     title: "You are PURPLE (detection engineering)",
@@ -471,47 +471,120 @@ function missionBrief() {
 }
 
 // ---------------- Blue SOC console (log search) --------------------------
+/* Each hunt says what it finds, so the buttons teach the investigation rather
+   than just pasting a string into the box. */
+const HUNTS = [
+  ["root", "Processes running as uid 0"],
+  ["/tmp", "Files dropped in a world-writable directory"],
+  ["shell", "A shell spawned inside a service"],
+  ["payload", "Suspicious file names"],
+  ["secret", "Credential and secret access"],
+  ["curl", "Download or exfiltration attempts"],
+];
+
 function socConsole() {
   return `
     <div class="row" style="justify-content:space-between;align-items:baseline">
       <h3 style="margin:0">② SOC console <span class="faint">log search</span></h3>
       <button class="ghost" id="btn-log-search" style="padding:5px 10px">↻ Refresh</button>
     </div>
-    <div class="phelp" style="margin:2px 0 10px">
-      You are seeing the telemetry the environment produced. The attacker's own
-      tooling is hidden, so work it out from the evidence, like a real SOC.
+    <div class="phelp" style="margin:2px 0 12px">
+      This is the telemetry the environment produced. The attacker's own tooling
+      is hidden, so work it out from the evidence, like a real SOC.
     </div>
-    <div class="toolbar" style="margin-bottom:8px">
-      <input id="log-q" placeholder="Search logs, e.g. root, /tmp, shell" style="flex:1;min-width:180px" />
-      <select id="log-kind" style="max-width:150px"><option value="">All event types</option></select>
-      <select id="log-source" style="max-width:150px"><option value="">All sources</option></select>
+
+    <div class="scope-bar" id="log-scope">
+      <button class="chip" data-scope="detection">
+        <span class="chip-dot warn"></span>Alerts<span class="chip-n" id="n-alerts">–</span>
+      </button>
+      <button class="chip active" data-scope="">
+        <span class="chip-dot"></span>All activity<span class="chip-n" id="n-all">–</span>
+      </button>
+      <span class="faint" style="font-size:11.5px;margin-left:auto">Start with alerts, then widen</span>
     </div>
-    <div class="row" style="gap:6px;margin-bottom:10px">
-      <span class="faint" style="font-size:11.5px">Quick hunts:</span>
-      ${["root", "/tmp", "shell", "payload", "secret", "curl"]
-        .map((h) => `<button class="ghost hunt" data-hunt="${h}" style="padding:3px 9px;font-size:11.5px">${h}</button>`).join("")}
+
+    <div class="search-row">
+      <span class="search-ico" aria-hidden="true">⌕</span>
+      <input id="log-q" placeholder="Search log text, host or event type…" autocomplete="off" />
+      <button class="search-clear" id="log-clear" hidden aria-label="Clear search">×</button>
     </div>
-    <div id="log-count" class="faint" style="font-size:11.5px;margin-bottom:6px"></div>
+
+    <div class="toolbar" style="margin:8px 0 10px">
+      <select id="log-kind" style="max-width:170px"><option value="">Any event type</option></select>
+      <select id="log-source" style="max-width:170px"><option value="">Any source</option></select>
+      <button class="ghost" id="log-reset" hidden style="padding:5px 10px">Reset filters</button>
+    </div>
+
+    <div class="hunts">
+      <span class="faint" style="font-size:11.5px">Hunt for:</span>
+      ${HUNTS.map(([h, why]) =>
+        `<button class="hunt" data-hunt="${esc(h)}" title="${esc(why)}">${esc(h)}</button>`).join("")}
+    </div>
+
+    <div id="log-count" class="log-count"></div>
     <ul class="timeline" id="log-results"></ul>`;
 }
 
 async function initSocConsole() {
+  const q = document.getElementById("log-q");
+  const kindSel = document.getElementById("log-kind");
+  const srcSel = document.getElementById("log-source");
+
   try {
     const meta = await api("GET", `/exercises/${state.exercise}/log-sources`);
-    const kindSel = document.getElementById("log-kind");
-    const srcSel = document.getElementById("log-source");
     (meta.kinds || []).forEach((k) => kindSel.appendChild(el(`<option value="${esc(k)}">${esc(k)}</option>`)));
     (meta.sources || []).forEach((s) => srcSel.appendChild(el(`<option value="${esc(s)}">${esc(s)}</option>`)));
-    kindSel.onchange = runLogSearch;
-    srcSel.onchange = runLogSearch;
-    const q = document.getElementById("log-q");
-    let t; q.oninput = () => { clearTimeout(t); t = setTimeout(runLogSearch, 250); };
-    document.querySelectorAll(".hunt").forEach((b) => {
-      b.onclick = () => { q.value = b.dataset.hunt; runLogSearch(); };
-    });
-    bind("btn-log-search", runLogSearch);
   } catch (e) { /* meta is best-effort */ }
+
+  kindSel.onchange = () => { syncScopeChips(); runLogSearch(); };
+  srcSel.onchange = runLogSearch;
+
+  let t;
+  q.oninput = () => { clearTimeout(t); t = setTimeout(runLogSearch, 250); };
+  q.onkeydown = (e) => {
+    if (e.key === "Enter") { e.preventDefault(); clearTimeout(t); runLogSearch(); }
+    if (e.key === "Escape") { q.value = ""; runLogSearch(); }
+  };
+
+  document.getElementById("log-clear").onclick = () => { q.value = ""; q.focus(); runLogSearch(); };
+  document.getElementById("log-reset").onclick = () => {
+    q.value = ""; kindSel.value = ""; srcSel.value = "";
+    syncScopeChips(); runLogSearch();
+  };
+
+  // The alert / all-activity chips are the primary path; they drive the same
+  // kind filter the dropdown does, so there is one source of truth.
+  document.querySelectorAll("#log-scope .chip").forEach((c) => {
+    c.onclick = () => { kindSel.value = c.dataset.scope; syncScopeChips(); runLogSearch(); };
+  });
+
+  document.querySelectorAll(".hunt").forEach((b) => {
+    b.onclick = () => { q.value = b.dataset.hunt; runLogSearch(); };
+  });
+  bind("btn-log-search", async () => { await refreshScopeCounts(); await runLogSearch(); });
+
+  await refreshScopeCounts();
   await runLogSearch();
+}
+
+function syncScopeChips() {
+  const kind = document.getElementById("log-kind")?.value || "";
+  document.querySelectorAll("#log-scope .chip").forEach((c) =>
+    c.classList.toggle("active", c.dataset.scope === kind));
+}
+
+/* Blue should be able to see at a glance whether anything has fired yet. */
+async function refreshScopeCounts() {
+  try {
+    const [alerts, all] = await Promise.all([
+      api("GET", `/exercises/${state.exercise}/logs?kind=detection`),
+      api("GET", `/exercises/${state.exercise}/logs`),
+    ]);
+    const a = document.getElementById("n-alerts");
+    const t = document.getElementById("n-all");
+    if (a) { a.textContent = alerts.count; a.classList.toggle("hot", alerts.count > 0); }
+    if (t) t.textContent = all.count;
+  } catch { /* counts are best-effort */ }
 }
 
 async function runLogSearch() {
@@ -522,30 +595,65 @@ async function runLogSearch() {
   if (q) p.set("q", q);
   if (kind) p.set("kind", kind);
   if (source) p.set("source", source);
+
+  const filtered = Boolean(q || kind || source);
+  const clearBtn = document.getElementById("log-clear");
+  const resetBtn = document.getElementById("log-reset");
+  if (clearBtn) clearBtn.hidden = !q;
+  if (resetBtn) resetBtn.hidden = !filtered;
+  syncScopeChips();
+
   try {
     const res = await api("GET", `/exercises/${state.exercise}/logs?` + p.toString());
     const ul = document.getElementById("log-results");
     const countEl = document.getElementById("log-count");
-    countEl.textContent = `${res.count} event(s)${q ? ` matching "${q}"` : ""}`;
+
+    const bits = [];
+    if (q) bits.push(`matching <strong>${esc(q)}</strong>`);
+    if (kind) bits.push(`of type <strong>${esc(kind)}</strong>`);
+    if (source) bits.push(`from <strong>${esc(source)}</strong>`);
+    countEl.innerHTML = `<strong>${res.count}</strong> event${res.count === 1 ? "" : "s"}`
+      + (bits.length ? ` ${bits.join(", ")}` : "");
+
     ul.innerHTML = "";
     if (!res.results.length) {
-      ul.innerHTML = `<li class="faint" style="padding-left:0">No matching logs. Clear the filters, or wait for the attacker to act.</li>`;
+      // Distinguish "your filter is too narrow" from "nothing has happened yet":
+      // they need opposite actions from the analyst.
+      ul.innerHTML = filtered
+        ? `<li class="out">${emptyState("⌕", "No events match",
+            "Nothing in this exercise matches that filter. Widen it with Reset filters, or try one of the hunts above.")}</li>`
+        : `<li class="out">${emptyState("◷", "Nothing has happened yet",
+            "The attacker has not acted in this exercise. Press Refresh once they do.")}</li>`;
       return;
     }
-    res.results.forEach((ev) => ul.appendChild(logRow(ev)));
+    res.results.forEach((ev) => ul.appendChild(logRow(ev, q)));
   } catch (e) { toast(e.message, "err"); }
 }
 
-function logRow(ev) {
+/* Highlight the matched term so the analyst can see WHY a line came back,
+   rather than re-reading it to find the hit. Escaped first, so the mark is the
+   only markup introduced. */
+function highlight(text, needle) {
+  const safe = esc(text);
+  if (!needle) return safe;
+  const pattern = esc(needle).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  try {
+    return safe.replace(new RegExp(pattern, "gi"), (hit) => `<mark>${hit}</mark>`);
+  } catch { return safe; }
+}
+
+function logRow(ev, needle) {
   const p = ev.payload || {};
   const isAlert = ev.kind === "detection";
   const text = p.line || p.stderr || p.title || p.text || ev.kind;
+  const sev = (p.severity || "").toLowerCase();
   const li = el(`<li class="${isAlert ? "det" : "out"}">
     <div class="ts">${esc(ev.ts_utc.slice(11, 23))} · <strong>${esc(ev.source || "")}</strong> · ${esc(ev.kind)}</div>
     ${isAlert
       ? `<div class="detline"><strong>ALERT</strong> ${esc(p.title || "")}
-           <span class="tag">${esc((p.severity || "").toUpperCase())}</span></div>`
-      : `<div class="logline">${esc(text)}</div>`}
+           <span class="tag sev-${esc(sev)}">${esc(sev.toUpperCase())}</span>
+           ${p.latency_s !== undefined ? `<span class="faint" style="font-size:11.5px">MTTD ${esc(p.latency_s)}s</span>` : ""}</div>`
+      : `<div class="logline">${highlight(String(text), needle)}</div>`}
     <div class="row" style="margin-top:4px"><button class="ghost use-ev" style="padding:3px 9px;font-size:11px">Use as evidence</button></div>
   </li>`);
   li.querySelector(".use-ev").onclick = async () => {

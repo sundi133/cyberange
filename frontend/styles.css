@@ -380,12 +380,65 @@ li.det:hover { background: var(--warn-soft); border-left-color: var(--warn); }
   background: transparent; color: var(--text-muted);
 }
 .use-ev:hover { border-color: var(--accent); color: var(--accent); }
+.hunts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: var(--s3); }
 .hunt {
   font: inherit; font-size: 12px; padding: 4px 10px; cursor: pointer;
   border: 1px solid var(--border); border-radius: var(--r-full);
   background: var(--surface-2); color: var(--text-muted);
 }
 .hunt:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ------------------------------------------------------- SOC search bar */
+.scope-bar { display: flex; align-items: center; gap: var(--s2); margin-bottom: var(--s3); }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 12px; border-radius: var(--r-full); cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 550;
+  background: var(--surface-2); color: var(--text-muted);
+  border: 1px solid var(--border); transition: background .13s, color .13s, border-color .13s;
+}
+.chip:hover { color: var(--text); border-color: var(--accent); }
+.chip.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.chip-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); flex: none;
+}
+.chip-dot.warn { background: var(--warn); }
+.chip-n {
+  padding: 1px 7px; border-radius: var(--r-full);
+  background: var(--surface-3); color: var(--text-muted);
+  font-size: 11px; font-weight: 650; font-variant-numeric: tabular-nums;
+}
+.chip.active .chip-n { background: var(--accent); color: var(--accent-ink); }
+.chip-n.hot { background: var(--warn); color: var(--accent-ink); }
+
+.search-row { position: relative; display: flex; align-items: center; }
+.search-row input { width: 100%; padding-left: 32px; padding-right: 32px; height: 38px; font-size: 14px; }
+.search-ico {
+  position: absolute; left: 11px; font-size: 15px; color: var(--text-faint); pointer-events: none;
+}
+.search-clear {
+  position: absolute; right: 8px; width: 20px; height: 20px; padding: 0;
+  display: grid; place-items: center; cursor: pointer;
+  border: 0; border-radius: 50%; background: var(--surface-3);
+  color: var(--text-muted); font-size: 14px; line-height: 1;
+}
+.search-clear:hover { background: var(--danger-soft); color: var(--danger); }
+.search-clear[hidden] { display: none; }
+
+.log-count { font-size: 12px; color: var(--text-muted); margin-bottom: var(--s2); }
+.log-count strong { color: var(--text); font-weight: 650; }
+
+mark {
+  background: var(--warn-soft); color: var(--warn);
+  padding: 0 2px; border-radius: 3px; font-weight: 650;
+}
+
+.tag.sev-high     { background: var(--danger-soft); color: var(--danger); }
+.tag.sev-medium   { background: var(--warn-soft);   color: var(--warn); }
+.tag.sev-low      { background: var(--surface-3);   color: var(--text-muted); }
+
+/* an empty state nested in a results list should not look like a log row */
+li.out > .empty, li.det > .empty { border: 0; background: transparent; padding: var(--s5) var(--s3); }
 
 /* ---------------------------------------------------------------- tables */
 .table-wrap {
