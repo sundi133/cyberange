@@ -69,7 +69,7 @@ make catalog          # print the seeded content summary
 | FR-01 Scenario catalog | `catalog.py` + `seed/` - search/filter scenarios & modules |
 | FR-02 Topology templates | `seed/topologies.json` - declarative VM/network/identity templates |
 | FR-03 Lifecycle | `lifecycle.py` - full state machine incl. QUARANTINED (admin-only release) |
-| FR-06 TTP emulation | 25 signed S0/S1/S2 modules across Windows/Linux/Docker; **real container execution** for modules with an execution spec (see below), simulated otherwise |
+| FR-06 TTP emulation | 29 signed S0/S1/S2 modules across Windows/Linux/Docker; **real container execution** for modules with an execution spec (see below), simulated otherwise |
 | FR-07 Telemetry/timeline | `service.py` - synchronized UTC event timeline with integrity hashes |
 | FR-08 Detection content | `detection.py` + `seed/detections.json` - versioned Sigma-like rules that **fire automatically** against real telemetry (MTTD, severity, evidence) |
 | FR-09 Scoring | `scoring.py` - weighted, explainable, penalty- and override-aware |
@@ -79,10 +79,10 @@ make catalog          # print the seeded content summary
 | FR-14 APIs | `server.py` - REST endpoints for lifecycle, catalog, evidence, scoring |
 | §8 Safety | unsigned/prohibited modules blocked; S2 gated to instructor/admin |
 
-Seeded content: **10 launch scenarios**, **25 signed behavior modules**,
-**22 ATT&CK techniques**, **15 detection rules**, **2 topology templates** -
-exceeding the MVP scope in the spec (§10, which called for 7 scenarios and 24
-modules).
+Seeded content: **10 launch scenarios**, **29 signed behavior modules**
+(**16** with real container execution), **25 ATT&CK techniques**,
+**25 detection rules**, **2 topology templates** - exceeding the MVP scope in
+the spec (§10, which called for 7 scenarios and 24 modules).
 
 ## Roles & auth
 

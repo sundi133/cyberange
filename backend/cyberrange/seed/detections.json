@@ -199,5 +199,127 @@
       ],
       "line_regex": "clearing traces|truncating auth log|cleared /var/log|history removed|traces cleared"
     }
+  },
+  {
+    "id": "DR-INGRESS-TRANSFER",
+    "technique_id": "T1105",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "Tool transferred into a writable path",
+    "description": "A workload fetched a file from another host and wrote it under /tmp - staging of attacker tooling.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "ingress|downloaded to /tmp|/tmp/tool\\.sh"
+    }
+  },
+  {
+    "id": "DR-ARCHIVE-STAGING",
+    "technique_id": "T1560",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "Collected data archived for exfil",
+    "description": "Files were gathered and compressed into a single archive - a common pre-exfiltration staging step.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "archiving collected data|loot\\.tar\\.gz"
+    }
+  },
+  {
+    "id": "DR-PAYLOAD-DECODE",
+    "technique_id": "T1140",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Encoded stage decoded and executed",
+    "description": "An encoded blob was decoded to disk and immediately run - a hallmark of hiding a stage from static inspection.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "decoding embedded stage|decoded stage"
+    }
+  },
+  {
+    "id": "DR-SERVICE-PERSIST",
+    "technique_id": "T1543",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Startup service created",
+    "description": "An executable was placed in a service startup directory - persistence that survives reboot.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "installing startup service|init\\.d/cr-marker"
+    }
+  },
+  {
+    "id": "DR-USER-EXECUTION",
+    "technique_id": "T1204",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "User execution of delivered content",
+    "description": "Technique-coverage rule: a user-execution behavior was emulated in the range.",
+    "match": {
+      "technique": "T1204"
+    }
+  },
+  {
+    "id": "DR-REMOTE-SERVICES",
+    "technique_id": "T1021",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Lateral movement over remote services",
+    "description": "Technique-coverage rule: remote-service lateral movement was emulated in the range.",
+    "match": {
+      "technique": "T1021"
+    }
+  },
+  {
+    "id": "DR-VALID-ACCOUNTS",
+    "technique_id": "T1078",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Valid-account reuse",
+    "description": "Technique-coverage rule: authentication with reused valid credentials was emulated in the range.",
+    "match": {
+      "technique": "T1078"
+    }
+  },
+  {
+    "id": "DR-DATA-LOCAL",
+    "technique_id": "T1005",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "Data collected from local system",
+    "description": "Technique-coverage rule: local data collection was emulated in the range.",
+    "match": {
+      "technique": "T1005"
+    }
+  },
+  {
+    "id": "DR-APP-LAYER-C2",
+    "technique_id": "T1071",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "Application-layer C2 beacon",
+    "description": "Technique-coverage rule: an application-layer command-and-control beacon was emulated in the range.",
+    "match": {
+      "technique": "T1071"
+    }
+  },
+  {
+    "id": "DR-EXFIL-C2",
+    "technique_id": "T1041",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Exfiltration over the C2 channel",
+    "description": "Technique-coverage rule: exfiltration over an existing C2 channel was emulated in the range.",
+    "match": {
+      "technique": "T1041"
+    }
   }
 ]
