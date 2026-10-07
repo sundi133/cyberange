@@ -360,16 +360,32 @@ async function viewExercise() {
       <div class="row"><input id="inject-text" placeholder="e.g. User reports a suspicious email" style="flex:1" />
         <button class="ghost" id="btn-inject">Inject</button></div>
     </div>`);
-  if (can("exercise:submit_evidence")) panels.push(`
+  // Red and blue both record evidence, but they are recording opposite things:
+  // blue proves what it caught, red documents what it did. The report compares
+  // the two, which is where ATT&CK coverage comes from - so the panel has to
+  // speak in the language of whoever is looking at it.
+  if (can("exercise:submit_evidence")) {
+    const ev = isBlue ? {
+      head: "③ Raise a finding",
+      help: "When a log line proves malicious activity, hit <strong>Use as evidence</strong> on it in the search results, or type your finding here. Each item is hashed for integrity.",
+      hint: "e.g. Binary written to /tmp and executed as root on host:victim",
+    } : session.role === "red" ? {
+      head: "Log your attack path",
+      help: "Record what you did and what it got you. This is not defender work: the after-action report compares your declared path against what blue actually detected, and that gap is the coverage finding. Each item is hashed for integrity.",
+      hint: "e.g. Wrote /tmp/payload.sh and executed it as root on victim",
+    } : {
+      head: "Record evidence",
+      help: "You run both sides, so log the attack steps you take and the findings you make. Each item is hashed for integrity.",
+      hint: "e.g. Executed payload as root, then alerted on the nested shell",
+    };
+    panels.push(`
     <div class="panel">
-      <div class="phead">${isBlue ? "③ Raise a finding" : "Submit evidence"}
-        <span class="tag role">${esc(session.role)}</span></div>
-      <div class="phelp">${isBlue
-        ? "When a log line proves malicious activity, hit <strong>Use as evidence</strong> on it in the search results, or type your finding here. Each item is hashed for integrity."
-        : "Record a finding or containment action. Each item is hashed for integrity."}</div>
-      <div class="row"><input id="ev-text" placeholder="e.g. Isolated host, killed process tree" style="flex:1" />
+      <div class="phead">${ev.head} <span class="tag role">${esc(session.role)}</span></div>
+      <div class="phelp">${ev.help}</div>
+      <div class="row"><input id="ev-text" placeholder="${esc(ev.hint)}" style="flex:1" />
         <button class="ghost" id="btn-ev">Submit</button></div>
     </div>`);
+  }
   panels.push(`
     <div class="panel">
       <div class="phead">${isBlue ? "④ Attribute the technique" : "Detection"}</div>
