@@ -186,7 +186,11 @@ class CyberRangeService:
             (_now(), actor, role, action, target, detail),
         )
 
-    def audit_log(self, limit: int = 200) -> list[dict]:
+    def audit_log(self, role: str, limit: int = 200) -> list[dict]:
+        # The ledger records which module every operator executed, which is
+        # exactly what the defender's redacted log view strips out. Reading it
+        # must therefore be gated, or it becomes a way around the fog of war.
+        rbac.require(role, "admin:audit")
         rows = self.db.query(
             "SELECT * FROM audit ORDER BY id DESC LIMIT ?", (limit,)
         )

@@ -260,32 +260,23 @@ Also confirm, from the suite or by inspection:
 
 ---
 
-## Known issue — audit ledger is not permission-checked
+## Audit ledger is admin-only
 
-**`GET /api/audit` returns the full audit ledger to any authenticated role.**
-
-`rbac.py` defines an `admin:audit` permission and grants it only to `admin`, but
-the route in `server.py` never checks it. Reproduce:
+**`GET /api/audit` requires the `admin:audit` permission**, which only `admin`
+holds. Verify both sides:
 
 ```bash
-# as blue1
-curl -s -H "Authorization: Bearer $BLUE_TOK" "$BASE/audit?limit=100"
+# as blue1 -> 403
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $BLUE_TOK" "$BASE/audit"
+# as admin -> 200
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $ADMIN_TOK" "$BASE/audit"
 ```
 
-Expected 403. Actual 200, including entries like:
-
-```json
-{"actor": "admin", "role": "admin", "action": "module:execute",
- "target": "run-853406a2e6d1", "detail": "CR-MOD-DOCKER-ESCAPE-001 (simulated)"}
-```
-
-This **defeats the fog of war**: the module ID that `/exercises/{id}/logs`
-carefully strips from the defender's view is handed to the same defender by the
-audit endpoint. Any blue analyst can read the answer key mid-exercise.
-
-Until it is fixed, the fog-of-war test above passes at the log endpoint and
-fails at the audit endpoint. Treat a blue-readable audit ledger as a defect, not
-as expected behaviour.
+This matters for the fog of war: the ledger records the module each operator
+executed — exactly what `/exercises/{id}/logs` strips from the defender's view.
+If a non-admin could read `/api/audit`, a blue analyst could read the answer key
+mid-exercise. The permission check closes that path; `test_service.py` asserts
+every non-admin role is refused.
 
 ---
 

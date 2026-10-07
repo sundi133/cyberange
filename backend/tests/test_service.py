@@ -74,8 +74,18 @@ class ServiceTest(unittest.TestCase):
 
     def test_audit_records_actions(self):
         rng = self.svc.create_range("inst", "instructor", "CR-PHISH-001")
-        log = self.svc.audit_log()
+        log = self.svc.audit_log("admin")
         self.assertTrue(any(a["action"] == "range:create" for a in log))
+
+    def test_audit_log_requires_admin_audit_permission(self):
+        self.svc.create_range("inst", "instructor", "CR-PHISH-001")
+        # The ledger names executed modules, so non-admins must not read it -
+        # otherwise it is an exit from the blue team's redacted view.
+        for role in ("blue", "red", "instructor", "purple", "security_leader"):
+            with self.assertRaises(rbac.AuthorizationError):
+                self.svc.audit_log(role)
+        # admin holds admin:audit and still can.
+        self.assertIsInstance(self.svc.audit_log("admin"), list)
 
 
 if __name__ == "__main__":

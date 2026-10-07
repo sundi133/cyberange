@@ -305,7 +305,8 @@ def build_router(svc: CyberRangeService) -> Router:
     r.add("POST", "/api/siem/alert", siem_alert)
 
     # ---- admin ----
-    r.add("GET", "/api/audit", lambda ctx: svc.audit_log(int(_first(ctx["query"], "limit") or 200)))
+    r.add("GET", "/api/audit",
+          lambda ctx: svc.audit_log(ctx["role"], int(_first(ctx["query"], "limit") or 200)))
 
     return r
 
