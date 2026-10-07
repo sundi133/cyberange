@@ -203,8 +203,10 @@ async function viewRanges() {
       } catch (e) { toast(e.message, "err"); }
     };
   }
-  document.getElementById("btn-refresh").onclick = loadRanges;
-  await loadRanges(canManage);
+  // Wrapped, not passed bare: a click handler receives the event as its first
+  // argument, and loadRanges must never take a permission from a caller.
+  document.getElementById("btn-refresh").onclick = () => loadRanges();
+  await loadRanges();
 }
 
 // Milestones shown in the lifecycle stepper, mapped from raw states.
@@ -226,7 +228,12 @@ function stepperHtml(state) {
   }).join("") + `</div>`;
 }
 
-async function loadRanges(canManage = can("range:lifecycle")) {
+async function loadRanges() {
+  // Always derived here. This used to be a defaulted parameter, and binding the
+  // function straight to a click handler passed the PointerEvent in as that
+  // parameter - truthy - so one press of Refresh showed every lifecycle control
+  // to roles that hold none of those permissions.
+  const canManage = can("range:lifecycle");
   const ranges = await api("GET", "/ranges");
   const tb = document.getElementById("range-rows");
   tb.innerHTML = "";
