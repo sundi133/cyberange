@@ -84,6 +84,8 @@ async function viewCatalog() {
             <option>windows</option><option>linux</option><option>docker</option></select>
           <select id="m-safe"><option value="">Any safety class</option>
             <option>S0</option><option>S1</option><option>S2</option></select>
+          <select id="m-exec"><option value="">Any execution</option>
+            <option value="real">⚡ Real exec</option><option value="sim">◦ Simulated</option></select>
           <button class="ghost" id="btn-msearch">Filter modules</button>
         </div>
         <div class="grid" id="modules"></div>
@@ -119,10 +121,21 @@ async function viewCatalog() {
     const safe = document.getElementById("m-safe").value;
     if (plat) p.set("platform", plat);
     if (safe) p.set("safety_class", safe);
-    const mods = await api("GET", "/modules?" + p.toString());
+    let mods = await api("GET", "/modules?" + p.toString());
+    // Execution capability is a frontend-derived property (does the module ship
+    // a spec?), so filter it client-side rather than adding an API parameter.
+    const exec = document.getElementById("m-exec").value;
+    if (exec === "real") mods = mods.filter(moduleIsRealCapable);
+    else if (exec === "sim") mods = mods.filter((m) => !moduleIsRealCapable(m));
     const wrap = document.getElementById("modules");
     wrap.innerHTML = "";
-    mods.forEach((mm) => wrap.appendChild(moduleCard(mm)));
+    if (!mods.length) {
+      wrap.style.display = "block";
+      wrap.innerHTML = emptyState("🔍", "No modules match", "Clear a filter to see more.");
+    } else {
+      wrap.style.display = "";
+      mods.forEach((mm) => wrap.appendChild(moduleCard(mm)));
+    }
   }
 
   document.getElementById("btn-search").onclick = loadScenarios;
@@ -158,6 +171,15 @@ function scenarioCard(s) {
   </div>`);
 }
 
+function execBadge(m) {
+  // Windows modules always simulate; Linux/Docker modules with a spec run for
+  // real when Docker is up. The badge states the capability, not the live state,
+  // so it is stable regardless of whether Docker happens to be connected.
+  return moduleIsRealCapable(m)
+    ? `<span class="exec-badge real" title="Executes a real command in an isolated container when Docker is connected">⚡ Real exec</span>`
+    : `<span class="exec-badge sim" title="Emits declared telemetry; ${esc(m.platform)} behaviour needs the VM tier to run for real">◦ Simulated</span>`;
+}
+
 function moduleCard(m) {
   const sc = (m.safety_class || "").toLowerCase();
   const techs = (m.technique_ids || []).map((t) => `<span class="tag tech">${t}</span>`).join(" ");
@@ -167,7 +189,7 @@ function moduleCard(m) {
       <span class="tag ${sc}">${esc(m.safety_class)}</span>
     </div>
     <p class="mono muted">${esc(m.id)} · <span class="tag ${esc(m.platform)}">${esc(m.platform)}</span></p>
-    <div class="row">${techs}</div>
+    <div class="row" style="margin:6px 0">${execBadge(m)}${techs}</div>
     <p>${esc(m.detection_notes || "")}</p>
     <p class="muted">Cleanup: ${esc(m.cleanup || "-")}</p>
   </div>`);
@@ -348,7 +370,8 @@ async function viewExercise() {
   if (can("module:execute")) panels.push(`
     <div class="panel">
       <div class="phead">① Attack console <span class="tag tech">red</span></div>
-      <div class="phelp">Pick a technique and launch it. Docker modules run <strong>for real</strong> inside the target container; the output they produce becomes the logs the blue team has to find.</div>
+      <div class="phelp">Pick a technique and launch it. <strong>⚡ Real</strong> modules execute a real command in an isolated container; <strong>◦ sim</strong> modules (all Windows behaviour) emit declared telemetry. The output becomes the logs blue has to find.</div>
+      <div id="exec-mode-note"></div>
       <div class="row"><select id="mod-select" style="flex:1"></select>
         <button class="act" id="btn-run-mod">▶ Launch attack</button></div>
       <div id="attack-result" style="margin-top:10px"></div>
@@ -795,8 +818,20 @@ async function loadModuleSelect(scenario) {
   mods.sort((a, b) => (inScenario.has(b.id) ? 1 : 0) - (inScenario.has(a.id) ? 1 : 0));
   mods.forEach((mm) => {
     const star = inScenario.has(mm.id) ? "★ " : "";
-    sel.appendChild(el(`<option value="${esc(mm.id)}">${star}${esc(mm.name)} [${esc(mm.safety_class)}/${esc(mm.platform)}]</option>`));
+    // Options are plain text, so the real/sim call is carried in a prefix glyph
+    // rather than a styled badge.
+    const run = moduleIsRealCapable(mm) ? "⚡ real" : "◦ sim";
+    sel.appendChild(el(`<option value="${esc(mm.id)}">${star}${run} · ${esc(mm.name)} [${esc(mm.safety_class)}/${esc(mm.platform)}]</option>`));
   });
+
+  // One live line that reflects whether Docker is actually connected, since a
+  // real-capable module still simulates when it is not.
+  const note = document.getElementById("exec-mode-note");
+  if (note) {
+    note.innerHTML = execState.real
+      ? `<div class="mode-note ok">⚡ Docker connected — <strong>real</strong> modules execute for real. Windows modules still simulate.</div>`
+      : `<div class="mode-note warn">◦ Docker not connected — <strong>every</strong> module will simulate, including the real-capable ones. Start Docker and restart the server for real execution.</div>`;
+  }
 }
 
 async function runModule() {
@@ -1347,10 +1382,26 @@ function initTheme() {
   });
 }
 
+// Whether live execution is currently available. A module runs for real only
+// when it carries an execution spec AND a Docker daemon is reachable; otherwise
+// it falls back to simulation. The catalog and the attack console read this so
+// an operator knows which it will get before launching.
+const execState = { real: false, mode: "simulated" };
+
+function moduleIsRealCapable(m) {
+  // Only Linux/Docker modules ship an execution spec; Windows modules never do.
+  return Boolean(m.execution);
+}
+function moduleWillRunReal(m) {
+  return moduleIsRealCapable(m) && execState.real;
+}
+
 async function checkHealth() {
   const pill = document.getElementById("health");
   try {
-    await api("GET", "/health");
+    const h = await api("GET", "/health");
+    execState.real = Boolean(h.execution && h.execution.real);
+    execState.mode = (h.execution && h.execution.mode) || "simulated";
     pill.textContent = "● online"; pill.className = "pill ok";
   } catch {
     pill.textContent = "● offline"; pill.className = "pill bad";
