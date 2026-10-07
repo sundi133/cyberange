@@ -50,37 +50,45 @@ async function viewCatalog() {
   const guide = can("range:create") ? `
     <div class="guide">
       <div class="steps">
-        <span><span class="num">1</span>Launch a scenario</span><span class="arrow">→</span>
+        <span><span class="num">1</span><strong>Pick a scenario</strong> below</span><span class="arrow">→</span>
         <span><span class="num">2</span>Prepare the range</span><span class="arrow">→</span>
         <span><span class="num">3</span>Start the exercise</span><span class="arrow">→</span>
         <span><span class="num">4</span>Run techniques &amp; watch detections</span>
       </div>
     </div>` : `
-    <div class="guide"><div class="steps muted">
-      You're signed in as <strong>${esc(session.role)}</strong> - browse the catalog here,
-      then join a running exercise from the <strong>Exercise</strong> tab once an instructor starts one.
+    <div class="guide"><div class="steps">
+      <span>Signed in as <strong>${esc(session.role)}</strong>. Browse what the lab can run here,
+      then go to <strong>Exercise</strong> once an instructor starts one.</span>
     </div></div>`;
 
   m.innerHTML = guide + `
-    <h2>Scenario catalog</h2>
     <div class="toolbar">
-      <input id="q" placeholder="Search scenarios…" style="min-width:200px" />
+      <input id="q" placeholder="Search scenarios…" style="min-width:220px" />
       <select id="f-diff"><option value="">Any difficulty</option>
         <option>introductory</option><option>intermediate</option><option>advanced</option></select>
       <select id="f-plat"><option value="">Any platform</option>
         <option>windows</option><option>linux</option><option>docker</option></select>
       <button class="ghost" id="btn-search">Filter</button>
+      <span class="faint" id="scenario-count" style="margin-left:auto;font-size:12.5px"></span>
     </div>
     <div class="grid" id="scenarios"></div>
-    <h3>TTP behavior modules</h3>
-    <div class="toolbar">
-      <select id="m-plat"><option value="">Any platform</option>
-        <option>windows</option><option>linux</option><option>docker</option></select>
-      <select id="m-safe"><option value="">Any safety class</option>
-        <option>S0</option><option>S1</option><option>S2</option></select>
-      <button class="ghost" id="btn-msearch">Filter modules</button>
-    </div>
-    <div class="grid" id="modules"></div>`;
+
+    <details class="panel" id="modules-panel" style="margin-top:var(--s6)">
+      <summary style="cursor:pointer;font-weight:650;font-size:14px">
+        TTP behaviour modules
+        <span class="faint" style="font-weight:400">— the individual techniques scenarios are built from</span>
+      </summary>
+      <div style="margin-top:var(--s4)">
+        <div class="toolbar">
+          <select id="m-plat"><option value="">Any platform</option>
+            <option>windows</option><option>linux</option><option>docker</option></select>
+          <select id="m-safe"><option value="">Any safety class</option>
+            <option>S0</option><option>S1</option><option>S2</option></select>
+          <button class="ghost" id="btn-msearch">Filter modules</button>
+        </div>
+        <div class="grid" id="modules"></div>
+      </div>
+    </details>`;
 
   async function loadScenarios() {
     const p = new URLSearchParams();
@@ -94,7 +102,15 @@ async function viewCatalog() {
     const wrap = document.getElementById("scenarios");
     wrap.innerHTML = "";
     scenarios.forEach((s) => wrap.appendChild(scenarioCard(s)));
-    if (!scenarios.length) wrap.innerHTML = `<p class="muted">No scenarios match.</p>`;
+    document.getElementById("scenario-count").textContent =
+      `${scenarios.length} scenario${scenarios.length === 1 ? "" : "s"}`;
+    if (!scenarios.length) {
+      wrap.style.display = "block";
+      wrap.innerHTML = emptyState("🔍", "No scenarios match",
+        "Try a different difficulty or platform, or clear the search box.");
+    } else {
+      wrap.style.display = "";
+    }
   }
 
   async function loadModules() {
@@ -111,8 +127,15 @@ async function viewCatalog() {
 
   document.getElementById("btn-search").onclick = loadScenarios;
   document.getElementById("btn-msearch").onclick = loadModules;
+  document.getElementById("q").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); loadScenarios(); }
+  });
+  // Modules are secondary: load them only when the section is first opened.
+  const panel = document.getElementById("modules-panel");
+  panel.addEventListener("toggle", () => {
+    if (panel.open && !panel.dataset.loaded) { panel.dataset.loaded = "1"; loadModules(); }
+  }, { once: false });
   await loadScenarios();
-  await loadModules();
 }
 
 function scenarioCard(s) {
@@ -161,7 +184,7 @@ async function viewRanges() {
       <button class="ghost" id="btn-refresh">↻ Refresh</button>
     </div>` : `<div class="toolbar"><button class="ghost" id="btn-refresh">↻ Refresh</button></div>`;
 
-  m.innerHTML = `<h2>Ranges</h2>${creator}
+  m.innerHTML = `${creator}
     <div class="table-wrap">
       <table><thead><tr>
         <th>Range</th><th>Lifecycle</th><th style="width:40%">Next step</th>
@@ -332,7 +355,8 @@ async function viewExercise() {
     </div>`);
   if (can("exercise:submit_evidence")) panels.push(`
     <div class="panel">
-      <div class="phead">${isBlue ? "③ Raise a finding" : "Submit evidence"} <span class="tag" style="color:var(--blue);border-color:var(--blue)">blue</span></div>
+      <div class="phead">${isBlue ? "③ Raise a finding" : "Submit evidence"}
+        <span class="tag role">${esc(session.role)}</span></div>
       <div class="phelp">${isBlue
         ? "When a log line proves malicious activity, hit <strong>Use as evidence</strong> on it in the search results, or type your finding here. Each item is hashed for integrity."
         : "Record a finding or containment action. Each item is hashed for integrity."}</div>
@@ -802,7 +826,7 @@ async function viewReference() {
     api("GET", "/roles"), api("GET", "/frameworks"),
   ]);
   const fwt = fw.techniques || {};
-  m.innerHTML = `<h2>Reference</h2>
+  m.innerHTML = `
     <h3>Roles &amp; permissions - what each role can do</h3>
     <div class="role-matrix">${roles.map(r => `<div class="card">
       <div class="row" style="justify-content:space-between">
@@ -847,7 +871,7 @@ async function viewReference() {
 async function viewAudit() {
   const m = $main();
   const log = await api("GET", "/audit?limit=200");
-  m.innerHTML = `<h2>Audit ledger</h2>
+  m.innerHTML = `
     <table><thead><tr><th>Time (UTC)</th><th>Actor</th><th>Role</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead>
     <tbody>${log.map(a => `<tr><td class="mono muted">${esc((a.ts_utc || "").slice(11, 23))}</td>
       <td>${esc(a.actor)}</td><td><span class="tag">${esc(a.role)}</span></td>
@@ -862,10 +886,10 @@ const ROLE_OPTS = ["red", "blue", "purple", "instructor", "solo", "security_lead
 async function viewAdmin() {
   const m = $main();
   if (!can("admin:manage_users")) {
-    m.innerHTML = `<h2>Admin</h2><p class="muted">Your role (${esc(session.role)}) cannot manage users.</p>`;
+    m.innerHTML = `<p class="muted">Your role (${esc(session.role)}) cannot manage users.</p>`;
     return;
   }
-  m.innerHTML = `<h2>Admin · user provisioning</h2>
+  m.innerHTML = `
     <div class="split">
       <div>
         <h3>Provision a user</h3>
@@ -936,7 +960,7 @@ async function loadUsers() {
 // ---------------- Classes (instructor) ----------------
 async function viewClasses() {
   const m = $main();
-  m.innerHTML = `<h2>Classes</h2>
+  m.innerHTML = `
     <div class="toolbar">
       <input id="new-class" placeholder="New class name, e.g. Intro to Cyber - Fall" style="min-width:280px" />
       <button class="act" id="btn-new-class">＋ Create class</button>
@@ -1053,22 +1077,68 @@ const VIEWS = {
   classes: viewClasses,
 };
 
+/* Kept short: the page title already names the section, so this line says what
+   you do here, not what it is called. */
 const VIEW_HELP = {
-  classes: "<strong>Classes</strong> - create a class, enroll students, assign lessons, and track progress in the gradebook.",
-  catalog: "<strong>Catalog</strong> - browse scenarios and attacker techniques. Launch a scenario to create an isolated range.",
-  ranges: "<strong>Ranges</strong> - prepare a range through its lifecycle, then start the exercise. Each range is isolated with no internet access.",
-  exercise: "<strong>Exercise</strong> - the live lab. Your panels change with your role: red launches attacks, blue hunts through the logs they leave behind.",
-  reference: "<strong>Reference</strong> - ATT&amp;CK coverage, scoring model, safety classes, detection stack, topologies, and what each role can do.",
-  audit: "<strong>Audit</strong> - an append-only ledger of every action, attributed to a user and role.",
-  admin: "<strong>Admin</strong> - provision user accounts and assign each a role.",
+  classes: "Create a class, enrol students, assign lessons, and track progress in the gradebook.",
+  catalog: "Browse what the lab can run. Launch a scenario to create an isolated range.",
+  ranges: "Prepare a range through its lifecycle, then start the exercise. Every range is isolated, with no internet access.",
+  exercise: "The live lab. Your panels follow your role: red launches attacks, blue hunts the logs they leave behind.",
+  reference: "ATT&amp;CK coverage, the scoring model, safety classes, the detection stack, topologies, and what each role can do.",
+  audit: "An append-only ledger of every action, attributed to a user and a role.",
+  admin: "Provision user accounts and assign each one a role.",
+};
+
+const VIEW_TITLES = {
+  classes: "Classes", catalog: "Catalog", ranges: "Ranges", exercise: "Exercise",
+  reference: "Reference", audit: "Audit", admin: "Admin",
 };
 
 function switchView(name) {
   state.view = name;
   document.querySelectorAll(".tab").forEach((t) =>
     t.classList.toggle("active", t.dataset.view === name));
+  document.getElementById("view-title").textContent = VIEW_TITLES[name] || name;
   document.getElementById("view-help").innerHTML = VIEW_HELP[name] || "";
-  VIEWS[name]().catch((e) => { $main().innerHTML = `<p class="muted">Error: ${esc(e.message)}</p>`; });
+  $main().innerHTML = "";
+  VIEWS[name]().catch((e) => {
+    $main().innerHTML = emptyState("⚠", "Could not load this view", esc(e.message));
+  });
+}
+
+/* The view a user lands on should be the one their role actually works in:
+   launchers start in the catalog, participants in the live exercise, and
+   read-only oversight in the reference material. */
+function defaultView() {
+  if (can("range:create")) return "catalog";
+  if (can("exercise:participate")) return "exercise";
+  return "reference";
+}
+
+function emptyState(icon, title, body, action = "") {
+  return `<div class="empty">
+    <span class="ico">${icon}</span>
+    <strong>${title}</strong>
+    <p>${body}</p>
+    ${action}
+  </div>`;
+}
+
+// ---------------- Theme ----------------
+const THEME_KEY = "cr_theme";
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  try { localStorage.setItem(THEME_KEY, theme); } catch { /* private mode */ }
+}
+
+function initTheme() {
+  let saved = null;
+  try { saved = localStorage.getItem(THEME_KEY); } catch { /* private mode */ }
+  applyTheme(saved || "dark");
+  document.getElementById("btn-theme").addEventListener("click", () => {
+    applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
+  });
 }
 
 async function checkHealth() {
@@ -1094,6 +1164,11 @@ function applySession(s) {
   roleTag.textContent = session.role;
   document.getElementById("tab-admin").hidden = !can("admin:manage_users");
   document.getElementById("tab-classes").hidden = !can("cohort:manage");
+  // The ledger names the modules red executed, so it must not be an exit from
+  // the defender's redacted view. NOTE: GET /api/audit does not yet enforce
+  // admin:audit server-side (see docs/TESTING.md) - hiding the tab is not the
+  // fix, only the correct UI behaviour alongside it.
+  document.getElementById("tab-audit").hidden = !can("admin:audit");
 }
 
 function clearSession() {
@@ -1120,7 +1195,7 @@ async function doLogin(evt) {
     applySession(s);
     hideLogin();
     toast(`Signed in as ${s.username} (${s.role})`);
-    switchView("catalog");
+    switchView(defaultView());
     checkHealth();
   } catch (e) {
     document.getElementById("li-err").textContent = e.message;
@@ -1134,6 +1209,7 @@ async function doLogout() {
 }
 
 async function bootstrap() {
+  initTheme();
   document.getElementById("login-form").addEventListener("submit", doLogin);
   document.getElementById("btn-logout").addEventListener("click", doLogout);
   document.querySelectorAll(".tab").forEach((t) =>
@@ -1157,7 +1233,7 @@ async function bootstrap() {
       const me = await api("GET", "/me");
       applySession(me);
       hideLogin();
-      switchView("catalog");
+      switchView(defaultView());
       checkHealth();
       setInterval(checkHealth, 15000);
       return;
