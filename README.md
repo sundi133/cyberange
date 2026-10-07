@@ -223,8 +223,12 @@ enumerate over LDAP (`CR-MOD-AD-DISC-001` → real account discovery, T1087).
 `cyberrange=<range_id>`, non-privileged, and memory/pid-capped.
 
 **Real Windows / Active Directory** endpoints (Kerberos/SMB/GPO - the Windows
-attack surface) need full VMs and a hypervisor; that tier and its integration
-seam are documented in [deploy/vm](deploy/vm/README.md) (roadmap, operator-hosted).
+attack surface) need full VMs and a hypervisor. A **Proxmox VM tier** ships
+behind the same provisioner interface as the container tier: see
+[deploy/vm/PROXMOX_SETUP.md](deploy/vm/PROXMOX_SETUP.md) to set it up, and run
+`scripts/proxmox_conformance.py` against your host to verify it. The adapter is
+unit-tested against a stubbed API but is **unverified against real hardware**
+until that script passes, and Windows modules are still simulated.
 The LDAP directory above is a Linux identity stand-in, not a Windows AD DC.
 
 ## Detection engine (real rules, not a manual verdict)

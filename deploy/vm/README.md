@@ -51,6 +51,10 @@ otherwise unchanged. Windows modules carry
 
 ## Configuring the Proxmox tier
 
+Step-by-step operator setup - API token and privileges, building the Linux
+and Windows templates, VLAN isolation, and proving it works:
+**[PROXMOX_SETUP.md](PROXMOX_SETUP.md)**. The variables themselves:
+
 The tier activates when these are set; otherwise the container tier is used and
 `GET /api/health` reports which one is live under `targets`.
 
