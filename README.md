@@ -46,6 +46,10 @@ can do and the full provisioning flow.
 through both sides, red launching a real attack and blue hunting it in the SOC
 log search.
 
+**Demoing to a customer?** [docs/CUSTOMER_DEMO.md](docs/CUSTOMER_DEMO.md) is a
+numbered set of red-team and blue-team test cases with expected results and what
+each one proves.
+
 **Testing the platform?** [docs/TESTING.md](docs/TESTING.md) is the tester's
 guide: the automated suite, smoke tests, API checks, the negative/RBAC battery,
 and how to verify the defender-side redaction.
