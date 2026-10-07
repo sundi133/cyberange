@@ -18,7 +18,7 @@ import subprocess
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from . import (auth, catalog, detection, execution, lifecycle, provisioning,
+from . import (auth, catalog, detection, execution, lifecycle, provisioners, provisioning,
                rbac, scoring, siem)
 from .db import Database, row_to_dict
 
@@ -55,7 +55,21 @@ class CyberRangeService:
         self._live_ranges = (
             os.environ.get("CR_LIVE_RANGES", "").lower() in ("1", "true", "yes")
             and self._docker_ok)
+        # Which tier supplies range targets: containers by default, the Proxmox
+        # VM tier when it is configured. Everything above here is unchanged by
+        # the choice; see cyberrange/provisioners/base.py.
+        self._provisioner = provisioners.resolve()
         self._seed_admin()
+
+    def _tier_network(self, range_id: str) -> str:
+        """Network label for telemetry, as the live tier names it."""
+        if self._provisioner.name == "docker":
+            return provisioning.net_name(range_id)
+        return f"vlan-{range_id}"
+
+    def target_tier(self) -> dict:
+        """Which tier is live, for /api/health."""
+        return provisioners.describe(self._provisioner)
 
     # ---- users & auth (FR-12, spec section 6) ----------------------------
     def _seed_admin(self):
@@ -258,17 +272,17 @@ class CyberRangeService:
                 scenario = catalog.get_scenario(rrow["scenario_id"]) if rrow else {}
                 needs_dir = bool(set((scenario or {}).get("technique_ids", []))
                                  & {"T1087", "T1078"})
-                info = provisioning.provision(range_id, with_directory=needs_dir)
+                info = self._provisioner.provision(range_id, with_directory=needs_dir)
                 self.db.execute("UPDATE ranges SET meta=? WHERE id=?",
                                 (json.dumps({"targets": info["targets"],
                                              "network": info["network"]}), range_id))
                 self._audit(actor, role, "range:provision", range_id,
                             f"targets: {', '.join(t['hostname'] for t in info['targets'])}")
             elif action == "reset":
-                provisioning.reset(range_id)
+                self._provisioner.reset(range_id)
                 self._audit(actor, role, "range:reset", range_id, "targets recycled")
             elif action == "destroy":
-                provisioning.teardown(range_id)
+                self._provisioner.teardown(range_id)
         except Exception as exc:  # noqa: BLE001 - provisioning must not corrupt state
             self._audit(actor, role, "range:provision_error", range_id, str(exc))
 
@@ -481,20 +495,18 @@ class CyberRangeService:
             "SELECT range_id FROM exercises WHERE id=?", (exercise_id,))
         range_id = range_row["range_id"] if range_row else None
         timeout = module.get("timeout_seconds", 60)
-        live = self._live_ranges and range_id and spec.get("adapter") == "docker"
+        tier = self._provisioner
+        # A module names the tier it expects ("docker" or "vm"); run it on the
+        # live tier only when that tier actually has the target up.
+        wants_live = spec.get("adapter") in ("docker", "vm")
+        live = (self._live_ranges or tier.name != "docker") and range_id and wants_live
         try:
-            if live and target == "directory" and provisioning.directory_provisioned(range_id):
-                out, err, rc, dur = provisioning.exec_in_directory(
-                    range_id, spec["cmd"], timeout)
+            if live and target and tier.has_target(range_id, target):
+                r = tier.exec_in(range_id, target, spec["cmd"], timeout)
                 result = execution.build_result(
-                    module, out, err, rc, dur, adapter="docker-exec",
-                    image=f"dc@{provisioning.net_name(range_id)}")
-            elif live and target == "victim" and provisioning.is_provisioned(range_id):
-                out, err, rc, dur = provisioning.exec_in_victim(
-                    range_id, spec["cmd"], timeout)
-                result = execution.build_result(
-                    module, out, err, rc, dur, adapter="docker-exec",
-                    image=f"victim@{provisioning.net_name(range_id)}")
+                    module, r.stdout, r.stderr, r.returncode, r.duration_s,
+                    adapter=f"{tier.name}-exec",
+                    image=f"{target}@{self._tier_network(range_id)}")
             elif target == "directory":
                 # No live directory to query -> simulate rather than fail.
                 result = execution.SimulatedAdapter().run(module, inputs or {}, timeout)

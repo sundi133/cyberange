@@ -62,6 +62,7 @@ def build_router(svc: CyberRangeService) -> Router:
     r.add("GET", "/api/health", lambda ctx: {
         "status": "ok", "service": "cyberrange",
         "execution": execution.execution_mode(svc._docker_ok),
+        "targets": svc.target_tier(),
     })
     r.add("GET", "/api/tactics", lambda ctx: catalog.tactics())
     r.add("GET", "/api/reference", lambda ctx: catalog.reference())
