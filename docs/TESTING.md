@@ -208,8 +208,17 @@ worthless and the finding is critical.
 
 The full walkthrough is [LAB_GUIDE.md](LAB_GUIDE.md). In short:
 
-1. Sign in as `admin`, create `prof` (instructor), `red1` (red), `blue1` (blue).
-2. As `prof`: create a range for **Docker compromise**, prepare it, start the
+```bash
+make serve     # terminal 1
+make seed      # terminal 2 - creates prof/red1/blue1 and starts an exercise
+```
+
+`make seed` prints the accounts and reports whether execution is `docker` or
+`simulated`. Then:
+
+1. Sign in as `admin` if you want to inspect the accounts it created.
+2. The exercise is already running; skip to step 3. To do it by hand instead:
+   as `prof`, create a range for **Docker compromise**, prepare it, start the
    exercise.
 3. As `red1`: run **Abnormal container runtime activity** from the attack
    console. Confirm the result box reports a real run, the image, the exit code,

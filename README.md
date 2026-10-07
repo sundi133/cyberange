@@ -31,7 +31,12 @@ make serve            # http://127.0.0.1:8080  (dashboard + API)
 cd backend && python3 -m cyberrange serve --port 8080
 ```
 
-Open <http://127.0.0.1:8080/> for the operator dashboard. On first run the
+Open <http://127.0.0.1:8080/> for the operator dashboard.
+
+```bash
+make seed             # creates prof/red1/blue1 + a running exercise to join
+```
+ On first run the
 platform seeds a single admin account - **`admin` / `admin`** (override with
 `CR_ADMIN_PASSWORD`). Sign in, then use the **Admin** tab to provision users
 and assign each a role. See [docs/ROLES.md](docs/ROLES.md) for what every role
@@ -40,6 +45,10 @@ can do and the full provisioning flow.
 **New here? Run a lab end to end:** [docs/LAB_GUIDE.md](docs/LAB_GUIDE.md) walks
 through both sides, red launching a real attack and blue hunting it in the SOC
 log search.
+
+**Demoing to a customer?** [docs/CUSTOMER_DEMO.md](docs/CUSTOMER_DEMO.md) is a
+numbered set of red-team and blue-team test cases with expected results and what
+each one proves.
 
 **Testing the platform?** [docs/TESTING.md](docs/TESTING.md) is the tester's
 guide: the automated suite, smoke tests, API checks, the negative/RBAC battery,
@@ -60,7 +69,7 @@ make catalog          # print the seeded content summary
 | FR-01 Scenario catalog | `catalog.py` + `seed/` - search/filter scenarios & modules |
 | FR-02 Topology templates | `seed/topologies.json` - declarative VM/network/identity templates |
 | FR-03 Lifecycle | `lifecycle.py` - full state machine incl. QUARANTINED (admin-only release) |
-| FR-06 TTP emulation | 25 signed S0/S1/S2 modules across Windows/Linux/Docker; **real container execution** for modules with an execution spec (see below), simulated otherwise |
+| FR-06 TTP emulation | 29 signed S0/S1/S2 modules across Windows/Linux/Docker; **real container execution** for modules with an execution spec (see below), simulated otherwise |
 | FR-07 Telemetry/timeline | `service.py` - synchronized UTC event timeline with integrity hashes |
 | FR-08 Detection content | `detection.py` + `seed/detections.json` - versioned Sigma-like rules that **fire automatically** against real telemetry (MTTD, severity, evidence) |
 | FR-09 Scoring | `scoring.py` - weighted, explainable, penalty- and override-aware |
@@ -70,10 +79,10 @@ make catalog          # print the seeded content summary
 | FR-14 APIs | `server.py` - REST endpoints for lifecycle, catalog, evidence, scoring |
 | §8 Safety | unsigned/prohibited modules blocked; S2 gated to instructor/admin |
 
-Seeded content: **10 launch scenarios**, **25 signed behavior modules**,
-**22 ATT&CK techniques**, **15 detection rules**, **2 topology templates** -
-exceeding the MVP scope in the spec (§10, which called for 7 scenarios and 24
-modules).
+Seeded content: **10 launch scenarios**, **29 signed behavior modules**
+(**16** with real container execution), **25 ATT&CK techniques**,
+**25 detection rules**, **2 topology templates** - exceeding the MVP scope in
+the spec (§10, which called for 7 scenarios and 24 modules).
 
 ## Roles & auth
 
@@ -223,8 +232,12 @@ enumerate over LDAP (`CR-MOD-AD-DISC-001` → real account discovery, T1087).
 `cyberrange=<range_id>`, non-privileged, and memory/pid-capped.
 
 **Real Windows / Active Directory** endpoints (Kerberos/SMB/GPO - the Windows
-attack surface) need full VMs and a hypervisor; that tier and its integration
-seam are documented in [deploy/vm](deploy/vm/README.md) (roadmap, operator-hosted).
+attack surface) need full VMs and a hypervisor. A **Proxmox VM tier** ships
+behind the same provisioner interface as the container tier: see
+[deploy/vm/PROXMOX_SETUP.md](deploy/vm/PROXMOX_SETUP.md) to set it up, and run
+`scripts/proxmox_conformance.py` against your host to verify it. The adapter is
+unit-tested against a stubbed API but is **unverified against real hardware**
+until that script passes, and Windows modules are still simulated.
 The LDAP directory above is a Linux identity stand-in, not a Windows AD DC.
 
 ## Detection engine (real rules, not a manual verdict)

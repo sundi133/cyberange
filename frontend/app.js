@@ -50,37 +50,47 @@ async function viewCatalog() {
   const guide = can("range:create") ? `
     <div class="guide">
       <div class="steps">
-        <span><span class="num">1</span>Launch a scenario</span><span class="arrow">→</span>
+        <span><span class="num">1</span><strong>Pick a scenario</strong> below</span><span class="arrow">→</span>
         <span><span class="num">2</span>Prepare the range</span><span class="arrow">→</span>
         <span><span class="num">3</span>Start the exercise</span><span class="arrow">→</span>
         <span><span class="num">4</span>Run techniques &amp; watch detections</span>
       </div>
     </div>` : `
-    <div class="guide"><div class="steps muted">
-      You're signed in as <strong>${esc(session.role)}</strong> - browse the catalog here,
-      then join a running exercise from the <strong>Exercise</strong> tab once an instructor starts one.
+    <div class="guide"><div class="steps">
+      <span>Signed in as <strong>${esc(session.role)}</strong>. Browse what the lab can run here,
+      then go to <strong>Exercise</strong> once an instructor starts one.</span>
     </div></div>`;
 
   m.innerHTML = guide + `
-    <h2>Scenario catalog</h2>
     <div class="toolbar">
-      <input id="q" placeholder="Search scenarios…" style="min-width:200px" />
+      <input id="q" placeholder="Search scenarios…" style="min-width:220px" />
       <select id="f-diff"><option value="">Any difficulty</option>
         <option>introductory</option><option>intermediate</option><option>advanced</option></select>
       <select id="f-plat"><option value="">Any platform</option>
         <option>windows</option><option>linux</option><option>docker</option></select>
       <button class="ghost" id="btn-search">Filter</button>
+      <span class="faint" id="scenario-count" style="margin-left:auto;font-size:12.5px"></span>
     </div>
     <div class="grid" id="scenarios"></div>
-    <h3>TTP behavior modules</h3>
-    <div class="toolbar">
-      <select id="m-plat"><option value="">Any platform</option>
-        <option>windows</option><option>linux</option><option>docker</option></select>
-      <select id="m-safe"><option value="">Any safety class</option>
-        <option>S0</option><option>S1</option><option>S2</option></select>
-      <button class="ghost" id="btn-msearch">Filter modules</button>
-    </div>
-    <div class="grid" id="modules"></div>`;
+
+    <details class="panel" id="modules-panel" style="margin-top:var(--s6)">
+      <summary style="cursor:pointer;font-weight:650;font-size:14px">
+        TTP behaviour modules
+        <span class="faint" style="font-weight:400">— the individual techniques scenarios are built from</span>
+      </summary>
+      <div style="margin-top:var(--s4)">
+        <div class="toolbar">
+          <select id="m-plat"><option value="">Any platform</option>
+            <option>windows</option><option>linux</option><option>docker</option></select>
+          <select id="m-safe"><option value="">Any safety class</option>
+            <option>S0</option><option>S1</option><option>S2</option></select>
+          <select id="m-exec"><option value="">Any execution</option>
+            <option value="real">⚡ Real exec</option><option value="sim">◦ Simulated</option></select>
+          <button class="ghost" id="btn-msearch">Filter modules</button>
+        </div>
+        <div class="grid" id="modules"></div>
+      </div>
+    </details>`;
 
   async function loadScenarios() {
     const p = new URLSearchParams();
@@ -94,7 +104,15 @@ async function viewCatalog() {
     const wrap = document.getElementById("scenarios");
     wrap.innerHTML = "";
     scenarios.forEach((s) => wrap.appendChild(scenarioCard(s)));
-    if (!scenarios.length) wrap.innerHTML = `<p class="muted">No scenarios match.</p>`;
+    document.getElementById("scenario-count").textContent =
+      `${scenarios.length} scenario${scenarios.length === 1 ? "" : "s"}`;
+    if (!scenarios.length) {
+      wrap.style.display = "block";
+      wrap.innerHTML = emptyState("🔍", "No scenarios match",
+        "Try a different difficulty or platform, or clear the search box.");
+    } else {
+      wrap.style.display = "";
+    }
   }
 
   async function loadModules() {
@@ -103,16 +121,34 @@ async function viewCatalog() {
     const safe = document.getElementById("m-safe").value;
     if (plat) p.set("platform", plat);
     if (safe) p.set("safety_class", safe);
-    const mods = await api("GET", "/modules?" + p.toString());
+    let mods = await api("GET", "/modules?" + p.toString());
+    // Execution capability is a frontend-derived property (does the module ship
+    // a spec?), so filter it client-side rather than adding an API parameter.
+    const exec = document.getElementById("m-exec").value;
+    if (exec === "real") mods = mods.filter(moduleIsRealCapable);
+    else if (exec === "sim") mods = mods.filter((m) => !moduleIsRealCapable(m));
     const wrap = document.getElementById("modules");
     wrap.innerHTML = "";
-    mods.forEach((mm) => wrap.appendChild(moduleCard(mm)));
+    if (!mods.length) {
+      wrap.style.display = "block";
+      wrap.innerHTML = emptyState("🔍", "No modules match", "Clear a filter to see more.");
+    } else {
+      wrap.style.display = "";
+      mods.forEach((mm) => wrap.appendChild(moduleCard(mm)));
+    }
   }
 
   document.getElementById("btn-search").onclick = loadScenarios;
   document.getElementById("btn-msearch").onclick = loadModules;
+  document.getElementById("q").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); loadScenarios(); }
+  });
+  // Modules are secondary: load them only when the section is first opened.
+  const panel = document.getElementById("modules-panel");
+  panel.addEventListener("toggle", () => {
+    if (panel.open && !panel.dataset.loaded) { panel.dataset.loaded = "1"; loadModules(); }
+  }, { once: false });
   await loadScenarios();
-  await loadModules();
 }
 
 function scenarioCard(s) {
@@ -135,6 +171,15 @@ function scenarioCard(s) {
   </div>`);
 }
 
+function execBadge(m) {
+  // Windows modules always simulate; Linux/Docker modules with a spec run for
+  // real when Docker is up. The badge states the capability, not the live state,
+  // so it is stable regardless of whether Docker happens to be connected.
+  return moduleIsRealCapable(m)
+    ? `<span class="exec-badge real" title="Executes a real command in an isolated container when Docker is connected">⚡ Real exec</span>`
+    : `<span class="exec-badge sim" title="Emits declared telemetry; ${esc(m.platform)} behaviour needs the VM tier to run for real">◦ Simulated</span>`;
+}
+
 function moduleCard(m) {
   const sc = (m.safety_class || "").toLowerCase();
   const techs = (m.technique_ids || []).map((t) => `<span class="tag tech">${t}</span>`).join(" ");
@@ -144,7 +189,7 @@ function moduleCard(m) {
       <span class="tag ${sc}">${esc(m.safety_class)}</span>
     </div>
     <p class="mono muted">${esc(m.id)} · <span class="tag ${esc(m.platform)}">${esc(m.platform)}</span></p>
-    <div class="row">${techs}</div>
+    <div class="row" style="margin:6px 0">${execBadge(m)}${techs}</div>
     <p>${esc(m.detection_notes || "")}</p>
     <p class="muted">Cleanup: ${esc(m.cleanup || "-")}</p>
   </div>`);
@@ -161,7 +206,7 @@ async function viewRanges() {
       <button class="ghost" id="btn-refresh">↻ Refresh</button>
     </div>` : `<div class="toolbar"><button class="ghost" id="btn-refresh">↻ Refresh</button></div>`;
 
-  m.innerHTML = `<h2>Ranges</h2>${creator}
+  m.innerHTML = `${creator}
     <div class="table-wrap">
       <table><thead><tr>
         <th>Range</th><th>Lifecycle</th><th style="width:40%">Next step</th>
@@ -180,8 +225,10 @@ async function viewRanges() {
       } catch (e) { toast(e.message, "err"); }
     };
   }
-  document.getElementById("btn-refresh").onclick = loadRanges;
-  await loadRanges(canManage);
+  // Wrapped, not passed bare: a click handler receives the event as its first
+  // argument, and loadRanges must never take a permission from a caller.
+  document.getElementById("btn-refresh").onclick = () => loadRanges();
+  await loadRanges();
 }
 
 // Milestones shown in the lifecycle stepper, mapped from raw states.
@@ -203,7 +250,12 @@ function stepperHtml(state) {
   }).join("") + `</div>`;
 }
 
-async function loadRanges(canManage = can("range:lifecycle")) {
+async function loadRanges() {
+  // Always derived here. This used to be a defaulted parameter, and binding the
+  // function straight to a click handler passed the PointerEvent in as that
+  // parameter - truthy - so one press of Refresh showed every lifecycle control
+  // to roles that hold none of those permissions.
+  const canManage = can("range:lifecycle");
   const ranges = await api("GET", "/ranges");
   const tb = document.getElementById("range-rows");
   tb.innerHTML = "";
@@ -318,7 +370,8 @@ async function viewExercise() {
   if (can("module:execute")) panels.push(`
     <div class="panel">
       <div class="phead">① Attack console <span class="tag tech">red</span></div>
-      <div class="phelp">Pick a technique and launch it. Docker modules run <strong>for real</strong> inside the target container; the output they produce becomes the logs the blue team has to find.</div>
+      <div class="phelp">Pick a technique and launch it. <strong>⚡ Real</strong> modules execute a real command in an isolated container; <strong>◦ sim</strong> modules (all Windows behaviour) emit declared telemetry. The output becomes the logs blue has to find.</div>
+      <div id="exec-mode-note"></div>
       <div class="row"><select id="mod-select" style="flex:1"></select>
         <button class="act" id="btn-run-mod">▶ Launch attack</button></div>
       <div id="attack-result" style="margin-top:10px"></div>
@@ -330,15 +383,32 @@ async function viewExercise() {
       <div class="row"><input id="inject-text" placeholder="e.g. User reports a suspicious email" style="flex:1" />
         <button class="ghost" id="btn-inject">Inject</button></div>
     </div>`);
-  if (can("exercise:submit_evidence")) panels.push(`
+  // Red and blue both record evidence, but they are recording opposite things:
+  // blue proves what it caught, red documents what it did. The report compares
+  // the two, which is where ATT&CK coverage comes from - so the panel has to
+  // speak in the language of whoever is looking at it.
+  if (can("exercise:submit_evidence")) {
+    const ev = isBlue ? {
+      head: "③ Raise a finding",
+      help: "When a log line proves malicious activity, hit <strong>Use as evidence</strong> on it in the search results, or type your finding here. Each item is hashed for integrity.",
+      hint: "e.g. Binary written to /tmp and executed as root on host:victim",
+    } : session.role === "red" ? {
+      head: "Log your attack path",
+      help: "Record what you did and what it got you. This is not defender work: the after-action report compares your declared path against what blue actually detected, and that gap is the coverage finding. Each item is hashed for integrity.",
+      hint: "e.g. Wrote /tmp/payload.sh and executed it as root on victim",
+    } : {
+      head: "Record evidence",
+      help: "You run both sides, so log the attack steps you take and the findings you make. Each item is hashed for integrity.",
+      hint: "e.g. Executed payload as root, then alerted on the nested shell",
+    };
+    panels.push(`
     <div class="panel">
-      <div class="phead">${isBlue ? "③ Raise a finding" : "Submit evidence"} <span class="tag" style="color:var(--blue);border-color:var(--blue)">blue</span></div>
-      <div class="phelp">${isBlue
-        ? "When a log line proves malicious activity, hit <strong>Use as evidence</strong> on it in the search results, or type your finding here. Each item is hashed for integrity."
-        : "Record a finding or containment action. Each item is hashed for integrity."}</div>
-      <div class="row"><input id="ev-text" placeholder="e.g. Isolated host, killed process tree" style="flex:1" />
+      <div class="phead">${ev.head} <span class="tag role">${esc(session.role)}</span></div>
+      <div class="phelp">${ev.help}</div>
+      <div class="row"><input id="ev-text" placeholder="${esc(ev.hint)}" style="flex:1" />
         <button class="ghost" id="btn-ev">Submit</button></div>
     </div>`);
+  }
   panels.push(`
     <div class="panel">
       <div class="phead">${isBlue ? "④ Attribute the technique" : "Detection"}</div>
@@ -416,9 +486,9 @@ const BRIEFS = {
   blue: {
     title: "You are BLUE (defender)",
     goal: "Detect what the attacker did, prove it with evidence, and attribute the technique.",
-    steps: ["Start from <strong>Alerts</strong> in the SOC console, or search the logs.",
-            "Search for suspicious activity (try <span class='mono'>root</span>, <span class='mono'>/tmp</span>, <span class='mono'>shell</span>).",
-            "Hit <strong>Use as evidence</strong> on a damning log line, then record the ATT&amp;CK technique."],
+    steps: ["Open <strong>Alerts</strong> in the SOC console. That is your lead, not your answer.",
+            "Switch to <strong>All activity</strong> and hunt the raw logs around it (try <span class='mono'>root</span>, <span class='mono'>/tmp</span>, <span class='mono'>shell</span>).",
+            "Hit <strong>Use as evidence</strong> on a damning line, then attribute the ATT&amp;CK technique."],
   },
   purple: {
     title: "You are PURPLE (detection engineering)",
@@ -447,47 +517,129 @@ function missionBrief() {
 }
 
 // ---------------- Blue SOC console (log search) --------------------------
+/* Each hunt says what it finds, so the buttons teach the investigation rather
+   than just pasting a string into the box. */
+const HUNTS = [
+  ["root", "Processes running as uid 0"],
+  ["/tmp", "Files dropped in a world-writable directory"],
+  ["shell", "A shell spawned inside a service"],
+  ["payload", "Suspicious file names"],
+  ["secret", "Credential and secret access"],
+  ["curl", "Download or exfiltration attempts"],
+];
+
 function socConsole() {
   return `
     <div class="row" style="justify-content:space-between;align-items:baseline">
       <h3 style="margin:0">② SOC console <span class="faint">log search</span></h3>
       <button class="ghost" id="btn-log-search" style="padding:5px 10px">↻ Refresh</button>
     </div>
-    <div class="phelp" style="margin:2px 0 10px">
-      You are seeing the telemetry the environment produced. The attacker's own
-      tooling is hidden, so work it out from the evidence, like a real SOC.
+    <div class="phelp" style="margin:2px 0 12px">
+      This is the telemetry the environment produced. The attacker's own tooling
+      is hidden, so work it out from the evidence, like a real SOC.
     </div>
-    <div class="toolbar" style="margin-bottom:8px">
-      <input id="log-q" placeholder="Search logs, e.g. root, /tmp, shell" style="flex:1;min-width:180px" />
-      <select id="log-kind" style="max-width:150px"><option value="">All event types</option></select>
-      <select id="log-source" style="max-width:150px"><option value="">All sources</option></select>
+
+    <div class="scope-bar" id="log-scope">
+      <button class="chip" data-scope="detection">
+        <span class="chip-dot warn"></span>Alerts<span class="chip-n" id="n-alerts">–</span>
+      </button>
+      <button class="chip active" data-scope="">
+        <span class="chip-dot"></span>All activity<span class="chip-n" id="n-all">–</span>
+      </button>
+      <span class="faint" style="font-size:11.5px;margin-left:auto">Start with alerts, then widen</span>
     </div>
-    <div class="row" style="gap:6px;margin-bottom:10px">
-      <span class="faint" style="font-size:11.5px">Quick hunts:</span>
-      ${["root", "/tmp", "shell", "payload", "secret", "curl"]
-        .map((h) => `<button class="ghost hunt" data-hunt="${h}" style="padding:3px 9px;font-size:11.5px">${h}</button>`).join("")}
+
+    <div class="search-row">
+      <span class="search-ico" aria-hidden="true">⌕</span>
+      <input id="log-q" placeholder="Search log text, host or event type…" autocomplete="off" />
+      <button class="search-clear" id="log-clear" hidden aria-label="Clear search">×</button>
     </div>
-    <div id="log-count" class="faint" style="font-size:11.5px;margin-bottom:6px"></div>
-    <ul class="timeline" id="log-results"></ul>`;
+
+    <div class="toolbar" style="margin:8px 0 10px">
+      <select id="log-kind" style="max-width:170px"><option value="">Any event type</option></select>
+      <select id="log-source" style="max-width:170px"><option value="">Any source</option></select>
+      <button class="ghost" id="log-reset" hidden style="padding:5px 10px">Reset filters</button>
+    </div>
+
+    <div class="hunts">
+      <span class="faint" style="font-size:11.5px">Hunt for:</span>
+      ${HUNTS.map(([h, why]) =>
+        `<button class="hunt" data-hunt="${esc(h)}" title="${esc(why)}">${esc(h)}</button>`).join("")}
+    </div>
+
+    <div class="siem">
+      <div class="siem-bar">
+        <div id="log-count" class="log-count"></div>
+        <div class="histo" id="log-histo" title="Events over the exercise timeline"></div>
+      </div>
+      <div class="pivots" id="log-pivots"></div>
+      <div class="loghead">
+        <span>Time</span><span>Source</span><span>Event</span><span>Message</span>
+      </div>
+      <ul class="logtable" id="log-results"></ul>
+    </div>`;
 }
 
 async function initSocConsole() {
+  const q = document.getElementById("log-q");
+  const kindSel = document.getElementById("log-kind");
+  const srcSel = document.getElementById("log-source");
+
   try {
     const meta = await api("GET", `/exercises/${state.exercise}/log-sources`);
-    const kindSel = document.getElementById("log-kind");
-    const srcSel = document.getElementById("log-source");
     (meta.kinds || []).forEach((k) => kindSel.appendChild(el(`<option value="${esc(k)}">${esc(k)}</option>`)));
     (meta.sources || []).forEach((s) => srcSel.appendChild(el(`<option value="${esc(s)}">${esc(s)}</option>`)));
-    kindSel.onchange = runLogSearch;
-    srcSel.onchange = runLogSearch;
-    const q = document.getElementById("log-q");
-    let t; q.oninput = () => { clearTimeout(t); t = setTimeout(runLogSearch, 250); };
-    document.querySelectorAll(".hunt").forEach((b) => {
-      b.onclick = () => { q.value = b.dataset.hunt; runLogSearch(); };
-    });
-    bind("btn-log-search", runLogSearch);
   } catch (e) { /* meta is best-effort */ }
+
+  kindSel.onchange = () => { syncScopeChips(); runLogSearch(); };
+  srcSel.onchange = runLogSearch;
+
+  let t;
+  q.oninput = () => { clearTimeout(t); t = setTimeout(runLogSearch, 250); };
+  q.onkeydown = (e) => {
+    if (e.key === "Enter") { e.preventDefault(); clearTimeout(t); runLogSearch(); }
+    if (e.key === "Escape") { q.value = ""; runLogSearch(); }
+  };
+
+  document.getElementById("log-clear").onclick = () => { q.value = ""; q.focus(); runLogSearch(); };
+  document.getElementById("log-reset").onclick = () => {
+    q.value = ""; kindSel.value = ""; srcSel.value = "";
+    syncScopeChips(); runLogSearch();
+  };
+
+  // The alert / all-activity chips are the primary path; they drive the same
+  // kind filter the dropdown does, so there is one source of truth.
+  document.querySelectorAll("#log-scope .chip").forEach((c) => {
+    c.onclick = () => { kindSel.value = c.dataset.scope; syncScopeChips(); runLogSearch(); };
+  });
+
+  document.querySelectorAll(".hunt").forEach((b) => {
+    b.onclick = () => { q.value = b.dataset.hunt; runLogSearch(); };
+  });
+  bind("btn-log-search", async () => { await refreshScopeCounts(); await runLogSearch(); });
+
+  await refreshScopeCounts();
   await runLogSearch();
+}
+
+function syncScopeChips() {
+  const kind = document.getElementById("log-kind")?.value || "";
+  document.querySelectorAll("#log-scope .chip").forEach((c) =>
+    c.classList.toggle("active", c.dataset.scope === kind));
+}
+
+/* Blue should be able to see at a glance whether anything has fired yet. */
+async function refreshScopeCounts() {
+  try {
+    const [alerts, all] = await Promise.all([
+      api("GET", `/exercises/${state.exercise}/logs?kind=detection`),
+      api("GET", `/exercises/${state.exercise}/logs`),
+    ]);
+    const a = document.getElementById("n-alerts");
+    const t = document.getElementById("n-all");
+    if (a) { a.textContent = alerts.count; a.classList.toggle("hot", alerts.count > 0); }
+    if (t) t.textContent = all.count;
+  } catch { /* counts are best-effort */ }
 }
 
 async function runLogSearch() {
@@ -498,32 +650,133 @@ async function runLogSearch() {
   if (q) p.set("q", q);
   if (kind) p.set("kind", kind);
   if (source) p.set("source", source);
+
+  const filtered = Boolean(q || kind || source);
+  const clearBtn = document.getElementById("log-clear");
+  const resetBtn = document.getElementById("log-reset");
+  if (clearBtn) clearBtn.hidden = !q;
+  if (resetBtn) resetBtn.hidden = !filtered;
+  syncScopeChips();
+
   try {
     const res = await api("GET", `/exercises/${state.exercise}/logs?` + p.toString());
     const ul = document.getElementById("log-results");
     const countEl = document.getElementById("log-count");
-    countEl.textContent = `${res.count} event(s)${q ? ` matching "${q}"` : ""}`;
+
+    const bits = [];
+    if (q) bits.push(`matching <strong>${esc(q)}</strong>`);
+    if (kind) bits.push(`of type <strong>${esc(kind)}</strong>`);
+    if (source) bits.push(`from <strong>${esc(source)}</strong>`);
+    countEl.innerHTML = `<strong>${res.count}</strong> event${res.count === 1 ? "" : "s"}`
+      + (bits.length ? ` ${bits.join(", ")}` : "");
+
+    renderHisto(res.results);
+    renderPivots(res.results);
+
     ul.innerHTML = "";
     if (!res.results.length) {
-      ul.innerHTML = `<li class="faint" style="padding-left:0">No matching logs. Clear the filters, or wait for the attacker to act.</li>`;
+      // Distinguish "your filter is too narrow" from "nothing has happened yet":
+      // they need opposite actions from the analyst.
+      ul.innerHTML = filtered
+        ? `<li class="logempty">${emptyState("⌕", "No events match",
+            "Nothing in this exercise matches that filter. Widen it with Reset filters, or try one of the hunts above.")}</li>`
+        : `<li class="logempty">${emptyState("◷", "Nothing has happened yet",
+            "The attacker has not acted in this exercise. Press Refresh once they do.")}</li>`;
       return;
     }
-    res.results.forEach((ev) => ul.appendChild(logRow(ev)));
+    res.results.forEach((ev) => ul.appendChild(logRow(ev, q)));
   } catch (e) { toast(e.message, "err"); }
 }
 
-function logRow(ev) {
+/* Events bucketed over the window the results span - the "when did this spike"
+   read every SIEM puts above its result list. */
+function renderHisto(results) {
+  const host = document.getElementById("log-histo");
+  if (!host) return;
+  if (results.length < 2) { host.innerHTML = ""; return; }
+  const ts = results.map((e) => Date.parse(e.ts_utc)).filter(Number.isFinite);
+  const min = Math.min(...ts), max = Math.max(...ts);
+  const BUCKETS = 28;
+  const span = Math.max(max - min, 1);
+  const counts = new Array(BUCKETS).fill(0);
+  ts.forEach((t) => {
+    const i = Math.min(BUCKETS - 1, Math.floor(((t - min) / span) * BUCKETS));
+    counts[i] += 1;
+  });
+  const peak = Math.max(...counts, 1);
+  host.innerHTML = counts.map((c) =>
+    `<span class="hbar" style="height:${Math.max(2, Math.round((c / peak) * 100))}%"
+       title="${c} event${c === 1 ? "" : "s"}"></span>`).join("");
+}
+
+/* Clickable field summary: the pivot that turns a list of lines into an
+   investigation ("which host is noisiest, what kind of event is this"). */
+function renderPivots(results) {
+  const host = document.getElementById("log-pivots");
+  if (!host) return;
+  const tally = (key) => {
+    const m = new Map();
+    results.forEach((e) => { const v = e[key]; if (v) m.set(v, (m.get(v) || 0) + 1); });
+    return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  };
+  const group = (label, key, rows) => rows.length
+    ? `<div class="pivot"><span class="pivot-h">${label}</span>${rows.map(([v, n]) =>
+        `<button class="pivot-v" data-field="${key}" data-value="${esc(v)}">
+           ${esc(v)}<span class="pivot-n">${n}</span></button>`).join("")}</div>`
+    : "";
+  host.innerHTML = group("Sources", "source", tally("source"))
+                 + group("Event types", "kind", tally("kind"));
+  host.querySelectorAll(".pivot-v").forEach((b) => {
+    b.onclick = () => {
+      const sel = document.getElementById(b.dataset.field === "source" ? "log-source" : "log-kind");
+      if (sel) { sel.value = b.dataset.value; runLogSearch(); }
+    };
+  });
+}
+
+/* Highlight the matched term so the analyst can see WHY a line came back,
+   rather than re-reading it to find the hit. Escaped first, so the mark is the
+   only markup introduced. */
+function highlight(text, needle) {
+  const safe = esc(text);
+  if (!needle) return safe;
+  const pattern = esc(needle).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  try {
+    return safe.replace(new RegExp(pattern, "gi"), (hit) => `<mark>${hit}</mark>`);
+  } catch { return safe; }
+}
+
+function logRow(ev, needle) {
   const p = ev.payload || {};
   const isAlert = ev.kind === "detection";
   const text = p.line || p.stderr || p.title || p.text || ev.kind;
-  const li = el(`<li class="${isAlert ? "det" : "out"}">
-    <div class="ts">${esc(ev.ts_utc.slice(11, 23))} · <strong>${esc(ev.source || "")}</strong> · ${esc(ev.kind)}</div>
-    ${isAlert
-      ? `<div class="detline"><strong>ALERT</strong> ${esc(p.title || "")}
-           <span class="tag">${esc((p.severity || "").toUpperCase())}</span></div>`
-      : `<div class="logline">${esc(text)}</div>`}
-    <div class="row" style="margin-top:4px"><button class="ghost use-ev" style="padding:3px 9px;font-size:11px">Use as evidence</button></div>
+  const sev = (p.severity || "").toLowerCase();
+  const msg = isAlert
+    ? `<strong class="alert-k">ALERT</strong> ${esc(p.title || "")}
+       <span class="tag sev-${esc(sev)}">${esc(sev.toUpperCase())}</span>
+       ${p.latency_s !== undefined ? `<span class="faint">MTTD ${esc(p.latency_s)}s</span>` : ""}`
+    : `<span class="msg">${highlight(String(text), needle)}</span>`;
+
+  const li = el(`<li class="logrow ${isAlert ? "det" : "out"}">
+    <div class="lr">
+      <span class="lr-t">${esc(ev.ts_utc.slice(11, 23))}</span>
+      <span class="lr-s" title="${esc(ev.source || "")}">${esc(ev.source || "-")}</span>
+      <span class="lr-k">${esc(ev.kind)}</span>
+      <span class="lr-m">${msg}</span>
+    </div>
+    <div class="lr-actions">
+      <button class="ghost use-ev">Use as evidence</button>
+      <button class="ghost lr-expand">Raw event</button>
+    </div>
+    <pre class="lr-raw" hidden>${esc(JSON.stringify(ev, null, 2))}</pre>
   </li>`);
+
+  const raw = li.querySelector(".lr-raw");
+  const exp = li.querySelector(".lr-expand");
+  exp.onclick = () => {
+    raw.hidden = !raw.hidden;
+    exp.textContent = raw.hidden ? "Raw event" : "Hide raw";
+  };
   li.querySelector(".use-ev").onclick = async () => {
     const box = document.getElementById("ev-text");
     const desc = `${ev.source}: ${String(text).slice(0, 160)}`;
@@ -565,8 +818,20 @@ async function loadModuleSelect(scenario) {
   mods.sort((a, b) => (inScenario.has(b.id) ? 1 : 0) - (inScenario.has(a.id) ? 1 : 0));
   mods.forEach((mm) => {
     const star = inScenario.has(mm.id) ? "★ " : "";
-    sel.appendChild(el(`<option value="${esc(mm.id)}">${star}${esc(mm.name)} [${esc(mm.safety_class)}/${esc(mm.platform)}]</option>`));
+    // Options are plain text, so the real/sim call is carried in a prefix glyph
+    // rather than a styled badge.
+    const run = moduleIsRealCapable(mm) ? "⚡ real" : "◦ sim";
+    sel.appendChild(el(`<option value="${esc(mm.id)}">${star}${run} · ${esc(mm.name)} [${esc(mm.safety_class)}/${esc(mm.platform)}]</option>`));
   });
+
+  // One live line that reflects whether Docker is actually connected, since a
+  // real-capable module still simulates when it is not.
+  const note = document.getElementById("exec-mode-note");
+  if (note) {
+    note.innerHTML = execState.real
+      ? `<div class="mode-note ok">⚡ Docker connected — <strong>real</strong> modules execute for real. Windows modules still simulate.</div>`
+      : `<div class="mode-note warn">◦ Docker not connected — <strong>every</strong> module will simulate, including the real-capable ones. Start Docker and restart the server for real execution.</div>`;
+  }
 }
 
 async function runModule() {
@@ -802,7 +1067,7 @@ async function viewReference() {
     api("GET", "/roles"), api("GET", "/frameworks"),
   ]);
   const fwt = fw.techniques || {};
-  m.innerHTML = `<h2>Reference</h2>
+  m.innerHTML = `
     <h3>Roles &amp; permissions - what each role can do</h3>
     <div class="role-matrix">${roles.map(r => `<div class="card">
       <div class="row" style="justify-content:space-between">
@@ -847,7 +1112,7 @@ async function viewReference() {
 async function viewAudit() {
   const m = $main();
   const log = await api("GET", "/audit?limit=200");
-  m.innerHTML = `<h2>Audit ledger</h2>
+  m.innerHTML = `
     <table><thead><tr><th>Time (UTC)</th><th>Actor</th><th>Role</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead>
     <tbody>${log.map(a => `<tr><td class="mono muted">${esc((a.ts_utc || "").slice(11, 23))}</td>
       <td>${esc(a.actor)}</td><td><span class="tag">${esc(a.role)}</span></td>
@@ -862,10 +1127,10 @@ const ROLE_OPTS = ["red", "blue", "purple", "instructor", "solo", "security_lead
 async function viewAdmin() {
   const m = $main();
   if (!can("admin:manage_users")) {
-    m.innerHTML = `<h2>Admin</h2><p class="muted">Your role (${esc(session.role)}) cannot manage users.</p>`;
+    m.innerHTML = `<p class="muted">Your role (${esc(session.role)}) cannot manage users.</p>`;
     return;
   }
-  m.innerHTML = `<h2>Admin · user provisioning</h2>
+  m.innerHTML = `
     <div class="split">
       <div>
         <h3>Provision a user</h3>
@@ -936,7 +1201,7 @@ async function loadUsers() {
 // ---------------- Classes (instructor) ----------------
 async function viewClasses() {
   const m = $main();
-  m.innerHTML = `<h2>Classes</h2>
+  m.innerHTML = `
     <div class="toolbar">
       <input id="new-class" placeholder="New class name, e.g. Intro to Cyber - Fall" style="min-width:280px" />
       <button class="act" id="btn-new-class">＋ Create class</button>
@@ -1053,28 +1318,90 @@ const VIEWS = {
   classes: viewClasses,
 };
 
+/* Kept short: the page title already names the section, so this line says what
+   you do here, not what it is called. */
 const VIEW_HELP = {
-  classes: "<strong>Classes</strong> - create a class, enroll students, assign lessons, and track progress in the gradebook.",
-  catalog: "<strong>Catalog</strong> - browse scenarios and attacker techniques. Launch a scenario to create an isolated range.",
-  ranges: "<strong>Ranges</strong> - prepare a range through its lifecycle, then start the exercise. Each range is isolated with no internet access.",
-  exercise: "<strong>Exercise</strong> - the live lab. Your panels change with your role: red launches attacks, blue hunts through the logs they leave behind.",
-  reference: "<strong>Reference</strong> - ATT&amp;CK coverage, scoring model, safety classes, detection stack, topologies, and what each role can do.",
-  audit: "<strong>Audit</strong> - an append-only ledger of every action, attributed to a user and role.",
-  admin: "<strong>Admin</strong> - provision user accounts and assign each a role.",
+  classes: "Create a class, enrol students, assign lessons, and track progress in the gradebook.",
+  catalog: "Browse what the lab can run. Launch a scenario to create an isolated range.",
+  ranges: "Prepare a range through its lifecycle, then start the exercise. Every range is isolated, with no internet access.",
+  exercise: "The live lab. Your panels follow your role: red launches attacks, blue hunts the logs they leave behind.",
+  reference: "ATT&amp;CK coverage, the scoring model, safety classes, the detection stack, topologies, and what each role can do.",
+  audit: "An append-only ledger of every action, attributed to a user and a role.",
+  admin: "Provision user accounts and assign each one a role.",
+};
+
+const VIEW_TITLES = {
+  classes: "Classes", catalog: "Catalog", ranges: "Ranges", exercise: "Exercise",
+  reference: "Reference", audit: "Audit", admin: "Admin",
 };
 
 function switchView(name) {
   state.view = name;
   document.querySelectorAll(".tab").forEach((t) =>
     t.classList.toggle("active", t.dataset.view === name));
+  document.getElementById("view-title").textContent = VIEW_TITLES[name] || name;
   document.getElementById("view-help").innerHTML = VIEW_HELP[name] || "";
-  VIEWS[name]().catch((e) => { $main().innerHTML = `<p class="muted">Error: ${esc(e.message)}</p>`; });
+  $main().innerHTML = "";
+  VIEWS[name]().catch((e) => {
+    $main().innerHTML = emptyState("⚠", "Could not load this view", esc(e.message));
+  });
+}
+
+/* The view a user lands on should be the one their role actually works in:
+   launchers start in the catalog, participants in the live exercise, and
+   read-only oversight in the reference material. */
+function defaultView() {
+  if (can("range:create")) return "catalog";
+  if (can("exercise:participate")) return "exercise";
+  return "reference";
+}
+
+function emptyState(icon, title, body, action = "") {
+  return `<div class="empty">
+    <span class="ico">${icon}</span>
+    <strong>${title}</strong>
+    <p>${body}</p>
+    ${action}
+  </div>`;
+}
+
+// ---------------- Theme ----------------
+const THEME_KEY = "cr_theme";
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  try { localStorage.setItem(THEME_KEY, theme); } catch { /* private mode */ }
+}
+
+function initTheme() {
+  let saved = null;
+  try { saved = localStorage.getItem(THEME_KEY); } catch { /* private mode */ }
+  applyTheme(saved || "dark");
+  document.getElementById("btn-theme").addEventListener("click", () => {
+    applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
+  });
+}
+
+// Whether live execution is currently available. A module runs for real only
+// when it carries an execution spec AND a Docker daemon is reachable; otherwise
+// it falls back to simulation. The catalog and the attack console read this so
+// an operator knows which it will get before launching.
+const execState = { real: false, mode: "simulated" };
+
+function moduleIsRealCapable(m) {
+  // Only Linux/Docker modules ship an execution spec; Windows modules never do.
+  return Boolean(m.execution);
+}
+function moduleWillRunReal(m) {
+  return moduleIsRealCapable(m) && execState.real;
 }
 
 async function checkHealth() {
   const pill = document.getElementById("health");
   try {
-    await api("GET", "/health");
+    const h = await api("GET", "/health");
+    execState.real = Boolean(h.execution && h.execution.real);
+    execState.mode = (h.execution && h.execution.mode) || "simulated";
     pill.textContent = "● online"; pill.className = "pill ok";
   } catch {
     pill.textContent = "● offline"; pill.className = "pill bad";
@@ -1094,6 +1421,11 @@ function applySession(s) {
   roleTag.textContent = session.role;
   document.getElementById("tab-admin").hidden = !can("admin:manage_users");
   document.getElementById("tab-classes").hidden = !can("cohort:manage");
+  // The ledger names the modules red executed, so it must not be an exit from
+  // the defender's redacted view. NOTE: GET /api/audit does not yet enforce
+  // admin:audit server-side (see docs/TESTING.md) - hiding the tab is not the
+  // fix, only the correct UI behaviour alongside it.
+  document.getElementById("tab-audit").hidden = !can("admin:audit");
 }
 
 function clearSession() {
@@ -1120,7 +1452,7 @@ async function doLogin(evt) {
     applySession(s);
     hideLogin();
     toast(`Signed in as ${s.username} (${s.role})`);
-    switchView("catalog");
+    switchView(defaultView());
     checkHealth();
   } catch (e) {
     document.getElementById("li-err").textContent = e.message;
@@ -1134,6 +1466,7 @@ async function doLogout() {
 }
 
 async function bootstrap() {
+  initTheme();
   document.getElementById("login-form").addEventListener("submit", doLogin);
   document.getElementById("btn-logout").addEventListener("click", doLogout);
   document.querySelectorAll(".tab").forEach((t) =>
@@ -1157,7 +1490,7 @@ async function bootstrap() {
       const me = await api("GET", "/me");
       applySession(me);
       hideLogin();
-      switchView("catalog");
+      switchView(defaultView());
       checkHealth();
       setInterval(checkHealth, 15000);
       return;
