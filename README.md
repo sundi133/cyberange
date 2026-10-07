@@ -31,7 +31,12 @@ make serve            # http://127.0.0.1:8080  (dashboard + API)
 cd backend && python3 -m cyberrange serve --port 8080
 ```
 
-Open <http://127.0.0.1:8080/> for the operator dashboard. On first run the
+Open <http://127.0.0.1:8080/> for the operator dashboard.
+
+```bash
+make seed             # creates prof/red1/blue1 + a running exercise to join
+```
+ On first run the
 platform seeds a single admin account - **`admin` / `admin`** (override with
 `CR_ADMIN_PASSWORD`). Sign in, then use the **Admin** tab to provision users
 and assign each a role. See [docs/ROLES.md](docs/ROLES.md) for what every role
