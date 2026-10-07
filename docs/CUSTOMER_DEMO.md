@@ -251,6 +251,7 @@ Try each of these and expect a refusal:
 | `blue1` | Create a range | `Role 'blue' is not permitted to perform 'range:create'` |
 | `red1` | Run an S2 module | `S2 modules require administrator or instructor approval` |
 | `blue1` | Override a score | `Role 'blue' is not permitted to perform 'exercise:score_override'` |
+| `blue1` | Read the audit ledger (`GET /api/audit`) | `Role 'blue' is not permitted to perform 'admin:audit'` |
 
 **Proves:** RBAC is enforced on every API call, not just hidden in the UI.
 
@@ -265,11 +266,11 @@ Try each of these and expect a refusal:
 and timestamp — including the module executions and any score override from
 TC-G-02.
 
-> **Known issue, disclose it rather than be caught by it.** `GET /api/audit`
-> does not currently enforce the `admin:audit` permission, so any authenticated
-> role can read the ledger over the API. The tab is hidden from non-admins, but
-> the endpoint is open. If the customer's evaluator tests it, they will find
-> it. See [TESTING.md](TESTING.md).
+The ledger is **admin-only**: `GET /api/audit` requires the `admin:audit`
+permission, and the tab is hidden from non-admins. If an evaluator probes the
+endpoint as blue, it returns 403 — the ledger names executed modules, so a
+non-admin reading it would be a way around the fog of war. Worth demonstrating
+the refusal alongside TC-G-03.
 
 ---
 

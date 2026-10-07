@@ -22,44 +22,86 @@ install, no build step. It runs anywhere Python 3.10+ is available.
                                 └──────────────────────────────────────┘
 ```
 
-## Quick start
+## Setup
+
+### Prerequisites
+
+| Need | For | Without it |
+|---|---|---|
+| **Python 3.10+** | everything | nothing runs |
+| **Docker** (Desktop or Engine) | real container execution | modules fall back to simulation |
+| Git | cloning this repo | — |
+
+No `pip install` is required for the control plane or the tests — the core is
+Python standard library only. Docker is optional but strongly recommended:
+without it, red/blue exercises have little for the defender to hunt (see the
+note below).
+
+### Run it
 
 ```bash
-# From the repo root
-make serve            # http://127.0.0.1:8080  (dashboard + API)
-# or:
-cd backend && python3 -m cyberrange serve --port 8080
+git clone https://github.com/sundi133/cyberange.git
+cd cyberange
+
+make serve            # terminal 1 — starts the dashboard + API on :8080
+make seed             # terminal 2 — creates prof/red1/blue1 + a running exercise
 ```
 
-Open <http://127.0.0.1:8080/> for the operator dashboard.
+`make serve` runs until you stop it (Ctrl-C), so `make seed` goes in a second
+terminal. Then open <http://127.0.0.1:8080/>.
+
+`make seed` prints the accounts it created and which execution mode is active:
+
+| Username | Password | Role | Lands on |
+|---|---|---|---|
+| `admin` | `admin` | admin | Catalog |
+| `prof` | `profpass` | instructor | Catalog |
+| `red1` | `redpass` | red | Exercise |
+| `blue1` | `bluepass` | blue | Exercise |
+
+Sign red and blue in from **two different browsers** (or one normal and one
+private window) so both sides are live at once — that contrast is the point of
+the exercise.
+
+### Check the execution mode
 
 ```bash
-make seed             # creates prof/red1/blue1 + a running exercise to join
+curl -s localhost:8080/api/health | python3 -m json.tool
 ```
- On first run the
-platform seeds a single admin account - **`admin` / `admin`** (override with
-`CR_ADMIN_PASSWORD`). Sign in, then use the **Admin** tab to provision users
-and assign each a role. See [docs/ROLES.md](docs/ROLES.md) for what every role
-can do and the full provisioning flow.
 
-**New here? Run a lab end to end:** [docs/LAB_GUIDE.md](docs/LAB_GUIDE.md) walks
-through both sides, red launching a real attack and blue hunting it in the SOC
-log search.
+`"mode": "docker"` means attacks execute for real. `"mode": "simulated"` means
+no Docker daemon was reachable — start Docker, then **restart `make serve`**
+(the check runs once at boot). Every module card in the catalog is badged
+**⚡ Real exec** or **◦ Simulated** so you know which you will get before
+launching; Windows modules always simulate until the [VM tier](deploy/vm/PROXMOX_SETUP.md).
 
-**Demoing to a customer?** [docs/CUSTOMER_DEMO.md](docs/CUSTOMER_DEMO.md) is a
-numbered set of red-team and blue-team test cases with expected results and what
-each one proves.
+### First run, security
 
-**Testing the platform?** [docs/TESTING.md](docs/TESTING.md) is the tester's
-guide: the automated suite, smoke tests, API checks, the negative/RBAC battery,
-and how to verify the defender-side redaction.
+On first boot the platform seeds one admin account — **`admin` / `admin`**.
+**On any deployment others can reach, set `CR_ADMIN_PASSWORD` before first
+run** (it applies only against an empty database). Then use the **Admin** tab,
+or `make seed`, to provision the other roles. See [docs/ROLES.md](docs/ROLES.md)
+for what each role can do.
 
-Other entrypoints:
+### Where to go next
+
+- **Run a lab end to end** — [docs/LAB_GUIDE.md](docs/LAB_GUIDE.md): red launches
+  a real attack, blue hunts it in the SOC log search.
+- **Demo to a customer** — [docs/CUSTOMER_DEMO.md](docs/CUSTOMER_DEMO.md):
+  numbered red/blue/governance test cases with expected results and what each
+  proves.
+- **Test the platform** — [docs/TESTING.md](docs/TESTING.md): the automated
+  suite, API checks, and the RBAC/fog-of-war battery.
+- **Real Windows / AD targets** — [deploy/vm/PROXMOX_SETUP.md](deploy/vm/PROXMOX_SETUP.md):
+  the Proxmox VM tier, including a from-scratch path on Google Cloud.
+
+### Other entrypoints
 
 ```bash
 make demo             # run a full exercise lifecycle end-to-end in memory
-make test             # run the 132-test suite (stdlib unittest)
+make test             # run the test suite (149 tests, stdlib unittest)
 make catalog          # print the seeded content summary
+make help             # list all targets
 ```
 
 ## What's implemented (MVP slice of the spec)
