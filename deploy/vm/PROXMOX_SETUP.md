@@ -8,6 +8,12 @@ Work through it in order and run the conformance script at the end. Until that
 passes, the tier is not verified on your infrastructure and should not be
 described as working.
 
+> **No Proxmox box? Run it on Google Cloud.** Proxmox is an operating system,
+> not an app — it needs a machine that can itself run VMs. If you do not have
+> spare hardware, [Appendix: Proxmox on GCP](#appendix-running-proxmox-on-google-cloud)
+> stands one up on a nested-virtualization GCP instance, including the Windows
+> target. Do that first, then come back to section 0.
+
 ---
 
 ## 0. What you need first
@@ -255,3 +261,155 @@ ship without a `vm` execution spec, so there is nothing for the tier to
 execute. Getting real Windows telemetry needs those specs written and tested
 against a live template — the next piece of work after conformance passes on
 your host, not something to assume is already there.
+
+---
+
+# Appendix: running Proxmox on Google Cloud
+
+Proxmox needs to run virtual machines, and a VM running inside GCP can only do
+that if **nested virtualization** is enabled. GCP supports it, but only on
+specific machine families and only on Intel Haswell or newer. This appendix
+gets you from nothing to a reachable Proxmox node with a Windows target.
+
+Budget an hour, plus the Windows install. **This costs real money** — a VM big
+enough to host Windows targets is not free-tier. Shut it down when you are not
+using it.
+
+## A. Pick a machine that allows nested virtualization
+
+Nested virtualization works on **N1, N2, C2, C3, M1, M2, M3** machine types (not
+on the shared-core `e2`/`f1`/`g1` types, and not on Arm). Use at least:
+
+- `n2-standard-8` (8 vCPU, 32 GB) — comfortable for a Linux victim plus one
+  Windows Server target.
+- A boot disk of **100 GB+** — Windows templates alone are 20–40 GB each.
+
+## B. Create the instance with nested virtualization on
+
+Nested virtualization is a licence flag on the instance, set at creation:
+
+```bash
+gcloud compute instances create cyberrange-pve \
+  --zone=us-central1-a \
+  --machine-type=n2-standard-8 \
+  --enable-nested-virtualization \
+  --min-cpu-platform="Intel Haswell" \
+  --image-family=debian-12 --image-project=debian-cloud \
+  --boot-disk-size=150GB --boot-disk-type=pd-ssd \
+  --can-ip-forward \
+  --tags=proxmox
+```
+
+`--enable-nested-virtualization` is the one that matters; without it Proxmox
+installs fine and then every VM fails to boot. `--can-ip-forward` lets the node
+route its internal range networks.
+
+## C. Let yourself reach the Proxmox web UI and API
+
+The API and UI are on TCP **8006**. Open it only to your own address, never
+`0.0.0.0/0`:
+
+```bash
+MYIP=$(curl -s https://checkip.amazonaws.com)
+gcloud compute firewall-rules create allow-proxmox-admin \
+  --allow=tcp:8006,tcp:22 \
+  --source-ranges=${MYIP}/32 \
+  --target-tags=proxmox
+```
+
+## D. Install Proxmox VE on the instance
+
+Proxmox is normally installed from its own ISO, but on a GCP Debian image you
+install the Proxmox packages on top of Debian instead. SSH in
+(`gcloud compute ssh cyberrange-pve --zone=us-central1-a`) and, as root:
+
+```bash
+# Proxmox VE 8 on Debian 12 (bookworm)
+echo "deb [arch=amd64] http://download.proxmox.com/debian/pve bookworm pve-no-subscription" \
+  > /etc/apt/sources.list.d/pve.list
+curl -fsSL https://enterprise.proxmox.com/debian/proxmox-release-bookworm.gpg \
+  -o /etc/apt/trusted.gpg.d/proxmox-release-bookworm.gpg
+apt-get update && apt-get -y full-upgrade
+apt-get -y install proxmox-ve postfix open-iscsi
+# set a root password for the Proxmox web UI login
+passwd root
+reboot
+```
+
+After the reboot, confirm the hypervisor can actually nest:
+
+```bash
+# should print a number > 0
+egrep -c '(vmx|svm)' /proc/cpuinfo
+```
+
+Zero here means nested virtualization is not active — recheck the instance was
+created with `--enable-nested-virtualization` and an Intel Haswell+ platform.
+
+Then browse to `https://<instance-external-ip>:8006`, accept the self-signed
+cert, and log in as `root` with the password you set.
+
+## E. Get the Windows ISO onto the node
+
+From the Proxmox node (or its Shell console in the web UI), fetch the ISOs into
+Proxmox's ISO store:
+
+```bash
+cd /var/lib/vz/template/iso
+# Windows Server 2022 evaluation (expires on Microsoft's schedule - lab use)
+wget -O win2022-eval.iso "<Windows Server 2022 evaluation ISO URL from microsoft.com>"
+# virtio drivers - Windows needs these to see the disk and get the guest agent
+wget https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso
+```
+
+The Windows evaluation ISO URL changes; get the current one from Microsoft's
+evaluation centre. The virtio ISO carries both the SCSI driver Windows needs at
+install time and the **qemu-guest-agent**, which the tier needs for exec.
+
+From here you are back on the main guide: **section 3** builds the Windows
+template from these ISOs, and **section 2** the Linux one. The only GCP-specific
+part is this appendix; everything after it is identical to bare-metal Proxmox.
+
+## F. Point CyberRange at the GCP node
+
+Exactly as [section 5](#5-point-cyberrange-at-it), with the instance's external
+IP as the host:
+
+```bash
+export CR_PROXMOX_HOST=https://<instance-external-ip>:8006
+export CR_PROXMOX_VERIFY_TLS=0        # self-signed cert on a fresh node
+export CR_PROXMOX_NODE=cyberrange-pve
+# ...token and template VMIDs as in section 5
+```
+
+If CyberRange itself runs outside GCP, its traffic to 8006 comes from your
+office/home address — the firewall rule in step C already covers that. If it
+runs on another GCP instance, add that instance's tag or subnet to the rule's
+`--source-ranges` instead of a public IP.
+
+## G. Turn it off when idle
+
+A running `n2-standard-8` bills by the second. Stop it between sessions:
+
+```bash
+gcloud compute instances stop cyberrange-pve --zone=us-central1-a
+# ...and start it again next time
+gcloud compute instances start cyberrange-pve --zone=us-central1-a
+```
+
+Stopping the instance does not delete the Proxmox install or the templates —
+they are on the boot disk, which persists. The external IP may change on
+restart unless you reserved a static one; if it does, update `CR_PROXMOX_HOST`.
+
+## Honest notes on this path
+
+- **Nested virtualization is slower.** Windows inside Proxmox inside GCP boots
+  and runs noticeably slower than on bare metal. Fine for a lab and for
+  generating telemetry; not a performance benchmark.
+- **It is not free.** Unlike the Docker tier, which runs on the laptop you
+  already have, this is a paid cloud VM. The Linux/container exercises do not
+  need any of this — only real Windows and Active Directory do.
+- **The conformance script is still the gate.** Running on GCP changes nothing
+  about verification: `python3 scripts/proxmox_conformance.py` must pass against
+  this node before the Windows tier is real, and the Windows execution specs
+  still need to be written (see "What still does not work", above).
