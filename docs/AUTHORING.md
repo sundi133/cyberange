@@ -84,3 +84,27 @@ and version control, the form for quick in-product creation.
       authored scenarios can be assigned as guided lessons, not just launched.
 - [ ] Objectives and injects in the in-product form (the config path already
       takes them; the form currently uses the mode defaults).
+
+---
+
+## Production content roadmap (planned)
+
+Priority order for production content, from a coverage review of the catalog
+(29 modules spanning 13 of 14 ATT&CK Enterprise tactics - breadth is there,
+these fill depth and the high-value surfaces):
+
+- [ ] **1. Finish the Windows VM tier.** 13 of 29 modules simulate, almost all
+      Windows. Real Windows/AD telemetry is the biggest customer ask and is
+      blocked on the Proxmox tier (conformance run + Windows execution specs).
+      The marquee AD attacks - Kerberoasting, DCSync, Pass-the-Hash, Golden
+      Ticket - do not exist yet in any form and belong here.
+- [ ] **2. Review and sign a depth batch from the importer.** 383 Linux-shell
+      Atomic Red Team atomics run today; signing a curated batch gives
+      breadth-of-choice per tactic without hand-authoring.
+- [ ] **3. Curate a flagship ransomware chain.** Only one Impact module exists
+      (canary encryption). Add shadow-copy deletion, mass-rename, ransom-note
+      drop as signed modules + rules, composed into a standout scenario.
+- [ ] **4. Cloud TTPs (if the customer base is cloud-first).** ~63 cloud atomics
+      surfaced in the import (AWS, Azure-AD, GCP, O365); zero curated coverage
+      today. Real cloud execution needs a cloud adapter (like the VM tier), so
+      this is a surface, not a quick add.
