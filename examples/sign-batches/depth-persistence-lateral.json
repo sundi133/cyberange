@@ -1,0 +1,13 @@
+{
+  "reviewer": "REPLACE-WITH-YOUR-REVIEWER-IDENTITY",
+  "notes": "Depth batch: Persistence and Lateral-Movement variants beyond the single curated T1021. Replace IDs with the ones your importer produced.",
+  "modules": [
+    {"id": "CR-ATOMIC-T1053_003-00", "class": "S1", "notes": "additional scheduled-job (at/cron) variant"},
+    {"id": "CR-ATOMIC-T1543_002-00", "class": "S1", "notes": "systemd service persistence variant"},
+    {"id": "CR-ATOMIC-T1037_004-00", "class": "S1", "notes": "rc.local boot-time initializer"},
+    {"id": "CR-ATOMIC-T1047-00",     "class": "S2", "notes": "WMI remote execution; policy approved"},
+    {"id": "CR-ATOMIC-T1021_002-00", "class": "S2", "notes": "SMB/admin-shares lateral; policy approved"},
+    {"id": "CR-ATOMIC-T1021_006-00", "class": "S2", "notes": "WinRM lateral; policy approved"},
+    {"id": "CR-ATOMIC-T1218_011-00", "class": "S1", "notes": "LOLBin rundll32 variant"}
+  ]
+}

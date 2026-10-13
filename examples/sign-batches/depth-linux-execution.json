@@ -1,0 +1,16 @@
+{
+  "reviewer": "REPLACE-WITH-YOUR-REVIEWER-IDENTITY",
+  "notes": "Depth batch: Execution + Defense Evasion variants on the Linux-real path. Each entry maps to a module the atomic importer wrote; replace IDs with the ones your importer produced (CR-ATOMIC-<T####>-<index>).",
+  "modules": [
+    {"id": "CR-ATOMIC-T1059_001-00", "class": "S1", "notes": "powershell on linux via dotnet - sim-only until vm tier runs it"},
+    {"id": "CR-ATOMIC-T1059_004-00", "class": "S1", "notes": "unix shell behavior variant"},
+    {"id": "CR-ATOMIC-T1059_006-00", "class": "S1", "notes": "python one-liner execution"},
+    {"id": "CR-ATOMIC-T1070_002-00", "class": "S1", "notes": "clear command history on bash/zsh"},
+    {"id": "CR-ATOMIC-T1070_004-01", "class": "S1", "notes": "safe tmpfs cleanup, bounded"},
+    {"id": "CR-ATOMIC-T1140-00",     "class": "S1", "notes": "base64 deobfuscation marker"},
+    {"id": "CR-ATOMIC-T1562_001-02", "class": "S2", "notes": "impair-defenses: stop auditd (lab-only); needs S2 ack"},
+    {"id": "CR-ATOMIC-T1055-00",     "class": "S2", "notes": "process-injection marker; policy approved"},
+    {"id": "CR-ATOMIC-T1218-00",     "class": "S1", "notes": "LOLBin signed-binary proxy exec"},
+    {"id": "CR-ATOMIC-T1105-01",     "class": "S1", "notes": "additional ingress-transfer variant (curl)"}
+  ]
+}

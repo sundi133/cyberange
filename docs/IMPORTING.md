@@ -87,9 +87,39 @@ Provenance and review metadata live under each module's `_import` key: source,
 original technique (with sub-technique), executor, elevation, and the risk
 flags.
 
-## Promoting a module to runnable
+## Reviewing and signing
 
-After review, move the module from `modules.staged.json` into `modules.json`,
-set a real `safety_class`, confirm the `execution` spec is what you intend, and
-set `signed: true`. On the next server start it is a first-class catalog module.
-Until then it stays listed-but-blocked.
+Use `scripts/sign_modules.py` — the reviewer tool for the import staging file.
+It is deliberately small and append-only on its audit trail.
+
+```
+# 1. See what is pending, filtered for a review session
+python3 scripts/sign_modules.py list --unsigned-only --platform linux
+
+# 2. Full review context (command, risk flags, source, suggested class)
+python3 scripts/sign_modules.py preview CR-ATOMIC-T1059_004-00
+
+# 3. Sign one, with the reviewer identity and the real class
+python3 scripts/sign_modules.py sign CR-ATOMIC-T1059_004-00 \
+    --reviewer alice --class S1 --notes "benign shell variant"
+
+# 4. Sign a curated batch; S2 entries also need --acknowledge-s2
+python3 scripts/sign_modules.py batch examples/sign-batches/depth-linux-execution.json \
+    --reviewer alice --acknowledge-s2
+
+# 5. Audit who signed what
+python3 scripts/sign_modules.py audit
+```
+
+Signing flips `signed: true` on the staged module *in place*, writes a
+`_review` block, and appends to `backend/cyberrange/seed/_signing_log.jsonl`.
+The service treats signed staged modules exactly like signed curated modules
+— they are catalog members from the next reload. Nothing is ever moved into
+`modules.json`; the staging/curated split stays intact.
+
+The signing log and `modules.staged.json` are gitignored (per-operator,
+local). Revoke with `scripts/sign_modules.py unsign <ID> --reason "…"`; the
+log keeps the full sign-then-unsign history.
+
+Batch templates live under `examples/sign-batches/` — see that directory's
+README for the format.

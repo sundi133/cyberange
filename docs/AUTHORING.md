@@ -102,9 +102,14 @@ these fill depth and the high-value surfaces):
       proxmox_conformance.py checks PowerShell + DC reachability. Still open:
       a Golden Ticket module (needs KRBTGT material - not safe to ship as
       marker, waiting on real sign-off batch below).
-- [ ] **2. Review and sign a depth batch from the importer.** 383 Linux-shell
-      Atomic Red Team atomics run today; signing a curated batch gives
-      breadth-of-choice per tactic without hand-authoring.
+- [x] **2. Review and sign a depth batch from the importer.** DONE on the
+      tooling side: `scripts/sign_modules.py` (list / preview / sign / batch /
+      unsign / audit) with safety rails (PROHIBITED refused, S2 needs
+      `--acknowledge-s2`, missing-fields refused, placeholder reviewer
+      refused), append-only signing log, and three batch templates in
+      `examples/sign-batches/`. Still open on the content side: run the batches
+      against the real 1,862-module import on the operator machine (the
+      staged file is gitignored, so this happens outside the repo).
 - [ ] **3. Curate a flagship ransomware chain.** Only one Impact module exists
       (canary encryption). Add shadow-copy deletion, mass-rename, ransom-note
       drop as signed modules + rules, composed into a standout scenario.
