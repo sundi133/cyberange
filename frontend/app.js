@@ -202,9 +202,12 @@ function scenarioCard(s) {
   const cta = can("range:create")
     ? `<button class="act" data-launch="${esc(s.id)}">Launch range →</button>`
     : `<span class="faint" style="font-size:12px">Instructor-launched</span>`;
+  const customBadge = s.custom
+    ? `<span class="tag" style="background:var(--accent-soft);color:var(--accent)" title="Authored from a TTP config">✎ Custom</span> `
+    : "";
   return el(`<div class="card mode-${esc(s.mode)}">
     <div class="row" style="justify-content:space-between">
-      <h4>${esc(s.name)}</h4><span class="tag mode">${esc(s.mode)}</span>
+      <h4>${esc(s.name)}</h4><span>${customBadge}<span class="tag mode">${esc(s.mode)}</span></span>
     </div>
     <p class="mono faint" style="font-size:11.5px">${esc(s.id)} · ${esc(s.difficulty)} · ${dur} min</p>
     <p>${esc(s.team_objective)}</p>

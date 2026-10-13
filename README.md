@@ -94,6 +94,8 @@ for what each role can do.
   suite, API checks, and the RBAC/fog-of-war battery.
 - **Scale the catalog** — [docs/IMPORTING.md](docs/IMPORTING.md): import
   Atomic Red Team and CALDERA content (unsigned until reviewed and signed).
+- **Author scenarios** — [docs/AUTHORING.md](docs/AUTHORING.md): compose new
+  scenarios from a compact TTP config; the path from 10 scenarios to 100.
 - **Real Windows / AD targets** — [deploy/vm/PROXMOX_SETUP.md](deploy/vm/PROXMOX_SETUP.md):
   the Proxmox VM tier, including a from-scratch path on Google Cloud.
 

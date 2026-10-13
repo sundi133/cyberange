@@ -35,3 +35,6 @@ backend/cyberrange/seed/modules.staged.json
 # Import sources cloned for the content importer (never commit these)
 atomic-red-team/
 caldera/
+
+# Authored scenarios (staged, built by build_scenarios.py)
+backend/cyberrange/seed/scenarios.staged.json
