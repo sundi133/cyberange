@@ -66,13 +66,21 @@ This config format is the customer authoring path today: hand them the format,
 they write configs, you (or they) run the builder. Because the builder refuses
 unsigned modules, a customer cannot author their way around module review.
 
-An in-product "Create scenario" form — pick modules, set objectives, save, no
-files — is the planned next step (path B), built on this same validation layer.
-See the TODO in [../deploy/vm/README.md](../deploy/vm/README.md) is for the VM
-tier; scenario-authoring TODOs live here:
+### In-product authoring (built)
 
-- [ ] In-product scenario authoring: an API (`POST /api/scenarios`) and an
-      instructor/admin UI form that composes a scenario from the module picker
-      and runs it through the same validation this builder uses.
-- [ ] Optional `learning` block in configs (briefing, concepts, quiz), so
+Instructors and admins can also author without touching files. The Catalog has
+a **✎ New scenario** button (shown to holders of the `scenario:author`
+permission) that opens a form — name, mode, difficulty, and a picker of signed
+modules. It posts to `POST /api/scenarios`, which runs the **same validation**
+as the builder, so the UI can no more compose unsigned content than the config
+path can. The scenario appears in the catalog immediately, marked Custom.
+
+So there are two authoring paths on one validation layer: config files for bulk
+and version control, the form for quick in-product creation.
+
+### Still open
+
+- [ ] Optional `learning` block (briefing, concepts, quiz) in both paths, so
       authored scenarios can be assigned as guided lessons, not just launched.
+- [ ] Objectives and injects in the in-product form (the config path already
+      takes them; the form currently uses the mode defaults).

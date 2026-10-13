@@ -69,8 +69,10 @@ async function viewCatalog() {
       <select id="f-plat"><option value="">Any platform</option>
         <option>windows</option><option>linux</option><option>docker</option></select>
       <button class="ghost" id="btn-search">Filter</button>
+      ${can("scenario:author") ? `<button class="act" id="btn-new-scenario">✎ New scenario</button>` : ""}
       <span class="faint" id="scenario-count" style="margin-left:auto;font-size:12.5px"></span>
     </div>
+    <div id="author-panel"></div>
     <div class="grid" id="scenarios"></div>
 
     <details class="panel" id="modules-panel" style="margin-top:var(--s6)">
@@ -193,7 +195,67 @@ async function viewCatalog() {
   panel.addEventListener("toggle", () => {
     if (panel.open && !panel.dataset.loaded) { panel.dataset.loaded = "1"; loadModules(); }
   }, { once: false });
+
+  if (can("scenario:author")) {
+    bind("btn-new-scenario", () => toggleAuthorForm(loadScenarios));
+  }
   await loadScenarios();
+}
+
+// ---------------- In-product scenario authoring (path B) ----------------
+async function toggleAuthorForm(onCreated) {
+  const host = document.getElementById("author-panel");
+  if (host.dataset.open === "1") { host.innerHTML = ""; host.dataset.open = "0"; return; }
+  host.dataset.open = "1";
+
+  // Only signed modules can be composed; the server enforces this too.
+  const mods = (await api("GET", "/modules")).filter((m) => m.signed !== false);
+  const opts = mods
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((m) => `<option value="${esc(m.id)}">${esc(m.name)} · ${esc(m.safety_class)}/${esc(m.platform)}</option>`)
+    .join("");
+
+  host.innerHTML = `
+    <div class="panel" style="border-left:3px solid var(--accent)">
+      <div class="phead">✎ New scenario</div>
+      <div class="phelp">Compose a scenario from signed modules. Technique coverage,
+        topology and safety class are derived; objectives default by mode. It appears
+        in the catalog immediately, marked Custom.</div>
+      <div class="split" style="gap:var(--s3)">
+        <label class="lbl">Name<input id="as-name" placeholder="e.g. Linux web-to-root" /></label>
+        <label class="lbl">Mode
+          <select id="as-mode"><option value="red-blue">red-blue</option>
+            <option value="solo">solo</option><option value="purple">purple</option></select></label>
+        <label class="lbl">Difficulty
+          <select id="as-diff"><option>introductory</option>
+            <option selected>intermediate</option><option>advanced</option></select></label>
+      </div>
+      <label class="lbl" style="margin-top:var(--s3)">Modules (pick one or more)
+        <select id="as-mods" multiple size="8" style="font-family:var(--mono);font-size:12px">${opts}</select></label>
+      <div class="row" style="margin-top:var(--s3)">
+        <button class="act" id="as-submit">Create scenario</button>
+        <button class="ghost" id="as-cancel">Cancel</button>
+        <span id="as-err" class="faint" style="color:var(--danger);font-size:12.5px"></span>
+      </div>
+    </div>`;
+
+  bind("as-cancel", () => { host.innerHTML = ""; host.dataset.open = "0"; });
+  bind("as-submit", async () => {
+    const picked = [...document.getElementById("as-mods").selectedOptions].map((o) => o.value);
+    const name = document.getElementById("as-name").value.trim();
+    const errEl = document.getElementById("as-err");
+    if (!name) { errEl.textContent = "Name is required."; return; }
+    if (!picked.length) { errEl.textContent = "Pick at least one module."; return; }
+    try {
+      const s = await api("POST", "/scenarios", {
+        name, mode: document.getElementById("as-mode").value,
+        difficulty: document.getElementById("as-diff").value, modules: picked,
+      });
+      toast(`Created ${s.id}`);
+      host.innerHTML = ""; host.dataset.open = "0";
+      if (onCreated) await onCreated();
+    } catch (e) { errEl.textContent = e.message; }
+  });
 }
 
 function scenarioCard(s) {

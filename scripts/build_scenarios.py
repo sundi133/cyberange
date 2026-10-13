@@ -53,35 +53,10 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "backend"))
 from cyberrange import catalog  # noqa: E402
+from cyberrange.authoring import build_scenario, ConfigError  # noqa: E402
 
 DEFAULT_OUT = pathlib.Path(__file__).resolve().parents[1] / \
     "backend/cyberrange/seed/scenarios.staged.json"
-
-MODES = {"red-blue", "solo", "purple"}
-DIFFICULTIES = {"introductory", "intermediate", "advanced"}
-_SAFETY_ORDER = ["S0", "S1", "S2"]
-
-# Default objectives per mode, used when a config does not supply its own.
-_DEFAULT_OBJECTIVES = {
-    "red-blue": [
-        {"role": "red", "text": "Complete the attack path and prove access.", "points": 40},
-        {"role": "blue", "text": "Detect the activity, scope it, and preserve evidence.", "points": 60},
-    ],
-    "solo": [
-        {"role": "solo", "text": "Run the attack and identify what it left behind.", "points": 100},
-    ],
-    "purple": [
-        {"role": "purple", "text": "Replay the techniques and improve detection coverage.", "points": 100},
-    ],
-}
-
-
-class ConfigError(ValueError):
-    """A config is missing something or references content that is not usable."""
-
-
-def _slug(text: str) -> str:
-    return re.sub(r"[^A-Z0-9]+", "-", text.upper()).strip("-")[:28]
 
 
 def _load_config(path: pathlib.Path) -> dict:
@@ -96,94 +71,6 @@ def _load_config(path: pathlib.Path) -> dict:
         return yaml.safe_load(text) or {}
     return json.loads(text)
 
-
-def build_one(cfg: dict, modules_by_id: dict[str, dict], used_ids: set[str]) -> dict:
-    name = (cfg.get("name") or "").strip()
-    if not name:
-        raise ConfigError("every scenario needs a 'name'")
-
-    mode = cfg.get("mode", "red-blue")
-    if mode not in MODES:
-        raise ConfigError(f"{name!r}: mode must be one of {sorted(MODES)}, got {mode!r}")
-
-    difficulty = cfg.get("difficulty", "intermediate")
-    if difficulty not in DIFFICULTIES:
-        raise ConfigError(f"{name!r}: difficulty must be one of {sorted(DIFFICULTIES)}")
-
-    module_ids = cfg.get("modules") or []
-    if not module_ids:
-        raise ConfigError(f"{name!r}: a scenario needs at least one module")
-
-    # The safety boundary: every module must exist and be signed. A scenario
-    # built on unsigned/imported content would be a way around module review.
-    unknown = [m for m in module_ids if m not in modules_by_id]
-    if unknown:
-        raise ConfigError(f"{name!r}: unknown module id(s): {unknown}")
-    unsigned = [m for m in module_ids if modules_by_id[m].get("signed") is False]
-    if unsigned:
-        raise ConfigError(
-            f"{name!r}: these modules are unsigned and must be reviewed and signed "
-            f"before a scenario can use them: {unsigned}")
-
-    mods = [modules_by_id[m] for m in module_ids]
-
-    # Derive technique_ids (union, order-preserving) unless overridden.
-    techniques = cfg.get("technique_ids")
-    if not techniques:
-        seen, techniques = set(), []
-        for m in mods:
-            for t in m.get("technique_ids", []):
-                if t not in seen:
-                    seen.add(t)
-                    techniques.append(t)
-
-    # Topology: a Docker scenario if any module is docker, else the standard range.
-    topology = cfg.get("topology_id") or (
-        "TOPO-DOCKER" if any(m.get("platform") == "docker" for m in mods) else "TOPO-STD5")
-
-    # Safety class: the highest (most restrictive) of the modules'.
-    safety = cfg.get("safety_class") or max(
-        (m.get("safety_class", "S0") for m in mods),
-        key=lambda s: _SAFETY_ORDER.index(s) if s in _SAFETY_ORDER else 0)
-
-    # Objectives: author-supplied, or a sensible default for the mode.
-    if cfg.get("objectives"):
-        obj_cfg = cfg["objectives"]
-        if isinstance(obj_cfg, dict):  # {red: {...}, blue: {...}}
-            objectives = [{"role": r, **v} for r, v in obj_cfg.items()]
-        else:
-            objectives = obj_cfg
-    else:
-        objectives = _DEFAULT_OBJECTIVES[mode]
-
-    sid = cfg.get("id") or f"CR-CUSTOM-{_slug(name)}"
-    if sid in used_ids or sid in {s["id"] for s in catalog.scenarios()}:
-        # keep ids unique against both this batch and the existing catalog
-        n = 2
-        while f"{sid}-{n}" in used_ids:
-            n += 1
-        sid = f"{sid}-{n}"
-    used_ids.add(sid)
-
-    return {
-        "id": sid,
-        "name": name,
-        "version": cfg.get("version", "0.1.0"),
-        "mode": mode,
-        "difficulty": difficulty,
-        "duration_min": cfg.get("duration_min", [60, 90]),
-        "topology_id": topology,
-        "team_objective": cfg.get("team_objective",
-                                  f"Authored scenario: {name}."),
-        "technique_ids": techniques,
-        "module_ids": module_ids,
-        "objectives": objectives,
-        "injects": cfg.get("injects", []),
-        "expected_evidence": cfg.get("expected_evidence", []),
-        "safety_class": safety,
-        # Marks this as authored rather than seed content, for the catalog badge.
-        "custom": True,
-    }
 
 
 def main() -> int:
@@ -215,7 +102,8 @@ def main() -> int:
         try:
             cfg = _load_config(path)
             for one in (cfg if isinstance(cfg, list) else [cfg]):
-                built.append(build_one(one, modules_by_id, used_ids))
+                built.append(build_scenario(one, modules_by_id, used_ids,
+                                            {s["id"] for s in catalog.scenarios()}))
         except (ConfigError, json.JSONDecodeError) as exc:
             errors.append(f"  {path.name}: {exc}")
 

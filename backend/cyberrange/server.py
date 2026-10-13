@@ -81,6 +81,8 @@ def build_router(svc: CyberRangeService) -> Router:
     r.add("GET", "/api/scenarios", scenarios_handler)
     r.add("GET", "/api/scenarios/{sid}",
           lambda ctx: catalog.get_scenario(ctx["params"]["sid"]) or _notfound("scenario"))
+    r.add("POST", "/api/scenarios",
+          lambda ctx: svc.create_scenario(ctx["user"], ctx["role"], ctx["body"]))
 
     def modules_handler(ctx):
         q = ctx["query"]

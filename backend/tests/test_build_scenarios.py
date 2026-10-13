@@ -10,6 +10,7 @@ import pathlib
 import unittest
 
 from cyberrange import catalog
+from cyberrange import authoring
 
 _BUILDER = pathlib.Path(__file__).resolve().parents[2] / "scripts" / "build_scenarios.py"
 _spec = importlib.util.spec_from_file_location("build_scenarios", _BUILDER)
@@ -31,7 +32,7 @@ MODS = {
 
 class BuildScenarioTest(unittest.TestCase):
     def build(self, cfg):
-        return bs.build_one(cfg, MODS, set())
+        return authoring.build_scenario(cfg, MODS, set())
 
     def test_minimal_config_produces_full_scenario(self):
         s = self.build({"name": "Web to root", "mode": "red-blue",
@@ -69,30 +70,30 @@ class BuildScenarioTest(unittest.TestCase):
 
     # ---- validation: the safety boundary --------------------------------
     def test_unknown_module_rejected(self):
-        with self.assertRaises(bs.ConfigError):
+        with self.assertRaises(authoring.ConfigError):
             self.build({"name": "x", "modules": ["M-WEB", "NOPE"]})
 
     def test_unsigned_module_rejected(self):
-        with self.assertRaises(bs.ConfigError) as ctx:
+        with self.assertRaises(authoring.ConfigError) as ctx:
             self.build({"name": "x", "modules": ["M-WEB", "M-UNSIGNED"]})
         self.assertIn("unsigned", str(ctx.exception).lower())
 
     def test_bad_mode_rejected(self):
-        with self.assertRaises(bs.ConfigError):
+        with self.assertRaises(authoring.ConfigError):
             self.build({"name": "x", "mode": "green", "modules": ["M-WEB"]})
 
     def test_no_modules_rejected(self):
-        with self.assertRaises(bs.ConfigError):
+        with self.assertRaises(authoring.ConfigError):
             self.build({"name": "x", "modules": []})
 
     def test_no_name_rejected(self):
-        with self.assertRaises(bs.ConfigError):
+        with self.assertRaises(authoring.ConfigError):
             self.build({"modules": ["M-WEB"]})
 
     def test_ids_stay_unique_within_a_batch(self):
         used = set()
-        a = bs.build_one({"name": "Same", "modules": ["M-WEB"]}, MODS, used)
-        b = bs.build_one({"name": "Same", "modules": ["M-WEB"]}, MODS, used)
+        a = authoring.build_scenario({"name": "Same", "modules": ["M-WEB"]}, MODS, used)
+        b = authoring.build_scenario({"name": "Same", "modules": ["M-WEB"]}, MODS, used)
         self.assertNotEqual(a["id"], b["id"])
 
 
@@ -105,11 +106,11 @@ class ExampleConfigsBuildTest(unittest.TestCase):
         used = set()
         for path in examples.glob("*.yaml"):
             cfg = bs._load_config(path)
-            s = bs.build_one(cfg, mods, used)
+            s = authoring.build_scenario(cfg, mods, used)
             self.assertTrue(s["module_ids"])
         for path in examples.glob("*.json"):
             cfg = bs._load_config(path)
-            s = bs.build_one(cfg, mods, used)
+            s = authoring.build_scenario(cfg, mods, used)
             self.assertTrue(s["module_ids"])
 
 
