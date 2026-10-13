@@ -23,8 +23,21 @@ def tactics() -> list[dict]:
     return _load("tactics")
 
 
+@functools.lru_cache(maxsize=None)
+def _staged_modules() -> list[dict]:
+    # Imported-but-unreviewed content (e.g. from import_atomics.py) lands here.
+    # Every entry is signed: false, so the service refuses to execute it until a
+    # reviewer classifies and signs it. Optional: absent file -> no staged content.
+    path = SEED_DIR / "modules.staged.json"
+    if not path.exists():
+        return []
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 def modules() -> list[dict]:
-    return _load("modules")
+    """Signed seed modules plus any staged (imported, unsigned) modules."""
+    return list(_load("modules")) + list(_staged_modules())
 
 
 def scenarios() -> list[dict]:

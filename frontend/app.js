@@ -183,14 +183,25 @@ function execBadge(m) {
 function moduleCard(m) {
   const sc = (m.safety_class || "").toLowerCase();
   const techs = (m.technique_ids || []).map((t) => `<span class="tag tech">${t}</span>`).join(" ");
-  return el(`<div class="card">
+  // Imported content is signed: false - it is listed but cannot run until a
+  // reviewer signs it. Make that unmissable, and show where it came from.
+  const unsigned = m.signed === false;
+  const imp = m._import || null;
+  const unsignedBadge = unsigned
+    ? `<span class="exec-badge unsigned" title="Imported${imp ? " from " + esc(imp.source) : ""} — review and sign before it can run">⚠ Unsigned</span>`
+    : "";
+  const riskRow = (imp && imp.risk_flags && imp.risk_flags.length)
+    ? `<p class="faint" style="font-size:11.5px;margin:2px 0 0">Review flags: ${imp.risk_flags.map((f) => `<span class="tag">${esc(f)}</span>`).join(" ")}</p>`
+    : "";
+  return el(`<div class="card${unsigned ? " unsigned" : ""}">
     <div class="row" style="justify-content:space-between">
       <h4>${esc(m.name)}</h4>
       <span class="tag ${sc}">${esc(m.safety_class)}</span>
     </div>
     <p class="mono muted">${esc(m.id)} · <span class="tag ${esc(m.platform)}">${esc(m.platform)}</span></p>
-    <div class="row" style="margin:6px 0">${execBadge(m)}${techs}</div>
+    <div class="row" style="margin:6px 0">${unsignedBadge}${execBadge(m)}${techs}</div>
     <p>${esc(m.detection_notes || "")}</p>
+    ${riskRow}
     <p class="muted">Cleanup: ${esc(m.cleanup || "-")}</p>
   </div>`);
 }
@@ -821,7 +832,13 @@ async function loadModuleSelect(scenario) {
     // Options are plain text, so the real/sim call is carried in a prefix glyph
     // rather than a styled badge.
     const run = moduleIsRealCapable(mm) ? "⚡ real" : "◦ sim";
-    sel.appendChild(el(`<option value="${esc(mm.id)}">${star}${run} · ${esc(mm.name)} [${esc(mm.safety_class)}/${esc(mm.platform)}]</option>`));
+    // Unsigned (imported) modules cannot be launched - the server refuses them -
+    // so disable the option rather than let a click 403.
+    const unsigned = mm.signed === false;
+    const label = unsigned
+      ? `⚠ unsigned · ${esc(mm.name)} [${esc(mm.platform)}] — review & sign first`
+      : `${star}${run} · ${esc(mm.name)} [${esc(mm.safety_class)}/${esc(mm.platform)}]`;
+    sel.appendChild(el(`<option value="${esc(mm.id)}"${unsigned ? " disabled" : ""}>${label}</option>`));
   });
 
   // One live line that reflects whether Docker is actually connected, since a
