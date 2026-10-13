@@ -92,6 +92,8 @@ for what each role can do.
   proves.
 - **Test the platform** — [docs/TESTING.md](docs/TESTING.md): the automated
   suite, API checks, and the RBAC/fog-of-war battery.
+- **Scale the catalog** — [docs/IMPORTING.md](docs/IMPORTING.md): import
+  Atomic Red Team and CALDERA content (unsigned until reviewed and signed).
 - **Real Windows / AD targets** — [deploy/vm/PROXMOX_SETUP.md](deploy/vm/PROXMOX_SETUP.md):
   the Proxmox VM tier, including a from-scratch path on Google Cloud.
 

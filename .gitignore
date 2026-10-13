@@ -30,3 +30,4 @@ evidence_store/
 # Wazuh deploy: cloned upstream stack + local env/certs
 deploy/wazuh/wazuh-single-node/
 deploy/wazuh/.env
+backend/cyberrange/seed/modules.staged.json
