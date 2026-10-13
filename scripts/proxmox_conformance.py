@@ -11,7 +11,8 @@ and reports what actually happened at each step.
     export CR_PROXMOX_TOKEN_SECRET='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
     export CR_PROXMOX_NODE=pve1
     export CR_PROXMOX_TEMPLATE_VICTIM=9100        # a Linux template, qemu-guest-agent installed
-    export CR_PROXMOX_TEMPLATE_WINDOWS=9101       # optional
+    export CR_PROXMOX_TEMPLATE_WINDOWS=9101       # optional: a Windows template, VirtIO guest agent
+    export CR_PROXMOX_TEMPLATE_DC=9102            # optional: a domain-controller template (AD DS)
     python3 scripts/proxmox_conformance.py
 
 It creates VMs and destroys them again. Point it at a lab node, never at
@@ -112,6 +113,39 @@ def main() -> int:
                            ["cmd.exe", "/c", "whoami"], timeout=90)
         return f"exit {res.returncode}, stdout: {(res.stdout or '').strip()[:60]}"
 
+    def windows_powershell():
+        # The Windows modules in the catalog shell out through PowerShell. Prove
+        # the guest agent + PowerShell combo works before anyone tries to run
+        # them for real.
+        if "win-endpoint" not in tier.templates:
+            raise ProvisionError("no Windows template configured")
+        res = tier.exec_in(
+            RANGE_ID, "win-endpoint",
+            ["powershell", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+             "-Command", "Write-Output ('[conformance] host: ' + $env:COMPUTERNAME)"],
+            timeout=120)
+        if res.returncode != 0:
+            raise ProvisionError(f"exit {res.returncode}: {res.stderr[:120]}")
+        if "[conformance]" not in (res.stdout or ""):
+            raise ProvisionError("PowerShell ran but did not return the expected marker")
+        return "PowerShell marker captured"
+
+    def directory():
+        # If a DC template is configured, prove the guest agent reaches it too.
+        # Running an AD cmdlet is enough: it is the surface the Windows/AD modules
+        # need, and it fails loudly on a template that forgot to install RSAT.
+        if "directory" not in tier.templates:
+            raise ProvisionError("no DC template configured")
+        res = tier.exec_in(
+            RANGE_ID, "directory",
+            ["powershell", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+             "-Command", "Get-Command Get-ADDomain -ErrorAction Stop | Out-Null; "
+                         "Write-Output '[conformance] AD module available'"],
+            timeout=120)
+        if res.returncode != 0 or "[conformance]" not in (res.stdout or ""):
+            raise ProvisionError("DC template reachable, but ActiveDirectory module not available")
+        return "DC reachable, ActiveDirectory module present"
+
     if not step("API reachable and token accepted", reachable):
         # Nothing below can mean anything if the API is unreachable, and
         # teardown in particular is best-effort, so it would report a false
@@ -119,6 +153,7 @@ def main() -> int:
         for name in ("Provision range targets", "Primary target reports running",
                      "Guest agent executes a command", "Foothold persists across execs",
                      "Reset rolls back to clean snapshot", "Windows guest exec",
+                     "Windows PowerShell marker", "Directory (DC) reachable",
                      "Teardown removes every VM"):
             results.append((SKIP, name, "skipped: API unreachable"))
     elif step("Provision range targets", provision):
@@ -127,6 +162,8 @@ def main() -> int:
         step("Foothold persists across execs", persistence)
         step("Reset rolls back to clean snapshot", reset)
         step("Windows guest exec", windows, required=False)
+        step("Windows PowerShell marker", windows_powershell, required=False)
+        step("Directory (DC) reachable", directory, required=False)
         step("Teardown removes every VM", verify_teardown)
     else:
         step("Teardown removes every VM", verify_teardown)

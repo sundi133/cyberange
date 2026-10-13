@@ -321,5 +321,425 @@
     "match": {
       "technique": "T1041"
     }
+  },
+  {
+    "id": "DR-WIN-POWERSHELL",
+    "technique_id": "T1059",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "PowerShell interpreter execution on endpoint",
+    "description": "PowerShell running enumeration/commands on a Windows endpoint.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[exec\\] powershell interpreter"
+    }
+  },
+  {
+    "id": "DR-WIN-SCHTASK",
+    "technique_id": "T1053",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "Scheduled task persistence pattern",
+    "description": "A scheduled task persistence pattern on Windows.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[persist\\] scheduled task"
+    }
+  },
+  {
+    "id": "DR-WIN-LOGCLEAR",
+    "technique_id": "T1070",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Windows event log clear pattern",
+    "description": "An event log clear pattern - defence evasion.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[evade\\] lab-only event log clear"
+    }
+  },
+  {
+    "id": "DR-WIN-PRIVESC",
+    "technique_id": "T1548",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Windows token-privilege enumeration",
+    "description": "Enumeration of token privileges precedes local privilege escalation.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[privesc\\] token-privilege"
+    }
+  },
+  {
+    "id": "DR-WIN-AD-DISC",
+    "technique_id": "T1087",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "Domain account discovery pattern",
+    "description": "Bulk enumeration of domain accounts via directory services.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[ad-disc\\] domain account enumeration"
+    }
+  },
+  {
+    "id": "DR-KERBEROAST-LOG",
+    "technique_id": "T1558.003",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Kerberoasting request pattern",
+    "description": "A service-ticket request pattern targeting SPN accounts.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[kerberoast\\]"
+    }
+  },
+  {
+    "id": "DR-KERBEROAST-SIM",
+    "technique_id": "T1558.003",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Kerberoasting (coverage)",
+    "description": "Kerberoasting technique observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1558.003"
+    }
+  },
+  {
+    "id": "DR-ASREP-LOG",
+    "technique_id": "T1558.004",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "AS-REP preauth enumeration",
+    "description": "Enumerating accounts with Kerberos pre-authentication disabled.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[asrep\\]"
+    }
+  },
+  {
+    "id": "DR-ASREP-SIM",
+    "technique_id": "T1558.004",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "AS-REP roasting (coverage)",
+    "description": "AS-REP roasting technique observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1558.004"
+    }
+  },
+  {
+    "id": "DR-REPL-EXPOSURE-LOG",
+    "technique_id": "T1003.006",
+    "rule_version": "v1",
+    "severity": "critical",
+    "title": "Directory replication-rights audit",
+    "description": "Audit or use of directory replication rights (DCSync precursor).",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[repl-audit\\]"
+    }
+  },
+  {
+    "id": "DR-REPL-EXPOSURE-SIM",
+    "technique_id": "T1003.006",
+    "rule_version": "v1",
+    "severity": "critical",
+    "title": "DCSync exposure (coverage)",
+    "description": "DCSync-relevant technique observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1003.006"
+    }
+  },
+  {
+    "id": "DR-NTLM-LATERAL-LOG",
+    "technique_id": "T1550.002",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "NTLM remote-logon lateral pattern",
+    "description": "NTLM network logons consistent with pass-the-hash lateral movement.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[ntlm-lateral\\]"
+    }
+  },
+  {
+    "id": "DR-NTLM-LATERAL-SIM",
+    "technique_id": "T1550.002",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "NTLM lateral movement (coverage)",
+    "description": "NTLM Type-3 lateral technique observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1550.002"
+    }
+  },
+  {
+    "id": "DR-INHIBIT-RECOVERY-LOG",
+    "technique_id": "T1490",
+    "rule_version": "v1",
+    "severity": "critical",
+    "title": "Shadow-copy / recovery-point deletion pattern",
+    "description": "A shadow-copy deletion command pattern - a classic ransomware pre-impact signal.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[inhibit-recovery\\]"
+    }
+  },
+  {
+    "id": "DR-INHIBIT-RECOVERY-SIM",
+    "technique_id": "T1490",
+    "rule_version": "v1",
+    "severity": "critical",
+    "title": "Inhibit system recovery (coverage)",
+    "description": "Inhibit-recovery technique observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1490"
+    }
+  },
+  {
+    "id": "DR-SVCSTOP-LOG",
+    "technique_id": "T1489",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Backup/EDR service-stop pattern",
+    "description": "Enumeration or attempt against backup and endpoint protection service names - typical pre-encryption staging.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[svcstop\\]"
+    }
+  },
+  {
+    "id": "DR-SVCSTOP-SIM",
+    "technique_id": "T1489",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Service stop (coverage)",
+    "description": "Service-stop technique observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1489"
+    }
+  },
+  {
+    "id": "DR-RANSOM-NOTE-LOG",
+    "technique_id": "T1486",
+    "rule_version": "v1",
+    "severity": "critical",
+    "title": "Ransom-note drop pattern",
+    "description": "A text file with a ransom-note-like name dropped across a directory - a post-impact follow-on signal.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[ransom-note\\]"
+    }
+  },
+  {
+    "id": "DR-CLOUD-METADATA-LOG",
+    "technique_id": "T1552.005",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Cloud instance-metadata credential request",
+    "description": "A workload requested IAM role credentials from the instance metadata service - cloud credential theft.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[cloud-metadata\\]"
+    }
+  },
+  {
+    "id": "DR-CLOUD-METADATA-SIM",
+    "technique_id": "T1552.005",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Instance-metadata credential theft (coverage)",
+    "description": "T1552.005 observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1552.005"
+    }
+  },
+  {
+    "id": "DR-CLOUD-OAUTH-LOG",
+    "technique_id": "T1528",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Cloud OAuth consent / app-grant",
+    "description": "An OAuth app consent-grant pattern - wide-scope delegated permissions granted via user consent.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[cloud-oauth\\]"
+    }
+  },
+  {
+    "id": "DR-CLOUD-OAUTH-SIM",
+    "technique_id": "T1528",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "OAuth consent abuse (coverage)",
+    "description": "T1528 observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1528"
+    }
+  },
+  {
+    "id": "DR-CLOUD-ACCT-MANIP-LOG",
+    "technique_id": "T1098",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Cloud account manipulation",
+    "description": "Trust-policy / access-key manipulation pattern.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[cloud-acct-manip\\]"
+    }
+  },
+  {
+    "id": "DR-CLOUD-ACCT-MANIP-SIM",
+    "technique_id": "T1098",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Account manipulation (coverage)",
+    "description": "T1098 observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1098"
+    }
+  },
+  {
+    "id": "DR-CLOUD-STORAGE-LOG",
+    "technique_id": "T1530",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "Cloud storage bulk-access pattern",
+    "description": "Bulk list / get-object burst across cloud storage buckets.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[cloud-storage\\]"
+    }
+  },
+  {
+    "id": "DR-CLOUD-STORAGE-SIM",
+    "technique_id": "T1530",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "Data from cloud storage (coverage)",
+    "description": "T1530 observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1530"
+    }
+  },
+  {
+    "id": "DR-CLOUD-EXFIL-LOG",
+    "technique_id": "T1567.002",
+    "rule_version": "v1",
+    "severity": "critical",
+    "title": "Exfiltration to external cloud storage",
+    "description": "Egress to a cloud-storage bucket outside the organisation.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[cloud-exfil\\]"
+    }
+  },
+  {
+    "id": "DR-CLOUD-EXFIL-SIM",
+    "technique_id": "T1567.002",
+    "rule_version": "v1",
+    "severity": "critical",
+    "title": "Exfil to cloud storage (coverage)",
+    "description": "T1567.002 observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1567.002"
+    }
+  },
+  {
+    "id": "DR-CLOUD-MAILRULE-LOG",
+    "technique_id": "T1114.003",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Mail-forwarding rule creation",
+    "description": "A mailbox rule forwarding externally / archiving silently.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[cloud-mailrule\\]"
+    }
+  },
+  {
+    "id": "DR-CLOUD-MAILRULE-SIM",
+    "technique_id": "T1114.003",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Email forwarding rule (coverage)",
+    "description": "T1114.003 observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1114.003"
+    }
   }
 ]

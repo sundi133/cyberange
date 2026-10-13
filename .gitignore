@@ -31,6 +31,8 @@ evidence_store/
 deploy/wazuh/wazuh-single-node/
 deploy/wazuh/.env
 backend/cyberrange/seed/modules.staged.json
+# Signing log: append-only reviewer audit trail, local to the operator.
+backend/cyberrange/seed/_signing_log.jsonl
 
 # Import sources cloned for the content importer (never commit these)
 atomic-red-team/

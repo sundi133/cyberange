@@ -934,5 +934,438 @@
         }
       ]
     }
+  },
+  {
+    "id": "CR-ADATTACK-001",
+    "name": "Active Directory attack path",
+    "version": "1.0.0",
+    "mode": "red-blue",
+    "difficulty": "advanced",
+    "duration_min": [
+      120,
+      180
+    ],
+    "topology_id": "TOPO-STD5",
+    "team_objective": "Red walks a realistic AD kill chain - account discovery, preauth enumeration, service-ticket requests, NTLM lateral logons, and a replication-rights exposure audit. Blue detects each stage and contains before domain compromise.",
+    "technique_ids": [
+      "T1087",
+      "T1558.004",
+      "T1558.003",
+      "T1550.002",
+      "T1003.006"
+    ],
+    "module_ids": [
+      "CR-MOD-DISC-WIN-001",
+      "CR-MOD-ASREP-001",
+      "CR-MOD-KERBEROAST-001",
+      "CR-MOD-NTLM-LATERAL-001",
+      "CR-MOD-REPL-EXPOSURE-001"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Enumerate the domain, exercise ticket-request and preauth patterns, and reach a replication-rights exposure.",
+        "points": 45
+      },
+      {
+        "role": "blue",
+        "text": "Detect AD discovery, the TGS/AS-REP patterns, NTLM lateral logons, and the replication-rights audit; contain before DCSync exposure.",
+        "points": 55
+      }
+    ],
+    "injects": [
+      {
+        "at_min": 20,
+        "type": "soc-alert",
+        "text": "DC reports a spike in service-ticket requests (Event 4769)."
+      },
+      {
+        "at_min": 45,
+        "type": "soc-alert",
+        "text": "Repeated NTLM Type-3 logons from one host."
+      },
+      {
+        "at_min": 75,
+        "type": "escalation",
+        "text": "Replication-rights audit observed on the DC."
+      }
+    ],
+    "expected_evidence": [
+      "service-ticket request burst",
+      "preauth-disabled enumeration",
+      "NTLM Type-3 logons",
+      "replication-rights audit"
+    ],
+    "safety_class": "S2",
+    "learning": {
+      "overview": "Walk a realistic Active Directory kill chain end to end and learn the telemetry each stage leaves on the domain controller and the endpoint. On the VM tier every behavior produces real process-output markers; off the VM tier the control plane simulates. Either way the detection engine scores the chain.",
+      "concepts": [
+        "AD intrusions chain discovery -> credential access -> lateral movement -> domain dominance.",
+        "Kerberoasting and AS-REP roasting target weak service/user accounts via Kerberos.",
+        "DCSync abuses replication rights; detecting the rights exposure prevents it."
+      ],
+      "steps": [
+        {
+          "title": "Enumerate the domain",
+          "module_id": "CR-MOD-DISC-WIN-001",
+          "instructions": "Run domain account discovery against the DC.",
+          "observe": "Bulk account enumeration fires a Windows/AD discovery detection (T1087)."
+        },
+        {
+          "title": "AS-REP enumeration",
+          "module_id": "CR-MOD-ASREP-001",
+          "instructions": "Enumerate accounts with Kerberos pre-authentication disabled.",
+          "observe": "A preauth-disabled enumeration detection fires (T1558.004)."
+        },
+        {
+          "title": "Service-ticket pattern",
+          "module_id": "CR-MOD-KERBEROAST-001",
+          "instructions": "Exercise the SPN service-ticket request pattern.",
+          "observe": "A kerberoasting detection fires (T1558.003)."
+        },
+        {
+          "title": "Move laterally",
+          "module_id": "CR-MOD-NTLM-LATERAL-001",
+          "instructions": "Exercise the NTLM remote-logon pattern with a seeded credential.",
+          "observe": "NTLM Type-3 logons fire the lateral-movement detection (T1550.002)."
+        },
+        {
+          "title": "Audit replication exposure",
+          "module_id": "CR-MOD-REPL-EXPOSURE-001",
+          "instructions": "Audit which principals hold directory replication rights.",
+          "observe": "The replication-rights audit fires a critical detection (T1003.006)."
+        }
+      ],
+      "quiz": [
+        {
+          "q": "Kerberoasting is detected primarily by...",
+          "options": [
+            "CPU usage on the DC",
+            "A burst of TGS requests (Event 4769), often RC4",
+            "Failed logons"
+          ],
+          "answer": 1,
+          "explain": "Roasting requests many service tickets; the 4769 burst (RC4) is the tell."
+        },
+        {
+          "q": "Why alert on replication-rights exposure rather than only on DCSync itself?",
+          "options": [
+            "It looks better in reports",
+            "Reducing who holds replication rights prevents DCSync entirely",
+            "DCSync is undetectable"
+          ],
+          "answer": 1,
+          "explain": "DCSync needs replication rights; minimising and monitoring them is the control."
+        }
+      ]
+    }
+  },
+  {
+    "id": "CR-RANSOM-FLAG-001",
+    "name": "Ransomware kill chain (flagship)",
+    "version": "1.0.0",
+    "mode": "red-blue",
+    "difficulty": "advanced",
+    "duration_min": [
+      150,
+      240
+    ],
+    "topology_id": "TOPO-STD5",
+    "team_objective": "Red walks the complete ransomware kill chain - recon, persistence, discovery, staging, inhibit-recovery, service-stop, and a canary impact event. Blue follows it stage by stage and contains before the impact stage.",
+    "technique_ids": [
+      "T1595",
+      "T1543",
+      "T1087",
+      "T1005",
+      "T1560",
+      "T1490",
+      "T1489",
+      "T1486"
+    ],
+    "module_ids": [
+      "CR-MOD-RECON-001",
+      "CR-MOD-PERSIST-SVC-001",
+      "CR-MOD-DISC-WIN-001",
+      "CR-MOD-COLLECT-001",
+      "CR-MOD-INHIBIT-RECOVERY-001",
+      "CR-MOD-SVCSTOP-001",
+      "CR-MOD-IMPACT-001",
+      "CR-MOD-RANSOM-NOTE-001"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Walk the chain cleanly from recon to the canary-impact stage; produce the markers each stage expects.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect each stage from the telemetry it produces; contain BEFORE the inhibit-recovery stage - that is the containment window.",
+        "points": 60
+      }
+    ],
+    "injects": [
+      {
+        "at_min": 20,
+        "type": "soc-alert",
+        "text": "SOC: unusual host enumeration followed by service persistence."
+      },
+      {
+        "at_min": 50,
+        "type": "soc-alert",
+        "text": "SOC: directory discovery and bulk file reads on a server."
+      },
+      {
+        "at_min": 85,
+        "type": "escalation",
+        "text": "DR: shadow-copy deletion command pattern observed. This is the containment window - impact typically follows within minutes."
+      },
+      {
+        "at_min": 100,
+        "type": "escalation",
+        "text": "DR: backup/EDR service-stop patterns targeting Veeam, VSS, Defender."
+      },
+      {
+        "at_min": 120,
+        "type": "impact",
+        "text": "Canary directory: burst of file-modification events; lab-only ransom-note files appearing."
+      }
+    ],
+    "expected_evidence": [
+      "recon detection",
+      "persistence detection",
+      "directory discovery",
+      "bulk collection",
+      "shadow-copy deletion pattern",
+      "backup/EDR service-stop pattern",
+      "canary-encryption burst",
+      "ransom-note drop pattern"
+    ],
+    "safety_class": "S2",
+    "learning": {
+      "overview": "The complete ransomware kill chain, start to canary impact. Each stage produces its own telemetry signal; blue's job is to catch the chain early - the inhibit-recovery and service-stop stages are the containment window before the encryption burst.",
+      "concepts": [
+        "Ransomware is a chain, not a single event; the earliest stages are the cheapest to catch.",
+        "Inhibit-recovery (T1490) and service-stop (T1489) are strong pre-impact signals - detecting them is the containment window.",
+        "An encryption burst (T1486) scoped to a canary directory shows the burst-of-modifications pattern a defender tunes against without any production-data risk."
+      ],
+      "steps": [
+        {
+          "title": "Reconnaissance",
+          "module_id": "CR-MOD-RECON-001",
+          "instructions": "Run the recon scan on the lab subnet.",
+          "observe": "Recon detection fires (T1595/T1018)."
+        },
+        {
+          "title": "Persistence",
+          "module_id": "CR-MOD-PERSIST-SVC-001",
+          "instructions": "Install a startup-service persistence marker.",
+          "observe": "Service-persistence detection fires (T1543)."
+        },
+        {
+          "title": "Directory discovery",
+          "module_id": "CR-MOD-DISC-WIN-001",
+          "instructions": "Enumerate domain accounts on the DC.",
+          "observe": "AD-discovery detection fires (T1087)."
+        },
+        {
+          "title": "Collection and staging",
+          "module_id": "CR-MOD-COLLECT-001",
+          "instructions": "Collect and archive tagged files.",
+          "observe": "Bulk read + archive events (T1005 / T1560)."
+        },
+        {
+          "title": "Inhibit recovery",
+          "module_id": "CR-MOD-INHIBIT-RECOVERY-001",
+          "instructions": "Exercise the shadow-copy deletion command pattern.",
+          "observe": "A critical inhibit-recovery detection fires (T1490). This is blue's containment window."
+        },
+        {
+          "title": "Service stop",
+          "module_id": "CR-MOD-SVCSTOP-001",
+          "instructions": "Exercise the backup/EDR service-stop pattern.",
+          "observe": "A high-severity service-stop detection fires (T1489)."
+        },
+        {
+          "title": "Canary impact",
+          "module_id": "CR-MOD-IMPACT-001",
+          "instructions": "Encrypt the canary files (lab-only canary directory).",
+          "observe": "A burst of file modifications confined to the canary directory (T1486)."
+        },
+        {
+          "title": "Ransom-note drop",
+          "module_id": "CR-MOD-RANSOM-NOTE-001",
+          "instructions": "Exercise the lab-only ransom-note drop pattern.",
+          "observe": "A ransom-note drop detection fires (T1486)."
+        }
+      ],
+      "quiz": [
+        {
+          "q": "At which stage does blue have the clearest containment window on a ransomware chain?",
+          "options": [
+            "During impact (T1486)",
+            "During inhibit-recovery / service-stop (T1490/T1489)",
+            "After the ransom note appears"
+          ],
+          "answer": 1,
+          "explain": "Inhibit-recovery and service-stop fire minutes before the impact burst; isolating the host there avoids the encryption stage entirely."
+        },
+        {
+          "q": "Why is a canary directory the right scope for impact training?",
+          "options": [
+            "It is faster to run",
+            "It produces the real burst-of-modifications signal with zero production-data risk",
+            "It avoids the detection rule firing"
+          ],
+          "answer": 1,
+          "explain": "The telemetry signal is the burst pattern; scoping it to a canary directory keeps the signal real and the blast radius zero."
+        }
+      ]
+    }
+  },
+  {
+    "id": "CR-CLOUD-FLAG-001",
+    "name": "Cloud intrusion kill chain (flagship)",
+    "version": "1.0.0",
+    "mode": "red-blue",
+    "difficulty": "advanced",
+    "duration_min": [
+      120,
+      180
+    ],
+    "topology_id": "TOPO-STD5",
+    "team_objective": "Red walks a cloud-era kill chain - metadata credential theft, account manipulation, cross-bucket collection, exfil to external cloud storage, and a persistent foothold via a mailbox rule and an OAuth consent grant. Blue reconstructs the chain from the cloud audit stream.",
+    "technique_ids": [
+      "T1552.005",
+      "T1098",
+      "T1530",
+      "T1567.002",
+      "T1114.003",
+      "T1528"
+    ],
+    "module_ids": [
+      "CR-MOD-CLOUD-METADATA-001",
+      "CR-MOD-CLOUD-ACCT-MANIP-001",
+      "CR-MOD-CLOUD-STORAGE-001",
+      "CR-MOD-CLOUD-EXFIL-001",
+      "CR-MOD-CLOUD-MAILRULE-001",
+      "CR-MOD-CLOUD-OAUTH-001"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Walk the cloud chain cleanly from metadata theft to a persistent OAuth / mailrule foothold.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Reconstruct the chain from the cloud audit stream; alert on the identity-foothold stages (OAuth consent, mailrule) because those are the ones that stay after you evict the attacker.",
+        "points": 60
+      }
+    ],
+    "injects": [
+      {
+        "at_min": 15,
+        "type": "soc-alert",
+        "text": "SOC: credential-request pattern to the instance-metadata endpoint from an unexpected workload."
+      },
+      {
+        "at_min": 40,
+        "type": "soc-alert",
+        "text": "SOC: trust-policy change on cr-sandbox-user + new access key issued."
+      },
+      {
+        "at_min": 65,
+        "type": "soc-alert",
+        "text": "SOC: cross-bucket list / get-object burst from a single principal."
+      },
+      {
+        "at_min": 85,
+        "type": "escalation",
+        "text": "DR: egress to an external cloud-storage bucket - exfil signal."
+      },
+      {
+        "at_min": 110,
+        "type": "escalation",
+        "text": "DR: mailbox forwarding rule to external address + wide-scope OAuth app consent."
+      }
+    ],
+    "expected_evidence": [
+      "metadata credential-request",
+      "trust-policy modification",
+      "cross-bucket storage access",
+      "egress to external cloud storage",
+      "mailbox-rule creation",
+      "OAuth consent grant"
+    ],
+    "safety_class": "S2",
+    "learning": {
+      "overview": "Walk a cloud-era intrusion end to end. Every stage lives entirely in the cloud control plane - cloud audit logs, IAM, mailboxes - which is where the majority of enterprise incidents now live.",
+      "concepts": [
+        "Cloud intrusions start with identity (metadata-theft, OAuth consent), not with endpoint.",
+        "Account manipulation (new keys, trust-policy edits) is cloud persistence - the identity itself is the foothold.",
+        "Mailbox rules and OAuth grants outlive the attacker's credentials; detect on the grant, not on later misuse."
+      ],
+      "steps": [
+        {
+          "title": "Metadata credential theft",
+          "module_id": "CR-MOD-CLOUD-METADATA-001",
+          "instructions": "Exercise the instance-metadata credential-request pattern from the attacker host.",
+          "observe": "A high-severity metadata detection fires (T1552.005)."
+        },
+        {
+          "title": "Account manipulation",
+          "module_id": "CR-MOD-CLOUD-ACCT-MANIP-001",
+          "instructions": "Exercise the trust-policy and access-key manipulation pattern.",
+          "observe": "An account-manipulation detection fires (T1098)."
+        },
+        {
+          "title": "Cross-bucket collection",
+          "module_id": "CR-MOD-CLOUD-STORAGE-001",
+          "instructions": "Exercise the cross-bucket bulk-access pattern.",
+          "observe": "A cloud-storage detection fires (T1530)."
+        },
+        {
+          "title": "Exfil to external cloud",
+          "module_id": "CR-MOD-CLOUD-EXFIL-001",
+          "instructions": "Exercise the egress-to-external-bucket pattern.",
+          "observe": "A critical cloud-exfil detection fires (T1567.002)."
+        },
+        {
+          "title": "Mailbox-rule foothold",
+          "module_id": "CR-MOD-CLOUD-MAILRULE-001",
+          "instructions": "Exercise the external-forwarding mailbox-rule pattern.",
+          "observe": "A mail-rule detection fires (T1114.003)."
+        },
+        {
+          "title": "OAuth consent foothold",
+          "module_id": "CR-MOD-CLOUD-OAUTH-001",
+          "instructions": "Exercise the OAuth wide-scope consent-grant pattern.",
+          "observe": "An OAuth consent detection fires (T1528)."
+        }
+      ],
+      "quiz": [
+        {
+          "q": "Which cloud-foothold stage survives a credential rotation?",
+          "options": [
+            "Metadata credential theft",
+            "Mailbox rules and OAuth consent grants",
+            "A single S3 bulk-get"
+          ],
+          "answer": 1,
+          "explain": "Rotating credentials evicts a session; a mailbox rule or OAuth grant is a durable identity-plane foothold."
+        },
+        {
+          "q": "Where does a defender detect account manipulation first?",
+          "options": [
+            "In endpoint EDR",
+            "In the cloud audit stream (CloudTrail, Azure Audit, GCP Admin Activity)",
+            "In network netflow"
+          ],
+          "answer": 1,
+          "explain": "Identity events live in the cloud control plane; the audit stream is the primary signal."
+        }
+      ]
+    }
   }
 ]

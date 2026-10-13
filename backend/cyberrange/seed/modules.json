@@ -95,7 +95,19 @@
     ],
     "cleanup": "Terminate spawned processes; clear temp artifacts.",
     "detection_notes": "Look for an unusual parent (Office/browser) spawning powershell.exe with encoded arguments.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[exec] powershell interpreter behavior on endpoint'; Write-Output ('[exec] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[exec] complete'"
+      ]
+    }
   },
   {
     "id": "CR-MOD-EXEC-LNX-001",
@@ -161,7 +173,19 @@
     ],
     "cleanup": "Delete created scheduled task.",
     "detection_notes": "Autorun/scheduled task pointing at a user-writable path is the tell.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[persist] scheduled task persistence pattern'; Write-Output ('[persist] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[persist] complete'"
+      ]
+    }
   },
   {
     "id": "CR-MOD-PERSIST-LNX-001",
@@ -227,7 +251,19 @@
     ],
     "cleanup": "Restore checkpoint; revert service config.",
     "detection_notes": "A standard user context spawns a SYSTEM process via a weak service ACL.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[privesc] token-privilege enumeration pattern'; Write-Output ('[privesc] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[privesc] complete'"
+      ]
+    }
   },
   {
     "id": "CR-MOD-PRIVESC-LNX-001",
@@ -293,7 +329,19 @@
     ],
     "cleanup": "No destructive action; benign marker only.",
     "detection_notes": "1102 log-clear plus a forwarding gap should trip a tamper detection.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[evade] lab-only event log clear pattern'; Write-Output ('[evade] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[evade] complete'"
+      ]
+    }
   },
   {
     "id": "CR-MOD-EVADE-LNX-001",
@@ -357,7 +405,19 @@
     ],
     "cleanup": "None; simulation only, no memory read of real secrets.",
     "detection_notes": "A process opening a handle to the LSASS stand-in is the detection anchor.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[cred] sensitive-process access pattern'; Write-Output ('[cred] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[cred] complete'"
+      ]
+    }
   },
   {
     "id": "CR-MOD-DISC-WIN-001",
@@ -385,7 +445,19 @@
     ],
     "cleanup": "None; read-only queries.",
     "detection_notes": "Bulk LDAP enumeration from a workstation account is the signal.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "vm",
+      "target": "directory",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[ad-disc] domain account enumeration pattern'; Write-Output ('[ad-disc] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[ad-disc] complete'"
+      ]
+    }
   },
   {
     "id": "CR-MOD-DISC-LNX-001",
@@ -451,7 +523,19 @@
     ],
     "cleanup": "Remove remote artifacts; revoke session.",
     "detection_notes": "Network logon followed by remote service/process creation across hosts.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[lateral] remote service reachability pattern'; Write-Output ('[lateral] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[lateral] complete'"
+      ]
+    }
   },
   {
     "id": "CR-MOD-COLLECT-001",
@@ -761,7 +845,19 @@
     ],
     "cleanup": "Restore checkpoint; recover canary files.",
     "detection_notes": "Burst of writes/renames confined to the canary directory only.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[impact] canary-file encryption pattern'; Write-Output ('[impact] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[impact] complete'"
+      ]
+    }
   },
   {
     "id": "CR-MOD-IDENT-001",
@@ -791,7 +887,19 @@
     ],
     "cleanup": "Revoke sessions; reset seeded identities.",
     "detection_notes": "Same credential authenticating to several hosts in a short window.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[ident] valid-account remote logon pattern'; Write-Output ('[ident] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[ident] complete'"
+      ]
+    }
   },
   {
     "id": "CR-MOD-AD-DISC-001",
@@ -967,6 +1075,489 @@
         "sh",
         "-c",
         "echo '[persistence] installing startup service'; mkdir -p /etc/init.d; printf '#!/bin/sh\\necho benign-startup-marker\\n' > /etc/init.d/cr-marker && chmod +x /etc/init.d/cr-marker; echo '--- autostart entry ---'; ls -la /etc/init.d/cr-marker; echo '[persistence] complete'"
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-KERBEROAST-001",
+    "name": "Kerberoasting telemetry pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1558.003"
+    ],
+    "tactic": "Credential Access",
+    "platform": "windows",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Directory (DC) target reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "service-ticket request burst (Event 4769)",
+      "SPN enumeration pattern"
+    ],
+    "cleanup": "None; the module emits detection telemetry, not Kerberos traffic.",
+    "detection_notes": "A burst of service-ticket requests for SPN accounts is the kerberoasting tell; blue should correlate TGS-REQ events on the DC with the source principal.",
+    "execution": {
+      "adapter": "vm",
+      "target": "directory",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[kerberoast] service-ticket request pattern'; Write-Output ('[kerberoast] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[kerberoast] complete'"
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-ASREP-001",
+    "name": "AS-REP roasting enumeration pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1558.004"
+    ],
+    "tactic": "Credential Access",
+    "platform": "windows",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Directory (DC) target reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "LDAP filter on userAccountControl pre-auth flag",
+      "AS-REP enumeration pattern"
+    ],
+    "cleanup": "None; detection telemetry only.",
+    "detection_notes": "Enumerating accounts with Kerberos pre-authentication disabled precedes AS-REP roasting; the directory query shape is the anchor.",
+    "execution": {
+      "adapter": "vm",
+      "target": "directory",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[asrep] preauth-disabled enumeration pattern'; Write-Output ('[asrep] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[asrep] complete'"
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-REPL-EXPOSURE-001",
+    "name": "Replication-rights exposure audit",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1003.006"
+    ],
+    "tactic": "Credential Access",
+    "platform": "windows",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "scope": "enum[audit]"
+    },
+    "preconditions": [
+      "Directory (DC) target reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "DS-Replication rights listed",
+      "directory ACL audit pattern"
+    ],
+    "cleanup": "None; read-only exposure audit. Does NOT replicate.",
+    "detection_notes": "DCSync abuses DS-Replication-Get-Changes rights. This module audits the exposure (who holds the rights) so defenders can minimise and alert on it. It never performs replication.",
+    "execution": {
+      "adapter": "vm",
+      "target": "directory",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[repl-audit] directory replication-rights audit'; Write-Output ('[repl-audit] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[repl-audit] complete'"
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-NTLM-LATERAL-001",
+    "name": "NTLM remote-logon lateral pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1550.002"
+    ],
+    "tactic": "Lateral Movement",
+    "platform": "windows",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "target_host": "hostname"
+    },
+    "preconditions": [
+      "Domain-joined endpoint",
+      "Seeded lab credential"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "NTLM network logon (Event 4624 Type 3)",
+      "non-interactive remote authentication"
+    ],
+    "cleanup": "None; seeded lab credential, no stolen material.",
+    "detection_notes": "NTLM Type-3 logons from one host to several, using the same account, are the signal; the seeded lab credential makes the telemetry without any theft.",
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[ntlm-lateral] NTLM Type-3 remote logon pattern'; Write-Output ('[ntlm-lateral] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[ntlm-lateral] complete'"
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-INHIBIT-RECOVERY-001",
+    "name": "Inhibit system recovery telemetry pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1490"
+    ],
+    "tactic": "Impact",
+    "platform": "windows",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Windows endpoint reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "shadow-copy deletion command pattern",
+      "recovery-point enumeration"
+    ],
+    "cleanup": "None; this module emits detection telemetry only. No shadow copies, backups, or recovery points are touched.",
+    "detection_notes": "Shadow-copy deletion is the classic ransomware pre-impact tell. A defender should alert on the command pattern itself, not wait for the deletion.",
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[inhibit-recovery] shadow-copy deletion command pattern'; Write-Output ('[inhibit-recovery] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[inhibit-recovery] complete'"
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-SVCSTOP-001",
+    "name": "Service-stop targeting pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1489"
+    ],
+    "tactic": "Impact",
+    "platform": "windows",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Windows endpoint reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "enumeration of backup/EDR service names",
+      "service-control pattern"
+    ],
+    "cleanup": "None; this module emits detection telemetry only. No services are actually stopped.",
+    "detection_notes": "Ransomware crews target backup and EDR services immediately before impact. The telemetry signal is enumeration/attempt against those service names, whether or not the operation succeeds.",
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[svcstop] backup/EDR service-stop pattern'; Write-Output ('[svcstop] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[svcstop] complete'"
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-RANSOM-NOTE-001",
+    "name": "Ransom-note drop pattern (lab-only)",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1486"
+    ],
+    "tactic": "Impact",
+    "platform": "windows",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Windows endpoint reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "lab-only text file drop",
+      "ransom-note filename pattern"
+    ],
+    "cleanup": "None; the drop lives in the scoped lab canary directory, removed on range reset via snapshot rollback.",
+    "detection_notes": "A short text file written across many directories with a recognisable name is the follow-on to the impact event. In this lab the behavior is confined to the canary directory.",
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[ransom-note] lab-only ransom-note drop pattern'; Write-Output ('[ransom-note] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[ransom-note] complete'"
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-CLOUD-METADATA-001",
+    "name": "Cloud instance-metadata credential request pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1552.005"
+    ],
+    "tactic": "Credential Access",
+    "platform": "linux",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "endpoint": "enum[imds-v1,imds-v2]"
+    },
+    "preconditions": [
+      "Linux attacker host reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "HTTP request to 169.254.169.254 pattern",
+      "role-credentials path access"
+    ],
+    "cleanup": "None; marker emission only. No metadata endpoint is contacted.",
+    "detection_notes": "A workload reaching 169.254.169.254 for IAM role credentials from a process that normally does not is the classic cloud-cred-theft tell.",
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo \"[cloud-metadata] instance-metadata credential-request pattern\"; echo \"[cloud-metadata] endpoint: http://169.254.169.254/latest/meta-data/iam/security-credentials/\"; echo \"[cloud-metadata] role: cr-sandbox-workload\"; echo \"[cloud-metadata] pattern: role-credentials path accessed from unexpected process\"; echo \"[cloud-metadata] complete\""
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-CLOUD-OAUTH-001",
+    "name": "Cloud OAuth consent / app-grant pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1528"
+    ],
+    "tactic": "Credential Access",
+    "platform": "linux",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Linux attacker host reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "OAuth app consent grant audit event pattern",
+      "wide-scope delegated permissions grant"
+    ],
+    "cleanup": "None; marker emission only. No OAuth app is registered.",
+    "detection_notes": "An OAuth app granted wide-scope delegated permissions (Mail.ReadWrite, offline_access) via user consent is a persistent identity foothold - detect on the consent event itself, not on later use.",
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo \"[cloud-oauth] OAuth app consent grant pattern\"; echo \"[cloud-oauth] app: cr-sandbox-oauth-app\"; echo \"[cloud-oauth] scopes: Mail.ReadWrite offline_access Files.Read.All\"; echo \"[cloud-oauth] pattern: wide-scope user consent to third-party app\"; echo \"[cloud-oauth] complete\""
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-CLOUD-ACCT-MANIP-001",
+    "name": "Cloud account manipulation pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1098"
+    ],
+    "tactic": "Persistence",
+    "platform": "linux",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Linux attacker host reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "role trust-policy modification pattern",
+      "new access-key creation on existing principal"
+    ],
+    "cleanup": "None; marker emission only. No identity is actually modified.",
+    "detection_notes": "A trust-policy change that adds an external principal, or a new access key issued for an existing identity, is an identity-foothold pattern - the account itself becomes the persistence.",
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo \"[cloud-acct-manip] cloud account manipulation pattern\"; echo \"[cloud-acct-manip] principal: cr-sandbox-user\"; echo \"[cloud-acct-manip] pattern: trust-policy modification + new access-key creation\"; echo \"[cloud-acct-manip] signal: identity-foothold persistence\"; echo \"[cloud-acct-manip] complete\""
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-CLOUD-STORAGE-001",
+    "name": "Data from cloud storage access pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1530"
+    ],
+    "tactic": "Collection",
+    "platform": "linux",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Linux attacker host reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "cloud storage bulk-list / bulk-get access pattern",
+      "cross-bucket enumeration"
+    ],
+    "cleanup": "None; marker emission only. No storage is actually accessed.",
+    "detection_notes": "Bulk list/get across many buckets from one principal, especially across accounts, is cloud-stage collection.",
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo \"[cloud-storage] cloud storage bulk-access pattern\"; echo \"[cloud-storage] principal: cr-sandbox-user\"; echo \"[cloud-storage] pattern: cross-bucket list and get-object burst\"; echo \"[cloud-storage] scope: cr-sandbox-* buckets in cr-sandbox account\"; echo \"[cloud-storage] complete\""
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-CLOUD-EXFIL-001",
+    "name": "Exfiltration to cloud storage pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1567.002"
+    ],
+    "tactic": "Exfiltration",
+    "platform": "linux",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Linux attacker host reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "egress to external cloud storage bucket pattern",
+      "data-movement to non-corporate account"
+    ],
+    "cleanup": "None; marker emission only. No data is actually moved.",
+    "detection_notes": "Egress to an external cloud-storage bucket (one not owned by the organisation) is the cloud-era exfil channel; the destination account is the signal.",
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo \"[cloud-exfil] exfiltration to external cloud storage pattern\"; echo \"[cloud-exfil] source: cr-sandbox internal workload\"; echo \"[cloud-exfil] destination: external-attacker-bucket (lab stand-in)\"; echo \"[cloud-exfil] pattern: outbound to non-corporate cloud storage account\"; echo \"[cloud-exfil] complete\""
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-CLOUD-MAILRULE-001",
+    "name": "Malicious email-forwarding rule pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1114.003"
+    ],
+    "tactic": "Collection",
+    "platform": "linux",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Linux attacker host reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "mailbox-rule creation audit event pattern",
+      "forward-to-external rule pattern"
+    ],
+    "cleanup": "None; marker emission only. No mailbox is actually modified.",
+    "detection_notes": "A mailbox rule forwarding to an external address, or silently moving sensitive mail to an obscure folder, is a durable collection foothold - detect on rule creation, not on mail flow.",
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo \"[cloud-mailrule] malicious email-forwarding rule pattern\"; echo \"[cloud-mailrule] mailbox: cr-sandbox-user@example.corp\"; echo \"[cloud-mailrule] rule: forward-to-external + move-to-rss-feeds\"; echo \"[cloud-mailrule] pattern: silent forwarding + archive-of-interest filter\"; echo \"[cloud-mailrule] complete\""
       ]
     },
     "signed": true

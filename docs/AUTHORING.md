@@ -84,3 +84,45 @@ and version control, the form for quick in-product creation.
       authored scenarios can be assigned as guided lessons, not just launched.
 - [ ] Objectives and injects in the in-product form (the config path already
       takes them; the form currently uses the mode defaults).
+
+---
+
+## Production content roadmap (planned)
+
+Priority order for production content, from a coverage review of the catalog
+(33 modules spanning 13 of 14 ATT&CK Enterprise tactics - breadth is there,
+these fill depth and the high-value surfaces):
+
+- [x] **1. Finish the Windows VM tier.** DONE: the 9 existing Windows modules
+      now carry `adapter:vm` execution specs that route through the Proxmox
+      guest agent (and simulate off-tier); four new AD attack modules shipped
+      - Kerberoasting (T1558.003), AS-REP (T1558.004), replication-rights
+      exposure (T1003.006), NTLM lateral (T1550.002); 12 new detection rules
+      (log-basis + sim fallback); the flagship CR-ADATTACK-001 scenario; and
+      proxmox_conformance.py checks PowerShell + DC reachability. Still open:
+      a Golden Ticket module (needs KRBTGT material - not safe to ship as
+      marker, waiting on real sign-off batch below).
+- [x] **2. Review and sign a depth batch from the importer.** DONE on the
+      tooling side: `scripts/sign_modules.py` (list / preview / sign / batch /
+      unsign / audit) with safety rails (PROHIBITED refused, S2 needs
+      `--acknowledge-s2`, missing-fields refused, placeholder reviewer
+      refused), append-only signing log, and three batch templates in
+      `examples/sign-batches/`. Still open on the content side: run the batches
+      against the real 1,862-module import on the operator machine (the
+      staged file is gitignored, so this happens outside the repo).
+- [x] **3. Curate a flagship ransomware chain.** DONE: three new Impact-stage
+      modules in the marker-emission pattern - CR-MOD-INHIBIT-RECOVERY-001
+      (T1490), CR-MOD-SVCSTOP-001 (T1489), CR-MOD-RANSOM-NOTE-001 (T1486);
+      five new detection rules; and the flagship CR-RANSOM-FLAG-001 scenario
+      chaining 8 stages from recon through canary-impact with timed injects
+      and a lesson that teaches the inhibit-recovery / service-stop
+      containment window.
+- [x] **4. Cloud TTPs.** DONE: six starter cloud modules on the Docker-real
+      tier (metadata-cred theft T1552.005, OAuth consent T1528, account
+      manipulation T1098, cloud-storage access T1530, exfil-to-cloud
+      T1567.002, mail-forward rule T1114.003); 12 detection rules
+      (log-basis + sim fallback); flagship CR-CLOUD-FLAG-001 scenario; the
+      CloudProvisioner adapter seam (`backend/cyberrange/provisioners/cloud.py`,
+      MarkerCloudProvisioner + from_env + resolver precedence); and
+      `docs/CLOUD_SETUP.md` showing how a customer plugs their cloud SDK
+      into the seam for Phase 2 real-tier execution.
