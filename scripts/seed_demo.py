@@ -23,9 +23,10 @@ import urllib.parse
 import urllib.request
 
 USERS = [
-    ("prof",  "profpass", "instructor", "Instructor"),
-    ("red1",  "redpass",  "red",        "Red Operator"),
-    ("blue1", "bluepass", "blue",       "Blue Analyst"),
+    ("prof",    "profpass",   "instructor", "Instructor"),
+    ("red1",    "redpass",    "red",        "Red Operator"),
+    ("blue1",   "bluepass",   "blue",       "Blue Analyst"),
+    ("purple1", "purplepass", "purple",     "Purple Lead"),
 ]
 
 
