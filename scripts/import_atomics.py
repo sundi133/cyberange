@@ -32,9 +32,13 @@ Usage:
     python3 scripts/import_atomics.py --format atomic --src atomics --limit 200 \
         --out backend/cyberrange/seed/modules.staged.json
 
-Needs PyYAML (pip install pyyaml). The importer is an offline ops tool; the
-control plane itself stays standard-library only and only ever reads the JSON
-this produces.
+Needs PyYAML. On modern macOS/Debian, install it in a one-time virtual
+environment (system pip is blocked by PEP 668):
+
+    python3 -m venv .venv && source .venv/bin/activate && pip install pyyaml
+
+The importer is an offline ops tool; the control plane itself stays
+standard-library only and only ever reads the JSON this produces.
 """
 
 from __future__ import annotations
@@ -249,7 +253,16 @@ def main() -> int:
     try:
         import yaml  # noqa: F401
     except ImportError:
-        print("This importer needs PyYAML:  pip install pyyaml", file=sys.stderr)
+        # On modern macOS/Debian, pip into system Python is blocked (PEP 668),
+        # so point straight at a venv rather than a bare pip install that fails.
+        print(
+            "This importer needs PyYAML, which is not installed.\n"
+            "A one-time virtual environment keeps it out of system Python:\n\n"
+            "    python3 -m venv .venv\n"
+            "    source .venv/bin/activate\n"
+            "    pip install pyyaml\n\n"
+            "then re-run this command. (Next time, just 'source .venv/bin/activate' first.)",
+            file=sys.stderr)
         return 2
 
     src = pathlib.Path(args.src)
