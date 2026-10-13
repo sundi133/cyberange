@@ -1,0 +1,9 @@
+# A minimal config: name, mode, and the modules to run. Everything else is
+# derived (techniques, topology, safety class) or defaulted (objectives).
+name: Linux web-to-root
+mode: red-blue
+difficulty: intermediate
+modules:
+  - CR-MOD-WEBAPP-001        # vulnerable web-app entry (T1190)
+  - CR-MOD-EXEC-LNX-001      # shell execution (T1059)
+  - CR-MOD-PRIVESC-LNX-001   # SUID/sudo privesc (T1548)

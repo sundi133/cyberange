@@ -1,0 +1,9 @@
+{
+  "name": "Container boundary assessment",
+  "mode": "solo",
+  "difficulty": "advanced",
+  "modules": ["CR-MOD-DOCKER-DISC-001", "CR-MOD-DOCKER-SECRET-001"],
+  "objectives": {
+    "solo": {"text": "Enumerate the container and locate the exposed secret.", "points": 100}
+  }
+}

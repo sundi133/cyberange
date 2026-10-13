@@ -18,8 +18,8 @@ import subprocess
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from . import (auth, catalog, detection, execution, lifecycle, provisioners, provisioning,
-               rbac, scoring, siem)
+from . import (auth, authoring, catalog, detection, execution, lifecycle,
+               provisioners, provisioning, rbac, scoring, siem)
 from .db import Database, row_to_dict
 
 SESSION_TTL_HOURS = 12
@@ -197,6 +197,31 @@ class CyberRangeService:
         return [row_to_dict(r) for r in rows]
 
     # ---- ranges ----------------------------------------------------------
+    def create_scenario(self, actor: str, role: str, config: dict) -> dict:
+        """Author a scenario in-product from a module composition (FR-13).
+
+        Uses the same validation as the offline builder, so the UI can never
+        compose unsigned content. Persists to the staged-scenarios file and
+        makes it visible immediately.
+        """
+        rbac.require(role, "scenario:author")
+        modules_by_id = {m["id"]: m for m in catalog.modules()}
+        existing = {s["id"] for s in catalog.scenarios()}
+        try:
+            scenario = authoring.build_scenario(config, modules_by_id, set(), existing)
+        except authoring.ConfigError as exc:
+            raise ServiceError(str(exc), 400)
+
+        path = catalog.SEED_DIR / "scenarios.staged.json"
+        staged = json.loads(path.read_text()) if path.exists() else []
+        staged.append(scenario)
+        path.write_text(json.dumps(staged, indent=2) + "\n")
+        catalog._staged_scenarios.cache_clear()  # make it visible without a restart
+
+        self._audit(actor, role, "scenario:author", scenario["id"],
+                    f"{scenario['name']} ({len(scenario['module_ids'])} modules)")
+        return scenario
+
     def create_range(self, actor: str, role: str, scenario_id: str,
                      tenant: str = "default", ttl_hours: int = 8) -> dict:
         rbac.require(role, "range:create")

@@ -19,6 +19,7 @@ PERMISSIONS = {
     "scoring:read",
     "report:read",
     "cohort:manage", "assignment:manage", "gradebook:read", "learn:participate",
+    "scenario:author",
     "admin:manage_users", "admin:manage_images", "admin:audit", "admin:emergency",
 }
 
@@ -48,7 +49,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "catalog:read", "range:create", "range:read", "range:lifecycle",
         "exercise:read", "exercise:inject", "exercise:score_override",
         "module:read", "module:execute", "report:read", "scoring:read",
-        "cohort:manage", "assignment:manage", "gradebook:read",
+        "cohort:manage", "assignment:manage", "gradebook:read", "scenario:author",
     },
     "security_leader": {
         "catalog:read", "range:read", "exercise:read", "report:read", "scoring:read",
@@ -106,6 +107,7 @@ PERMISSION_LABELS: dict[str, str] = {
     "report:read": "View reports",
     "cohort:manage": "Create classes & manage rosters",
     "assignment:manage": "Assign lessons to a class",
+    "scenario:author": "Create new scenarios from the module catalog",
     "gradebook:read": "View the class gradebook",
     "learn:participate": "Take guided lessons",
     "admin:manage_users": "Provision & manage user accounts",

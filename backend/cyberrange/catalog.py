@@ -40,8 +40,22 @@ def modules() -> list[dict]:
     return list(_load("modules")) + list(_staged_modules())
 
 
+@functools.lru_cache(maxsize=None)
+def _staged_scenarios() -> list[dict]:
+    # Authored scenarios (e.g. from build_scenarios.py) land here. A scenario is
+    # a composition of already-signed modules, so it carries no signing of its
+    # own; the builder validates that every referenced module exists and is
+    # signed. Optional: absent file -> no custom scenarios.
+    path = SEED_DIR / "scenarios.staged.json"
+    if not path.exists():
+        return []
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 def scenarios() -> list[dict]:
-    return _load("scenarios")
+    """Seed scenarios plus any authored (staged) scenarios."""
+    return list(_load("scenarios")) + list(_staged_scenarios())
 
 
 def topologies() -> list[dict]:
