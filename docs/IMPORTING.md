@@ -34,9 +34,18 @@ console shows them disabled. They are visible, not runnable.
 
 ## Usage
 
-The importer needs PyYAML (`pip install pyyaml`). It is an offline ops tool —
-the control plane itself stays standard-library only and only reads the JSON it
-produces.
+The importer needs PyYAML. On modern macOS and Debian, `pip install` into the
+system Python is blocked (PEP 668), so use a one-time virtual environment — it
+keeps PyYAML out of system Python and leaves everything else running on it:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate      # re-run this in each new terminal
+pip install pyyaml
+```
+
+It is an offline ops tool — the control plane itself stays standard-library
+only and only reads the JSON it produces.
 
 ```bash
 # Atomic Red Team — https://github.com/redcanaryco/atomic-red-team (MIT)
