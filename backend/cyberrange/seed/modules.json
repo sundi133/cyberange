@@ -1231,5 +1231,119 @@
       ]
     },
     "signed": true
+  },
+  {
+    "id": "CR-MOD-INHIBIT-RECOVERY-001",
+    "name": "Inhibit system recovery telemetry pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1490"
+    ],
+    "tactic": "Impact",
+    "platform": "windows",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Windows endpoint reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "shadow-copy deletion command pattern",
+      "recovery-point enumeration"
+    ],
+    "cleanup": "None; this module emits detection telemetry only. No shadow copies, backups, or recovery points are touched.",
+    "detection_notes": "Shadow-copy deletion is the classic ransomware pre-impact tell. A defender should alert on the command pattern itself, not wait for the deletion.",
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[inhibit-recovery] shadow-copy deletion command pattern'; Write-Output ('[inhibit-recovery] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[inhibit-recovery] complete'"
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-SVCSTOP-001",
+    "name": "Service-stop targeting pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1489"
+    ],
+    "tactic": "Impact",
+    "platform": "windows",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Windows endpoint reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "enumeration of backup/EDR service names",
+      "service-control pattern"
+    ],
+    "cleanup": "None; this module emits detection telemetry only. No services are actually stopped.",
+    "detection_notes": "Ransomware crews target backup and EDR services immediately before impact. The telemetry signal is enumeration/attempt against those service names, whether or not the operation succeeds.",
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[svcstop] backup/EDR service-stop pattern'; Write-Output ('[svcstop] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[svcstop] complete'"
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-RANSOM-NOTE-001",
+    "name": "Ransom-note drop pattern (lab-only)",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1486"
+    ],
+    "tactic": "Impact",
+    "platform": "windows",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Windows endpoint reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "lab-only text file drop",
+      "ransom-note filename pattern"
+    ],
+    "cleanup": "None; the drop lives in the scoped lab canary directory, removed on range reset via snapshot rollback.",
+    "detection_notes": "A short text file written across many directories with a recognisable name is the follow-on to the impact event. In this lab the behavior is confined to the canary directory.",
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[ransom-note] lab-only ransom-note drop pattern'; Write-Output ('[ransom-note] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[ransom-note] complete'"
+      ]
+    },
+    "signed": true
   }
 ]

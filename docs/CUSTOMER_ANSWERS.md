@@ -18,11 +18,11 @@ container/VM target is available; the rest emit **declared synthetic telemetry**
 **signed** — the hard execution gate the service enforces for every role,
 including admin.
 
-The catalog ships **33 modules**. **16 execute real on Docker** (commodity
-hardware). **13 more carry a `vm` execution spec** that runs them for real on
+The catalog ships **36 modules**. **16 execute real on Docker** (commodity
+hardware). **16 more carry a `vm` execution spec** that runs them for real on
 the Proxmox VM tier when it is provisioned with licensed Windows/DC templates;
 off the VM tier they simulate automatically. Across the catalog: **14 Linux,
-15 Windows, 4 Docker**.
+18 Windows, 4 Docker**.
 
 | Module | Class | Platform | Tier | ATT&CK | What it does |
 |---|---|---|---|---|---|
@@ -59,6 +59,9 @@ off the VM tier they simulate automatically. Across the catalog: **14 Linux,
 | CR-MOD-ASREP-001 | S1 | Windows | vm | T1558.004 | AS-REP roasting enumeration pattern (preauth-disabled accounts) |
 | CR-MOD-REPL-EXPOSURE-001 | S2 | Windows | vm | T1003.006 | Replication-rights exposure audit (DCSync precursor — audit only) |
 | CR-MOD-NTLM-LATERAL-001 | S2 | Windows | vm | T1550.002 | NTLM remote-logon lateral pattern (seeded lab credential) |
+| CR-MOD-INHIBIT-RECOVERY-001 | S2 | Windows | vm | T1490 | Shadow-copy / recovery-point deletion telemetry pattern |
+| CR-MOD-SVCSTOP-001 | S2 | Windows | vm | T1489 | Backup/EDR service-stop telemetry pattern |
+| CR-MOD-RANSOM-NOTE-001 | S2 | Windows | vm | T1486 | Ransom-note drop pattern (lab-only canary directory) |
 
 **Shared features of every module:** ATT&CK technique mapping; a safety class
 with a defined approval authority; signed/unsigned execution gating; automatic
@@ -97,6 +100,7 @@ today:**
 | **Docker compromise** (CR-DOCKER-001) | Red-Blue | Advanced | 90–120 min | Real container behaviors — enumeration, exposed secret, abnormal runtime, safe host-boundary test; detections fire on live telemetry with measured MTTD. |
 | **Purple detection sprint** (CR-PURPLE-001) | Purple | Advanced | 120–240 min | Replay Windows/Linux/Docker behaviors; tune rules and measure coverage improvement baseline → replay (never win/lose). |
 | **Active Directory attack path** (CR-ADATTACK-001) | Red-Blue | Advanced | 120–180 min | A realistic AD kill chain — account discovery, AS-REP enumeration, service-ticket requests, NTLM lateral logons, and a replication-rights exposure audit. Blue detects each stage on the DC and endpoint; executes real on the VM tier, simulates off it. |
+| **Ransomware kill chain (flagship)** (CR-RANSOM-FLAG-001) | Red-Blue | Advanced | 150–240 min | The complete ransomware chain — recon → persistence → discovery → collection → **inhibit-recovery** → **service-stop** → canary-impact → ransom-note drop. The **containment window** for blue is inhibit-recovery and service-stop; both fire minutes before the encryption burst. Scoped to a lab canary directory. |
 
 Customers extend this set without engineering: author new scenarios from a short
 YAML/JSON config (`scripts/build_scenarios.py`) or in-product
@@ -108,11 +112,12 @@ already trusted.
 
 ## 3. Latest attack vectors across the world covered
 
-The catalog maps to **29 ATT&CK techniques across 13 of the 14 Enterprise
+The catalog maps to **31 ATT&CK techniques across 13 of the 14 Enterprise
 tactics** (only Resource Development is unmapped). Coverage reflects the TTPs
 that dominate current real-world incident reporting, including a full
 Active-Directory attack path (Kerberoasting, AS-REP roasting, DCSync-rights
-exposure, pass-the-hash):
+exposure, pass-the-hash) and the full ransomware kill chain through the
+containment window (inhibit-recovery, service-stop) to canary-impact:
 
 | Tactic | Techniques covered | Current-threat relevance |
 |---|---|---|
@@ -128,7 +133,7 @@ exposure, pass-the-hash):
 | Collection | T1005, T1560 | Data staging + archiving |
 | Command & Control | T1071, T1105 | Beaconing; ingress tool transfer |
 | Exfiltration | T1041 | Exfil over C2 channel |
-| Impact | T1486 | **Ransomware** data-encryption stage |
+| Impact | T1486, T1489 (service stop), T1490 (inhibit recovery) | **Full ransomware chain** including the containment window stages |
 
 **Modern/high-signal vectors explicitly represented:** phishing-to-execution,
 web-app exploitation (T1190), identity/credential-reuse abuse (T1078),
@@ -291,13 +296,15 @@ Engine only if you want real (non-simulated) execution.
 
 ### One-line summary for the customer
 
-> CyberRange is an **emulation-class** range: 33 ATT&CK-mapped modules (16 real
-> on Docker; 13 real on the Proxmox VM tier; 4 simulated) and 11 scenarios —
+> CyberRange is an **emulation-class** range: 36 ATT&CK-mapped modules (16 real
+> on Docker; 16 real on the Proxmox VM tier; 4 simulated) and 12 scenarios —
 > including a full **Active Directory attack path** (Kerberoasting, AS-REP,
-> NTLM lateral, DCSync-exposure audit) — spanning 13 of 14 Enterprise tactics.
-> Delivered through red-blue, solo, purple, and guided-lesson formats, with a
-> signed-content safety model, fog-of-war investigation, and explainable
-> five-dimension scoring. It runs from a 4 GB laptop (simulated) up to an
-> enterprise hypervisor cluster, needs no paid license except customer-supplied
-> Windows media for the VM tier, and lets customers author their own trusted
-> content without engineering.
+> NTLM lateral, DCSync-exposure audit) and a **flagship ransomware kill
+> chain** (recon → persistence → discovery → collection → inhibit-recovery →
+> service-stop → canary-impact → ransom-note), spanning 13 of 14 Enterprise
+> tactics. Delivered through red-blue, solo, purple, and guided-lesson
+> formats, with a signed-content safety model, fog-of-war investigation, and
+> explainable five-dimension scoring. It runs from a 4 GB laptop (simulated)
+> up to an enterprise hypervisor cluster, needs no paid license except
+> customer-supplied Windows media for the VM tier, and lets customers author
+> their own trusted content without engineering.

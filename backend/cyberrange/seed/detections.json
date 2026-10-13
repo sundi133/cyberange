@@ -503,5 +503,75 @@
       ],
       "technique": "T1550.002"
     }
+  },
+  {
+    "id": "DR-INHIBIT-RECOVERY-LOG",
+    "technique_id": "T1490",
+    "rule_version": "v1",
+    "severity": "critical",
+    "title": "Shadow-copy / recovery-point deletion pattern",
+    "description": "A shadow-copy deletion command pattern - a classic ransomware pre-impact signal.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[inhibit-recovery\\]"
+    }
+  },
+  {
+    "id": "DR-INHIBIT-RECOVERY-SIM",
+    "technique_id": "T1490",
+    "rule_version": "v1",
+    "severity": "critical",
+    "title": "Inhibit system recovery (coverage)",
+    "description": "Inhibit-recovery technique observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1490"
+    }
+  },
+  {
+    "id": "DR-SVCSTOP-LOG",
+    "technique_id": "T1489",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Backup/EDR service-stop pattern",
+    "description": "Enumeration or attempt against backup and endpoint protection service names - typical pre-encryption staging.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[svcstop\\]"
+    }
+  },
+  {
+    "id": "DR-SVCSTOP-SIM",
+    "technique_id": "T1489",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Service stop (coverage)",
+    "description": "Service-stop technique observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1489"
+    }
+  },
+  {
+    "id": "DR-RANSOM-NOTE-LOG",
+    "technique_id": "T1486",
+    "rule_version": "v1",
+    "severity": "critical",
+    "title": "Ransom-note drop pattern",
+    "description": "A text file with a ransom-note-like name dropped across a directory - a post-impact follow-on signal.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[ransom-note\\]"
+    }
   }
 ]

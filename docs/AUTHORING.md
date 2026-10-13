@@ -110,9 +110,13 @@ these fill depth and the high-value surfaces):
       `examples/sign-batches/`. Still open on the content side: run the batches
       against the real 1,862-module import on the operator machine (the
       staged file is gitignored, so this happens outside the repo).
-- [ ] **3. Curate a flagship ransomware chain.** Only one Impact module exists
-      (canary encryption). Add shadow-copy deletion, mass-rename, ransom-note
-      drop as signed modules + rules, composed into a standout scenario.
+- [x] **3. Curate a flagship ransomware chain.** DONE: three new Impact-stage
+      modules in the marker-emission pattern - CR-MOD-INHIBIT-RECOVERY-001
+      (T1490), CR-MOD-SVCSTOP-001 (T1489), CR-MOD-RANSOM-NOTE-001 (T1486);
+      five new detection rules; and the flagship CR-RANSOM-FLAG-001 scenario
+      chaining 8 stages from recon through canary-impact with timed injects
+      and a lesson that teaches the inhibit-recovery / service-stop
+      containment window.
 - [ ] **4. Cloud TTPs (if the customer base is cloud-first).** ~63 cloud atomics
       surfaced in the import (AWS, Azure-AD, GCP, O365); zero curated coverage
       today. Real cloud execution needs a cloud adapter (like the VM tier), so

@@ -1059,5 +1059,168 @@
         }
       ]
     }
+  },
+  {
+    "id": "CR-RANSOM-FLAG-001",
+    "name": "Ransomware kill chain (flagship)",
+    "version": "1.0.0",
+    "mode": "red-blue",
+    "difficulty": "advanced",
+    "duration_min": [
+      150,
+      240
+    ],
+    "topology_id": "TOPO-STD5",
+    "team_objective": "Red walks the complete ransomware kill chain - recon, persistence, discovery, staging, inhibit-recovery, service-stop, and a canary impact event. Blue follows it stage by stage and contains before the impact stage.",
+    "technique_ids": [
+      "T1595",
+      "T1543",
+      "T1087",
+      "T1005",
+      "T1560",
+      "T1490",
+      "T1489",
+      "T1486"
+    ],
+    "module_ids": [
+      "CR-MOD-RECON-001",
+      "CR-MOD-PERSIST-SVC-001",
+      "CR-MOD-DISC-WIN-001",
+      "CR-MOD-COLLECT-001",
+      "CR-MOD-INHIBIT-RECOVERY-001",
+      "CR-MOD-SVCSTOP-001",
+      "CR-MOD-IMPACT-001",
+      "CR-MOD-RANSOM-NOTE-001"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Walk the chain cleanly from recon to the canary-impact stage; produce the markers each stage expects.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect each stage from the telemetry it produces; contain BEFORE the inhibit-recovery stage - that is the containment window.",
+        "points": 60
+      }
+    ],
+    "injects": [
+      {
+        "at_min": 20,
+        "type": "soc-alert",
+        "text": "SOC: unusual host enumeration followed by service persistence."
+      },
+      {
+        "at_min": 50,
+        "type": "soc-alert",
+        "text": "SOC: directory discovery and bulk file reads on a server."
+      },
+      {
+        "at_min": 85,
+        "type": "escalation",
+        "text": "DR: shadow-copy deletion command pattern observed. This is the containment window - impact typically follows within minutes."
+      },
+      {
+        "at_min": 100,
+        "type": "escalation",
+        "text": "DR: backup/EDR service-stop patterns targeting Veeam, VSS, Defender."
+      },
+      {
+        "at_min": 120,
+        "type": "impact",
+        "text": "Canary directory: burst of file-modification events; lab-only ransom-note files appearing."
+      }
+    ],
+    "expected_evidence": [
+      "recon detection",
+      "persistence detection",
+      "directory discovery",
+      "bulk collection",
+      "shadow-copy deletion pattern",
+      "backup/EDR service-stop pattern",
+      "canary-encryption burst",
+      "ransom-note drop pattern"
+    ],
+    "safety_class": "S2",
+    "learning": {
+      "overview": "The complete ransomware kill chain, start to canary impact. Each stage produces its own telemetry signal; blue's job is to catch the chain early - the inhibit-recovery and service-stop stages are the containment window before the encryption burst.",
+      "concepts": [
+        "Ransomware is a chain, not a single event; the earliest stages are the cheapest to catch.",
+        "Inhibit-recovery (T1490) and service-stop (T1489) are strong pre-impact signals - detecting them is the containment window.",
+        "An encryption burst (T1486) scoped to a canary directory shows the burst-of-modifications pattern a defender tunes against without any production-data risk."
+      ],
+      "steps": [
+        {
+          "title": "Reconnaissance",
+          "module_id": "CR-MOD-RECON-001",
+          "instructions": "Run the recon scan on the lab subnet.",
+          "observe": "Recon detection fires (T1595/T1018)."
+        },
+        {
+          "title": "Persistence",
+          "module_id": "CR-MOD-PERSIST-SVC-001",
+          "instructions": "Install a startup-service persistence marker.",
+          "observe": "Service-persistence detection fires (T1543)."
+        },
+        {
+          "title": "Directory discovery",
+          "module_id": "CR-MOD-DISC-WIN-001",
+          "instructions": "Enumerate domain accounts on the DC.",
+          "observe": "AD-discovery detection fires (T1087)."
+        },
+        {
+          "title": "Collection and staging",
+          "module_id": "CR-MOD-COLLECT-001",
+          "instructions": "Collect and archive tagged files.",
+          "observe": "Bulk read + archive events (T1005 / T1560)."
+        },
+        {
+          "title": "Inhibit recovery",
+          "module_id": "CR-MOD-INHIBIT-RECOVERY-001",
+          "instructions": "Exercise the shadow-copy deletion command pattern.",
+          "observe": "A critical inhibit-recovery detection fires (T1490). This is blue's containment window."
+        },
+        {
+          "title": "Service stop",
+          "module_id": "CR-MOD-SVCSTOP-001",
+          "instructions": "Exercise the backup/EDR service-stop pattern.",
+          "observe": "A high-severity service-stop detection fires (T1489)."
+        },
+        {
+          "title": "Canary impact",
+          "module_id": "CR-MOD-IMPACT-001",
+          "instructions": "Encrypt the canary files (lab-only canary directory).",
+          "observe": "A burst of file modifications confined to the canary directory (T1486)."
+        },
+        {
+          "title": "Ransom-note drop",
+          "module_id": "CR-MOD-RANSOM-NOTE-001",
+          "instructions": "Exercise the lab-only ransom-note drop pattern.",
+          "observe": "A ransom-note drop detection fires (T1486)."
+        }
+      ],
+      "quiz": [
+        {
+          "q": "At which stage does blue have the clearest containment window on a ransomware chain?",
+          "options": [
+            "During impact (T1486)",
+            "During inhibit-recovery / service-stop (T1490/T1489)",
+            "After the ransom note appears"
+          ],
+          "answer": 1,
+          "explain": "Inhibit-recovery and service-stop fire minutes before the impact burst; isolating the host there avoids the encryption stage entirely."
+        },
+        {
+          "q": "Why is a canary directory the right scope for impact training?",
+          "options": [
+            "It is faster to run",
+            "It produces the real burst-of-modifications signal with zero production-data risk",
+            "It avoids the detection rule firing"
+          ],
+          "answer": 1,
+          "explain": "The telemetry signal is the burst pattern; scoping it to a canary directory keeps the signal real and the blast radius zero."
+        }
+      ]
+    }
   }
 ]

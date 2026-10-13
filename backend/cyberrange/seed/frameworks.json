@@ -507,6 +507,42 @@
         "Network Defense",
         "Operating Systems Concepts"
       ]
+    },
+    "T1489": {
+      "tactic": "Impact",
+      "nist_csf": [
+        "RC.RP",
+        "DE.CM",
+        "PR.DS"
+      ],
+      "nice": [
+        "Cyber Defense Incident Responder"
+      ],
+      "cis": [
+        "CIS 11 Data Recovery"
+      ],
+      "cae": [
+        "Incident Response",
+        "Cybersecurity Principles"
+      ]
+    },
+    "T1490": {
+      "tactic": "Impact",
+      "nist_csf": [
+        "RC.RP",
+        "DE.CM",
+        "PR.DS"
+      ],
+      "nice": [
+        "Cyber Defense Incident Responder"
+      ],
+      "cis": [
+        "CIS 11 Data Recovery"
+      ],
+      "cae": [
+        "Incident Response",
+        "Cybersecurity Principles"
+      ]
     }
   }
 }
