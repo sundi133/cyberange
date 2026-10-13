@@ -90,14 +90,18 @@ and version control, the form for quick in-product creation.
 ## Production content roadmap (planned)
 
 Priority order for production content, from a coverage review of the catalog
-(29 modules spanning 13 of 14 ATT&CK Enterprise tactics - breadth is there,
+(33 modules spanning 13 of 14 ATT&CK Enterprise tactics - breadth is there,
 these fill depth and the high-value surfaces):
 
-- [ ] **1. Finish the Windows VM tier.** 13 of 29 modules simulate, almost all
-      Windows. Real Windows/AD telemetry is the biggest customer ask and is
-      blocked on the Proxmox tier (conformance run + Windows execution specs).
-      The marquee AD attacks - Kerberoasting, DCSync, Pass-the-Hash, Golden
-      Ticket - do not exist yet in any form and belong here.
+- [x] **1. Finish the Windows VM tier.** DONE: the 9 existing Windows modules
+      now carry `adapter:vm` execution specs that route through the Proxmox
+      guest agent (and simulate off-tier); four new AD attack modules shipped
+      - Kerberoasting (T1558.003), AS-REP (T1558.004), replication-rights
+      exposure (T1003.006), NTLM lateral (T1550.002); 12 new detection rules
+      (log-basis + sim fallback); the flagship CR-ADATTACK-001 scenario; and
+      proxmox_conformance.py checks PowerShell + DC reachability. Still open:
+      a Golden Ticket module (needs KRBTGT material - not safe to ship as
+      marker, waiting on real sign-off batch below).
 - [ ] **2. Review and sign a depth batch from the importer.** 383 Linux-shell
       Atomic Red Team atomics run today; signing a curated batch gives
       breadth-of-choice per tactic without hand-authoring.

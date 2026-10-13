@@ -106,6 +106,16 @@ class ProxmoxProvisionerTest(unittest.TestCase):
         self.assertNotEqual(a1, p.vmid_for("range-abc", "win-endpoint"))  # per target
         self.assertNotEqual(p.vlan_tag("range-abc"), p.vlan_tag("range-zzz"))  # per range
 
+    def test_slot_is_deterministic_across_processes(self):
+        # Python's hash() is salted per process; the slot must not use it.
+        # These values are what the stable algorithm must produce, so a
+        # change in the algorithm (and thus the VMIDs of existing ranges)
+        # will trip this test rather than quietly re-point exec/reset at
+        # the wrong VMs after a control-plane restart.
+        p, _ = self._provisioner({})
+        self.assertEqual(p._slot("range-abc"), 23)
+        self.assertEqual(p._slot("range-xyz"), 374)
+
     def test_provision_clones_starts_and_snapshots(self):
         p, stub = self._provisioner({})
         v = p.vmid_for("range-abc", "victim")

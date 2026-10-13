@@ -95,7 +95,19 @@
     ],
     "cleanup": "Terminate spawned processes; clear temp artifacts.",
     "detection_notes": "Look for an unusual parent (Office/browser) spawning powershell.exe with encoded arguments.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[exec] powershell interpreter behavior on endpoint'; Write-Output ('[exec] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[exec] complete'"
+      ]
+    }
   },
   {
     "id": "CR-MOD-EXEC-LNX-001",
@@ -161,7 +173,19 @@
     ],
     "cleanup": "Delete created scheduled task.",
     "detection_notes": "Autorun/scheduled task pointing at a user-writable path is the tell.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[persist] scheduled task persistence pattern'; Write-Output ('[persist] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[persist] complete'"
+      ]
+    }
   },
   {
     "id": "CR-MOD-PERSIST-LNX-001",
@@ -227,7 +251,19 @@
     ],
     "cleanup": "Restore checkpoint; revert service config.",
     "detection_notes": "A standard user context spawns a SYSTEM process via a weak service ACL.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[privesc] token-privilege enumeration pattern'; Write-Output ('[privesc] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[privesc] complete'"
+      ]
+    }
   },
   {
     "id": "CR-MOD-PRIVESC-LNX-001",
@@ -293,7 +329,19 @@
     ],
     "cleanup": "No destructive action; benign marker only.",
     "detection_notes": "1102 log-clear plus a forwarding gap should trip a tamper detection.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[evade] lab-only event log clear pattern'; Write-Output ('[evade] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[evade] complete'"
+      ]
+    }
   },
   {
     "id": "CR-MOD-EVADE-LNX-001",
@@ -357,7 +405,19 @@
     ],
     "cleanup": "None; simulation only, no memory read of real secrets.",
     "detection_notes": "A process opening a handle to the LSASS stand-in is the detection anchor.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[cred] sensitive-process access pattern'; Write-Output ('[cred] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[cred] complete'"
+      ]
+    }
   },
   {
     "id": "CR-MOD-DISC-WIN-001",
@@ -385,7 +445,19 @@
     ],
     "cleanup": "None; read-only queries.",
     "detection_notes": "Bulk LDAP enumeration from a workstation account is the signal.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "vm",
+      "target": "directory",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[ad-disc] domain account enumeration pattern'; Write-Output ('[ad-disc] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[ad-disc] complete'"
+      ]
+    }
   },
   {
     "id": "CR-MOD-DISC-LNX-001",
@@ -451,7 +523,19 @@
     ],
     "cleanup": "Remove remote artifacts; revoke session.",
     "detection_notes": "Network logon followed by remote service/process creation across hosts.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[lateral] remote service reachability pattern'; Write-Output ('[lateral] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[lateral] complete'"
+      ]
+    }
   },
   {
     "id": "CR-MOD-COLLECT-001",
@@ -761,7 +845,19 @@
     ],
     "cleanup": "Restore checkpoint; recover canary files.",
     "detection_notes": "Burst of writes/renames confined to the canary directory only.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[impact] canary-file encryption pattern'; Write-Output ('[impact] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[impact] complete'"
+      ]
+    }
   },
   {
     "id": "CR-MOD-IDENT-001",
@@ -791,7 +887,19 @@
     ],
     "cleanup": "Revoke sessions; reset seeded identities.",
     "detection_notes": "Same credential authenticating to several hosts in a short window.",
-    "signed": true
+    "signed": true,
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[ident] valid-account remote logon pattern'; Write-Output ('[ident] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[ident] complete'"
+      ]
+    }
   },
   {
     "id": "CR-MOD-AD-DISC-001",
@@ -967,6 +1075,159 @@
         "sh",
         "-c",
         "echo '[persistence] installing startup service'; mkdir -p /etc/init.d; printf '#!/bin/sh\\necho benign-startup-marker\\n' > /etc/init.d/cr-marker && chmod +x /etc/init.d/cr-marker; echo '--- autostart entry ---'; ls -la /etc/init.d/cr-marker; echo '[persistence] complete'"
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-KERBEROAST-001",
+    "name": "Kerberoasting telemetry pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1558.003"
+    ],
+    "tactic": "Credential Access",
+    "platform": "windows",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Directory (DC) target reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "service-ticket request burst (Event 4769)",
+      "SPN enumeration pattern"
+    ],
+    "cleanup": "None; the module emits detection telemetry, not Kerberos traffic.",
+    "detection_notes": "A burst of service-ticket requests for SPN accounts is the kerberoasting tell; blue should correlate TGS-REQ events on the DC with the source principal.",
+    "execution": {
+      "adapter": "vm",
+      "target": "directory",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[kerberoast] service-ticket request pattern'; Write-Output ('[kerberoast] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[kerberoast] complete'"
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-ASREP-001",
+    "name": "AS-REP roasting enumeration pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1558.004"
+    ],
+    "tactic": "Credential Access",
+    "platform": "windows",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Directory (DC) target reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "LDAP filter on userAccountControl pre-auth flag",
+      "AS-REP enumeration pattern"
+    ],
+    "cleanup": "None; detection telemetry only.",
+    "detection_notes": "Enumerating accounts with Kerberos pre-authentication disabled precedes AS-REP roasting; the directory query shape is the anchor.",
+    "execution": {
+      "adapter": "vm",
+      "target": "directory",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[asrep] preauth-disabled enumeration pattern'; Write-Output ('[asrep] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[asrep] complete'"
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-REPL-EXPOSURE-001",
+    "name": "Replication-rights exposure audit",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1003.006"
+    ],
+    "tactic": "Credential Access",
+    "platform": "windows",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "scope": "enum[audit]"
+    },
+    "preconditions": [
+      "Directory (DC) target reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "DS-Replication rights listed",
+      "directory ACL audit pattern"
+    ],
+    "cleanup": "None; read-only exposure audit. Does NOT replicate.",
+    "detection_notes": "DCSync abuses DS-Replication-Get-Changes rights. This module audits the exposure (who holds the rights) so defenders can minimise and alert on it. It never performs replication.",
+    "execution": {
+      "adapter": "vm",
+      "target": "directory",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[repl-audit] directory replication-rights audit'; Write-Output ('[repl-audit] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[repl-audit] complete'"
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-NTLM-LATERAL-001",
+    "name": "NTLM remote-logon lateral pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1550.002"
+    ],
+    "tactic": "Lateral Movement",
+    "platform": "windows",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "target_host": "hostname"
+    },
+    "preconditions": [
+      "Domain-joined endpoint",
+      "Seeded lab credential"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "NTLM network logon (Event 4624 Type 3)",
+      "non-interactive remote authentication"
+    ],
+    "cleanup": "None; seeded lab credential, no stolen material.",
+    "detection_notes": "NTLM Type-3 logons from one host to several, using the same account, are the signal; the seeded lab credential makes the telemetry without any theft.",
+    "execution": {
+      "adapter": "vm",
+      "target": "win-endpoint",
+      "cmd": [
+        "powershell",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output '[ntlm-lateral] NTLM Type-3 remote logon pattern'; Write-Output ('[ntlm-lateral] host: ' + $env:COMPUTERNAME + ' user: ' + $env:USERNAME); Write-Output '[ntlm-lateral] complete'"
       ]
     },
     "signed": true

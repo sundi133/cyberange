@@ -18,8 +18,11 @@ container/VM target is available; the rest emit **declared synthetic telemetry**
 **signed** — the hard execution gate the service enforces for every role,
 including admin.
 
-The catalog ships **29 modules** — **16 run for real**, 13 are simulated;
-**20 S1, 5 S0, 4 S2**; across **14 Linux, 11 Windows, 4 Docker**.
+The catalog ships **33 modules**. **16 execute real on Docker** (commodity
+hardware). **13 more carry a `vm` execution spec** that runs them for real on
+the Proxmox VM tier when it is provisioned with licensed Windows/DC templates;
+off the VM tier they simulate automatically. Across the catalog: **14 Linux,
+15 Windows, 4 Docker**.
 
 | Module | Class | Platform | Tier | ATT&CK | What it does |
 |---|---|---|---|---|---|
@@ -52,6 +55,10 @@ The catalog ships **29 modules** — **16 run for real**, 13 are simulated;
 | CR-MOD-ARCHIVE-001 | S1 | Linux | real | T1560 | Archive collected data for staging |
 | CR-MOD-DECODE-001 | S1 | Linux | real | T1140, T1204 | Deobfuscate and run an encoded stage |
 | CR-MOD-PERSIST-SVC-001 | S1 | Linux | real | T1543 | Startup-service (systemd) persistence (benign) |
+| CR-MOD-KERBEROAST-001 | S2 | Windows | vm | T1558.003 | Kerberoasting telemetry pattern (service-ticket request on DC) |
+| CR-MOD-ASREP-001 | S1 | Windows | vm | T1558.004 | AS-REP roasting enumeration pattern (preauth-disabled accounts) |
+| CR-MOD-REPL-EXPOSURE-001 | S2 | Windows | vm | T1003.006 | Replication-rights exposure audit (DCSync precursor — audit only) |
+| CR-MOD-NTLM-LATERAL-001 | S2 | Windows | vm | T1550.002 | NTLM remote-logon lateral pattern (seeded lab credential) |
 
 **Shared features of every module:** ATT&CK technique mapping; a safety class
 with a defined approval authority; signed/unsigned execution gating; automatic
@@ -59,11 +66,15 @@ cleanup/rollback on S1/S2; detection rules bound to the behavior (log-basis
 regex over real output, plus technique-basis); and MTTD measurement when a
 detection fires.
 
-> **Honest scope note.** Windows and Active Directory modules currently emit
-> declared telemetry (they are scored, but not executed on a live Windows host)
-> until the Windows/Proxmox VM tier lands. Docker-escape is a **posture check**
-> that proves the boundary holds — it is not a real escape. The Impact module
-> encrypts **canary files only**. Payloads throughout are benign stand-ins.
+> **Honest scope note.** Windows and Active Directory modules declare an
+> `adapter: vm` execution spec that runs on the Proxmox VM tier via the QEMU
+> guest agent (customer-provided Windows/DC templates); when no VM tier is
+> provisioned, those modules simulate automatically — nothing is faked as
+> real. Docker-escape is a **posture check** that proves the boundary holds —
+> it is not a real escape. The Impact module encrypts **canary files only**,
+> in a lab directory, rollable via snapshot. Every module runs benign,
+> telemetry-generating commands; the point of a cyber range is the detection
+> training on the resulting telemetry, not weaponized intrusion.
 
 ---
 
@@ -85,6 +96,7 @@ today:**
 | **Web app intrusion** (CR-WEBAPP-001) | Red-Blue | Advanced | 120 min | Exploit a vulnerable Linux web app (T1190) and trace the app-spawned process tree to data access. |
 | **Docker compromise** (CR-DOCKER-001) | Red-Blue | Advanced | 90–120 min | Real container behaviors — enumeration, exposed secret, abnormal runtime, safe host-boundary test; detections fire on live telemetry with measured MTTD. |
 | **Purple detection sprint** (CR-PURPLE-001) | Purple | Advanced | 120–240 min | Replay Windows/Linux/Docker behaviors; tune rules and measure coverage improvement baseline → replay (never win/lose). |
+| **Active Directory attack path** (CR-ADATTACK-001) | Red-Blue | Advanced | 120–180 min | A realistic AD kill chain — account discovery, AS-REP enumeration, service-ticket requests, NTLM lateral logons, and a replication-rights exposure audit. Blue detects each stage on the DC and endpoint; executes real on the VM tier, simulates off it. |
 
 Customers extend this set without engineering: author new scenarios from a short
 YAML/JSON config (`scripts/build_scenarios.py`) or in-product
@@ -96,9 +108,11 @@ already trusted.
 
 ## 3. Latest attack vectors across the world covered
 
-The catalog maps to **25 ATT&CK techniques across 13 of the 14 Enterprise
+The catalog maps to **29 ATT&CK techniques across 13 of the 14 Enterprise
 tactics** (only Resource Development is unmapped). Coverage reflects the TTPs
-that dominate current real-world incident reporting:
+that dominate current real-world incident reporting, including a full
+Active-Directory attack path (Kerberoasting, AS-REP roasting, DCSync-rights
+exposure, pass-the-hash):
 
 | Tactic | Techniques covered | Current-threat relevance |
 |---|---|---|
@@ -108,9 +122,9 @@ that dominate current real-world incident reporting:
 | Persistence | T1053, T1543, T1078 | Scheduled tasks/cron, systemd services |
 | Privilege Escalation | T1548, T1611 | SUID/sudo abuse; **container escape** |
 | Defense Evasion | T1070, T1140, T1078 | Log tampering; encoded-payload deobfuscation |
-| Credential Access | T1003, T1552 | Credential dumping; **secrets in files/env** (cloud-native) |
+| Credential Access | T1003 (+ T1003.006 DCSync-exposure), T1552, T1558.003 (Kerberoasting), T1558.004 (AS-REP) | Credential dumping; cloud-native secret exposure; **the full Kerberos abuse chain** |
 | Discovery | T1018, T1087, T1613 | AD enumeration; **container & resource discovery** |
-| Lateral Movement | T1021 | Remote services |
+| Lateral Movement | T1021, T1550.002 (NTLM pass-the-hash) | Remote services; **NTLM lateral movement** |
 | Collection | T1005, T1560 | Data staging + archiving |
 | Command & Control | T1071, T1105 | Beaconing; ingress tool transfer |
 | Exfiltration | T1041 | Exfil over C2 channel |
@@ -277,9 +291,11 @@ Engine only if you want real (non-simulated) execution.
 
 ### One-line summary for the customer
 
-> CyberRange is an **emulation-class** range: 29 ATT&CK-mapped modules (16 real,
-> 13 simulated) and 10 scenarios spanning 13 of 14 Enterprise tactics, delivered
-> through red-blue, solo, purple, and guided-lesson formats, with a
+> CyberRange is an **emulation-class** range: 33 ATT&CK-mapped modules (16 real
+> on Docker; 13 real on the Proxmox VM tier; 4 simulated) and 11 scenarios —
+> including a full **Active Directory attack path** (Kerberoasting, AS-REP,
+> NTLM lateral, DCSync-exposure audit) — spanning 13 of 14 Enterprise tactics.
+> Delivered through red-blue, solo, purple, and guided-lesson formats, with a
 > signed-content safety model, fog-of-war investigation, and explainable
 > five-dimension scoring. It runs from a 4 GB laptop (simulated) up to an
 > enterprise hypervisor cluster, needs no paid license except customer-supplied

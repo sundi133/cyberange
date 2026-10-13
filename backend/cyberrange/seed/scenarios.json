@@ -934,5 +934,130 @@
         }
       ]
     }
+  },
+  {
+    "id": "CR-ADATTACK-001",
+    "name": "Active Directory attack path",
+    "version": "1.0.0",
+    "mode": "red-blue",
+    "difficulty": "advanced",
+    "duration_min": [
+      120,
+      180
+    ],
+    "topology_id": "TOPO-STD5",
+    "team_objective": "Red walks a realistic AD kill chain - account discovery, preauth enumeration, service-ticket requests, NTLM lateral logons, and a replication-rights exposure audit. Blue detects each stage and contains before domain compromise.",
+    "technique_ids": [
+      "T1087",
+      "T1558.004",
+      "T1558.003",
+      "T1550.002",
+      "T1003.006"
+    ],
+    "module_ids": [
+      "CR-MOD-DISC-WIN-001",
+      "CR-MOD-ASREP-001",
+      "CR-MOD-KERBEROAST-001",
+      "CR-MOD-NTLM-LATERAL-001",
+      "CR-MOD-REPL-EXPOSURE-001"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Enumerate the domain, exercise ticket-request and preauth patterns, and reach a replication-rights exposure.",
+        "points": 45
+      },
+      {
+        "role": "blue",
+        "text": "Detect AD discovery, the TGS/AS-REP patterns, NTLM lateral logons, and the replication-rights audit; contain before DCSync exposure.",
+        "points": 55
+      }
+    ],
+    "injects": [
+      {
+        "at_min": 20,
+        "type": "soc-alert",
+        "text": "DC reports a spike in service-ticket requests (Event 4769)."
+      },
+      {
+        "at_min": 45,
+        "type": "soc-alert",
+        "text": "Repeated NTLM Type-3 logons from one host."
+      },
+      {
+        "at_min": 75,
+        "type": "escalation",
+        "text": "Replication-rights audit observed on the DC."
+      }
+    ],
+    "expected_evidence": [
+      "service-ticket request burst",
+      "preauth-disabled enumeration",
+      "NTLM Type-3 logons",
+      "replication-rights audit"
+    ],
+    "safety_class": "S2",
+    "learning": {
+      "overview": "Walk a realistic Active Directory kill chain end to end and learn the telemetry each stage leaves on the domain controller and the endpoint. On the VM tier every behavior produces real process-output markers; off the VM tier the control plane simulates. Either way the detection engine scores the chain.",
+      "concepts": [
+        "AD intrusions chain discovery -> credential access -> lateral movement -> domain dominance.",
+        "Kerberoasting and AS-REP roasting target weak service/user accounts via Kerberos.",
+        "DCSync abuses replication rights; detecting the rights exposure prevents it."
+      ],
+      "steps": [
+        {
+          "title": "Enumerate the domain",
+          "module_id": "CR-MOD-DISC-WIN-001",
+          "instructions": "Run domain account discovery against the DC.",
+          "observe": "Bulk account enumeration fires a Windows/AD discovery detection (T1087)."
+        },
+        {
+          "title": "AS-REP enumeration",
+          "module_id": "CR-MOD-ASREP-001",
+          "instructions": "Enumerate accounts with Kerberos pre-authentication disabled.",
+          "observe": "A preauth-disabled enumeration detection fires (T1558.004)."
+        },
+        {
+          "title": "Service-ticket pattern",
+          "module_id": "CR-MOD-KERBEROAST-001",
+          "instructions": "Exercise the SPN service-ticket request pattern.",
+          "observe": "A kerberoasting detection fires (T1558.003)."
+        },
+        {
+          "title": "Move laterally",
+          "module_id": "CR-MOD-NTLM-LATERAL-001",
+          "instructions": "Exercise the NTLM remote-logon pattern with a seeded credential.",
+          "observe": "NTLM Type-3 logons fire the lateral-movement detection (T1550.002)."
+        },
+        {
+          "title": "Audit replication exposure",
+          "module_id": "CR-MOD-REPL-EXPOSURE-001",
+          "instructions": "Audit which principals hold directory replication rights.",
+          "observe": "The replication-rights audit fires a critical detection (T1003.006)."
+        }
+      ],
+      "quiz": [
+        {
+          "q": "Kerberoasting is detected primarily by...",
+          "options": [
+            "CPU usage on the DC",
+            "A burst of TGS requests (Event 4769), often RC4",
+            "Failed logons"
+          ],
+          "answer": 1,
+          "explain": "Roasting requests many service tickets; the 4769 burst (RC4) is the tell."
+        },
+        {
+          "q": "Why alert on replication-rights exposure rather than only on DCSync itself?",
+          "options": [
+            "It looks better in reports",
+            "Reducing who holds replication rights prevents DCSync entirely",
+            "DCSync is undetectable"
+          ],
+          "answer": 1,
+          "explain": "DCSync needs replication rights; minimising and monitoring them is the control."
+        }
+      ]
+    }
   }
 ]

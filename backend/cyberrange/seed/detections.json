@@ -321,5 +321,187 @@
     "match": {
       "technique": "T1041"
     }
+  },
+  {
+    "id": "DR-WIN-POWERSHELL",
+    "technique_id": "T1059",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "PowerShell interpreter execution on endpoint",
+    "description": "PowerShell running enumeration/commands on a Windows endpoint.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[exec\\] powershell interpreter"
+    }
+  },
+  {
+    "id": "DR-WIN-SCHTASK",
+    "technique_id": "T1053",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "Scheduled task persistence pattern",
+    "description": "A scheduled task persistence pattern on Windows.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[persist\\] scheduled task"
+    }
+  },
+  {
+    "id": "DR-WIN-LOGCLEAR",
+    "technique_id": "T1070",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Windows event log clear pattern",
+    "description": "An event log clear pattern - defence evasion.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[evade\\] lab-only event log clear"
+    }
+  },
+  {
+    "id": "DR-WIN-PRIVESC",
+    "technique_id": "T1548",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Windows token-privilege enumeration",
+    "description": "Enumeration of token privileges precedes local privilege escalation.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[privesc\\] token-privilege"
+    }
+  },
+  {
+    "id": "DR-WIN-AD-DISC",
+    "technique_id": "T1087",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "Domain account discovery pattern",
+    "description": "Bulk enumeration of domain accounts via directory services.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[ad-disc\\] domain account enumeration"
+    }
+  },
+  {
+    "id": "DR-KERBEROAST-LOG",
+    "technique_id": "T1558.003",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Kerberoasting request pattern",
+    "description": "A service-ticket request pattern targeting SPN accounts.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[kerberoast\\]"
+    }
+  },
+  {
+    "id": "DR-KERBEROAST-SIM",
+    "technique_id": "T1558.003",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Kerberoasting (coverage)",
+    "description": "Kerberoasting technique observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1558.003"
+    }
+  },
+  {
+    "id": "DR-ASREP-LOG",
+    "technique_id": "T1558.004",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "AS-REP preauth enumeration",
+    "description": "Enumerating accounts with Kerberos pre-authentication disabled.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[asrep\\]"
+    }
+  },
+  {
+    "id": "DR-ASREP-SIM",
+    "technique_id": "T1558.004",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "AS-REP roasting (coverage)",
+    "description": "AS-REP roasting technique observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1558.004"
+    }
+  },
+  {
+    "id": "DR-REPL-EXPOSURE-LOG",
+    "technique_id": "T1003.006",
+    "rule_version": "v1",
+    "severity": "critical",
+    "title": "Directory replication-rights audit",
+    "description": "Audit or use of directory replication rights (DCSync precursor).",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[repl-audit\\]"
+    }
+  },
+  {
+    "id": "DR-REPL-EXPOSURE-SIM",
+    "technique_id": "T1003.006",
+    "rule_version": "v1",
+    "severity": "critical",
+    "title": "DCSync exposure (coverage)",
+    "description": "DCSync-relevant technique observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1003.006"
+    }
+  },
+  {
+    "id": "DR-NTLM-LATERAL-LOG",
+    "technique_id": "T1550.002",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "NTLM remote-logon lateral pattern",
+    "description": "NTLM network logons consistent with pass-the-hash lateral movement.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[ntlm-lateral\\]"
+    }
+  },
+  {
+    "id": "DR-NTLM-LATERAL-SIM",
+    "technique_id": "T1550.002",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "NTLM lateral movement (coverage)",
+    "description": "NTLM Type-3 lateral technique observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1550.002"
+    }
   }
 ]

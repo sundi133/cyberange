@@ -23,6 +23,7 @@ import json
 import os
 import ssl
 import time
+import zlib
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -117,9 +118,17 @@ class ProxmoxProvisioner:
     # -- identity ----------------------------------------------------------
     @staticmethod
     def _slot(range_id: str) -> int:
-        """Stable small integer per range, for VMID and VLAN assignment."""
+        """Stable small integer per range, for VMID and VLAN assignment.
+
+        Must be deterministic *across process restarts*: the control plane
+        recomputes a range's VMIDs and VLAN tag every time it talks to the
+        hypervisor, so a slot that changed between runs would point exec,
+        reset, and teardown at the wrong VMs after any restart. Python's
+        built-in ``hash()`` is salted per process (PYTHONHASHSEED), so it is
+        unusable here; ``crc32`` is stable everywhere.
+        """
         digits = "".join(ch for ch in range_id if ch.isalnum())
-        return abs(hash(digits)) % 500
+        return zlib.crc32(digits.encode()) % 500
 
     def vlan_tag(self, range_id: str) -> int:
         return self.vlan_base + self._slot(range_id)
