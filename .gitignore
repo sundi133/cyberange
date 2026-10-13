@@ -31,3 +31,7 @@ evidence_store/
 deploy/wazuh/wazuh-single-node/
 deploy/wazuh/.env
 backend/cyberrange/seed/modules.staged.json
+
+# Import sources cloned for the content importer (never commit these)
+atomic-red-team/
+caldera/
