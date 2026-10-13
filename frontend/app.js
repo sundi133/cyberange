@@ -80,15 +80,21 @@ async function viewCatalog() {
       </summary>
       <div style="margin-top:var(--s4)">
         <div class="toolbar">
+          <input id="m-q" placeholder="Search modules by name, ID or technique…" style="min-width:240px;flex:1" />
           <select id="m-plat"><option value="">Any platform</option>
-            <option>windows</option><option>linux</option><option>docker</option></select>
+            <option>windows</option><option>linux</option><option>docker</option>
+            <option>macos</option><option>containers</option></select>
           <select id="m-safe"><option value="">Any safety class</option>
             <option>S0</option><option>S1</option><option>S2</option></select>
           <select id="m-exec"><option value="">Any execution</option>
             <option value="real">⚡ Real exec</option><option value="sim">◦ Simulated</option></select>
-          <button class="ghost" id="btn-msearch">Filter modules</button>
+          <select id="m-sign"><option value="">Signed &amp; imported</option>
+            <option value="signed">Signed only</option><option value="unsigned">⚠ Imported (unsigned)</option></select>
+          <button class="ghost" id="btn-msearch">Filter</button>
         </div>
+        <div id="m-count" class="faint" style="font-size:12px;margin-bottom:var(--s2)"></div>
         <div class="grid" id="modules"></div>
+        <div id="m-more" style="margin-top:var(--s3)"></div>
       </div>
     </details>`;
 
@@ -115,34 +121,73 @@ async function viewCatalog() {
     }
   }
 
-  async function loadModules() {
+  // The catalog can hold thousands of modules once content is imported, so the
+  // grid renders a bounded page and the filters/search do the narrowing.
+  const MODULE_PAGE = 120;
+  let moduleShown = MODULE_PAGE;
+
+  async function loadModules(resetPage = true) {
+    if (resetPage) moduleShown = MODULE_PAGE;
     const p = new URLSearchParams();
     const plat = document.getElementById("m-plat").value;
     const safe = document.getElementById("m-safe").value;
     if (plat) p.set("platform", plat);
     if (safe) p.set("safety_class", safe);
     let mods = await api("GET", "/modules?" + p.toString());
-    // Execution capability is a frontend-derived property (does the module ship
-    // a spec?), so filter it client-side rather than adding an API parameter.
+
     const exec = document.getElementById("m-exec").value;
     if (exec === "real") mods = mods.filter(moduleIsRealCapable);
     else if (exec === "sim") mods = mods.filter((m) => !moduleIsRealCapable(m));
+
+    const sign = document.getElementById("m-sign").value;
+    if (sign === "signed") mods = mods.filter((m) => m.signed !== false);
+    else if (sign === "unsigned") mods = mods.filter((m) => m.signed === false);
+
+    const q = document.getElementById("m-q").value.trim().toLowerCase();
+    if (q) {
+      mods = mods.filter((m) =>
+        (m.name || "").toLowerCase().includes(q) ||
+        (m.id || "").toLowerCase().includes(q) ||
+        (m.technique_ids || []).some((t) => t.toLowerCase().includes(q)));
+    }
+
     const wrap = document.getElementById("modules");
+    const countEl = document.getElementById("m-count");
+    const moreEl = document.getElementById("m-more");
     wrap.innerHTML = "";
+    moreEl.innerHTML = "";
+
     if (!mods.length) {
       wrap.style.display = "block";
-      wrap.innerHTML = emptyState("🔍", "No modules match", "Clear a filter to see more.");
-    } else {
-      wrap.style.display = "";
-      mods.forEach((mm) => wrap.appendChild(moduleCard(mm)));
+      wrap.innerHTML = emptyState("🔍", "No modules match", "Clear a filter or the search box to see more.");
+      countEl.textContent = "";
+      return;
+    }
+    wrap.style.display = "";
+    const page = mods.slice(0, moduleShown);
+    page.forEach((mm) => wrap.appendChild(moduleCard(mm)));
+    countEl.innerHTML = mods.length > page.length
+      ? `Showing <strong>${page.length}</strong> of <strong>${mods.length}</strong> modules — search or filter to narrow.`
+      : `<strong>${mods.length}</strong> module${mods.length === 1 ? "" : "s"}`;
+    if (mods.length > page.length) {
+      const btn = el(`<button class="ghost">Show ${Math.min(MODULE_PAGE, mods.length - page.length)} more</button>`);
+      btn.onclick = () => { moduleShown += MODULE_PAGE; loadModules(false); };
+      moreEl.appendChild(btn);
     }
   }
 
   document.getElementById("btn-search").onclick = loadScenarios;
-  document.getElementById("btn-msearch").onclick = loadModules;
+  document.getElementById("btn-msearch").onclick = () => loadModules();
   document.getElementById("q").addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); loadScenarios(); }
   });
+  {
+    const mq = document.getElementById("m-q");
+    let t;
+    mq.addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => loadModules(), 200); });
+    ["m-plat", "m-safe", "m-exec", "m-sign"].forEach((id) =>
+      document.getElementById(id).addEventListener("change", () => loadModules()));
+  }
   // Modules are secondary: load them only when the section is first opened.
   const panel = document.getElementById("modules-panel");
   panel.addEventListener("toggle", () => {
@@ -822,23 +867,21 @@ async function loadExerciseMeta() {
 }
 
 async function loadModuleSelect(scenario) {
-  const mods = await api("GET", "/modules");
+  // Only signed modules can be launched; the server refuses the rest. With a
+  // large imported catalog, listing thousands of disabled options would bury
+  // the runnable ones, so the launch dropdown shows signed modules only. The
+  // imported/unsigned content is reviewable in the Catalog.
+  const mods = (await api("GET", "/modules")).filter((m) => m.signed !== false);
   const inScenario = new Set(scenario.module_ids || []);
   const sel = document.getElementById("mod-select");
   sel.innerHTML = "";
   mods.sort((a, b) => (inScenario.has(b.id) ? 1 : 0) - (inScenario.has(a.id) ? 1 : 0));
   mods.forEach((mm) => {
     const star = inScenario.has(mm.id) ? "★ " : "";
-    // Options are plain text, so the real/sim call is carried in a prefix glyph
-    // rather than a styled badge.
+    // Options are plain text, so the real/sim call is carried in a prefix glyph.
     const run = moduleIsRealCapable(mm) ? "⚡ real" : "◦ sim";
-    // Unsigned (imported) modules cannot be launched - the server refuses them -
-    // so disable the option rather than let a click 403.
-    const unsigned = mm.signed === false;
-    const label = unsigned
-      ? `⚠ unsigned · ${esc(mm.name)} [${esc(mm.platform)}] — review & sign first`
-      : `${star}${run} · ${esc(mm.name)} [${esc(mm.safety_class)}/${esc(mm.platform)}]`;
-    sel.appendChild(el(`<option value="${esc(mm.id)}"${unsigned ? " disabled" : ""}>${label}</option>`));
+    const label = `${star}${run} · ${esc(mm.name)} [${esc(mm.safety_class)}/${esc(mm.platform)}]`;
+    sel.appendChild(el(`<option value="${esc(mm.id)}">${label}</option>`));
   });
 
   // One live line that reflects whether Docker is actually connected, since a
