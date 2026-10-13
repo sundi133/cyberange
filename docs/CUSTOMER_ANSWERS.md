@@ -18,11 +18,11 @@ container/VM target is available; the rest emit **declared synthetic telemetry**
 **signed** — the hard execution gate the service enforces for every role,
 including admin.
 
-The catalog ships **36 modules**. **16 execute real on Docker** (commodity
-hardware). **16 more carry a `vm` execution spec** that runs them for real on
-the Proxmox VM tier when it is provisioned with licensed Windows/DC templates;
-off the VM tier they simulate automatically. Across the catalog: **14 Linux,
-18 Windows, 4 Docker**.
+The catalog ships **42 modules**. **22 execute real on Docker** (commodity
+hardware, including the 6 cloud-stage modules). **16 more carry a `vm`
+execution spec** that runs them for real on the Proxmox VM tier when it is
+provisioned with licensed Windows/DC templates; off the VM tier they simulate
+automatically. Across the catalog: **20 Linux, 18 Windows, 4 Docker**.
 
 | Module | Class | Platform | Tier | ATT&CK | What it does |
 |---|---|---|---|---|---|
@@ -62,6 +62,12 @@ off the VM tier they simulate automatically. Across the catalog: **14 Linux,
 | CR-MOD-INHIBIT-RECOVERY-001 | S2 | Windows | vm | T1490 | Shadow-copy / recovery-point deletion telemetry pattern |
 | CR-MOD-SVCSTOP-001 | S2 | Windows | vm | T1489 | Backup/EDR service-stop telemetry pattern |
 | CR-MOD-RANSOM-NOTE-001 | S2 | Windows | vm | T1486 | Ransom-note drop pattern (lab-only canary directory) |
+| CR-MOD-CLOUD-METADATA-001 | S1 | Linux | real | T1552.005 | Cloud instance-metadata credential-request pattern |
+| CR-MOD-CLOUD-OAUTH-001 | S2 | Linux | real | T1528 | Cloud OAuth consent / app-grant pattern |
+| CR-MOD-CLOUD-ACCT-MANIP-001 | S2 | Linux | real | T1098 | Cloud account manipulation pattern (trust-policy + access keys) |
+| CR-MOD-CLOUD-STORAGE-001 | S1 | Linux | real | T1530 | Data from cloud storage bulk-access pattern |
+| CR-MOD-CLOUD-EXFIL-001 | S2 | Linux | real | T1567.002 | Exfiltration to external cloud storage pattern |
+| CR-MOD-CLOUD-MAILRULE-001 | S2 | Linux | real | T1114.003 | Malicious email-forwarding rule pattern |
 
 **Shared features of every module:** ATT&CK technique mapping; a safety class
 with a defined approval authority; signed/unsigned execution gating; automatic
@@ -101,6 +107,7 @@ today:**
 | **Purple detection sprint** (CR-PURPLE-001) | Purple | Advanced | 120–240 min | Replay Windows/Linux/Docker behaviors; tune rules and measure coverage improvement baseline → replay (never win/lose). |
 | **Active Directory attack path** (CR-ADATTACK-001) | Red-Blue | Advanced | 120–180 min | A realistic AD kill chain — account discovery, AS-REP enumeration, service-ticket requests, NTLM lateral logons, and a replication-rights exposure audit. Blue detects each stage on the DC and endpoint; executes real on the VM tier, simulates off it. |
 | **Ransomware kill chain (flagship)** (CR-RANSOM-FLAG-001) | Red-Blue | Advanced | 150–240 min | The complete ransomware chain — recon → persistence → discovery → collection → **inhibit-recovery** → **service-stop** → canary-impact → ransom-note drop. The **containment window** for blue is inhibit-recovery and service-stop; both fire minutes before the encryption burst. Scoped to a lab canary directory. |
+| **Cloud intrusion kill chain (flagship)** (CR-CLOUD-FLAG-001) | Red-Blue | Advanced | 120–180 min | The cloud-era kill chain — **metadata-cred theft** → **account manipulation** → cross-bucket collection → **exfil to external cloud storage** → **mailbox-rule foothold** → **OAuth consent foothold**. Blue reconstructs the chain from the cloud audit stream (CloudTrail / Azure Audit / GCP Admin Activity). |
 
 Customers extend this set without engineering: author new scenarios from a short
 YAML/JSON config (`scripts/build_scenarios.py`) or in-product
@@ -112,27 +119,29 @@ already trusted.
 
 ## 3. Latest attack vectors across the world covered
 
-The catalog maps to **31 ATT&CK techniques across 13 of the 14 Enterprise
+The catalog maps to **37 ATT&CK techniques across 13 of the 14 Enterprise
 tactics** (only Resource Development is unmapped). Coverage reflects the TTPs
 that dominate current real-world incident reporting, including a full
 Active-Directory attack path (Kerberoasting, AS-REP roasting, DCSync-rights
-exposure, pass-the-hash) and the full ransomware kill chain through the
-containment window (inhibit-recovery, service-stop) to canary-impact:
+exposure, pass-the-hash), the full ransomware kill chain through the
+containment window to canary-impact, and the **cloud-era identity-plane
+chain** (metadata-cred theft, OAuth consent, account manipulation,
+cloud-storage exfil, mailbox-rule foothold):
 
 | Tactic | Techniques covered | Current-threat relevance |
 |---|---|---|
 | Reconnaissance | T1595, T1018 | Pre-intrusion scanning |
 | Initial Access | T1566 (phishing), T1190 (public-facing app), T1078 (valid accounts) | The three most common breach entry points today |
 | Execution | T1059, T1204, T1610 | Script interpreters; container exec |
-| Persistence | T1053, T1543, T1078 | Scheduled tasks/cron, systemd services |
+| Persistence | T1053, T1543, T1078, T1098 (cloud account manipulation) | Scheduled tasks/cron, systemd services, **cloud identity foothold** |
 | Privilege Escalation | T1548, T1611 | SUID/sudo abuse; **container escape** |
 | Defense Evasion | T1070, T1140, T1078 | Log tampering; encoded-payload deobfuscation |
-| Credential Access | T1003 (+ T1003.006 DCSync-exposure), T1552, T1558.003 (Kerberoasting), T1558.004 (AS-REP) | Credential dumping; cloud-native secret exposure; **the full Kerberos abuse chain** |
+| Credential Access | T1003 (+ T1003.006 DCSync-exposure), T1552 (+ T1552.005 metadata-cred theft), T1558.003 (Kerberoasting), T1558.004 (AS-REP), T1528 (OAuth consent) | Credential dumping; **cloud metadata-cred theft**; the full Kerberos abuse chain; **OAuth consent abuse** |
 | Discovery | T1018, T1087, T1613 | AD enumeration; **container & resource discovery** |
 | Lateral Movement | T1021, T1550.002 (NTLM pass-the-hash) | Remote services; **NTLM lateral movement** |
-| Collection | T1005, T1560 | Data staging + archiving |
+| Collection | T1005, T1560, T1530 (cloud storage), T1114.003 (mail-forward rule) | Data staging + archiving; **cross-bucket cloud collection**; **mailbox-rule foothold** |
 | Command & Control | T1071, T1105 | Beaconing; ingress tool transfer |
-| Exfiltration | T1041 | Exfil over C2 channel |
+| Exfiltration | T1041, T1567.002 (external cloud storage) | Exfil over C2 channel; **egress to external cloud storage** |
 | Impact | T1486, T1489 (service stop), T1490 (inhibit recovery) | **Full ransomware chain** including the containment window stages |
 
 **Modern/high-signal vectors explicitly represented:** phishing-to-execution,
@@ -246,6 +255,7 @@ RUNNING, PAUSED, COMPLETING, EVIDENCE_LOCKED, ARCHIVED, DESTROYED, QUARANTINED.
 | **Managed cloud (Railway/Supabase)** | Hosted control plane + PostgreSQL for distributed teams. |
 | **Customer-hosted (on-prem/private cloud)** | Air-gapped-friendly; customer owns all data and lab assets. |
 | **VM tier (Proxmox)** | Adds real Windows/AD/multi-VM topologies via the ProxmoxProvisioner; documented running Proxmox on GCP nested virtualization (Windows/AD execution is in progress). |
+| **Cloud tier (CloudProvisioner seam)** | Picks up when `CR_CLOUD_PROVIDER=aws\|azure\|gcp` is set. The shipped Phase-1 tier (`MarkerCloudProvisioner`) runs cloud-flavoured markers on Docker — no cloud account required, detection fires end-to-end. A customer plugs their SDK (`boto3`, `azure-sdk`, `google-cloud-*`) into the seam's `exec_in` for Phase-2 real-tier execution against a customer-owned sandbox. See `docs/CLOUD_SETUP.md`. |
 
 **Reference capacity profiles:**
 - *Developer-demo* — 1 host, 64–128 GB RAM, 16–32 cores, 2–4 TB NVMe; 1–3
@@ -296,15 +306,17 @@ Engine only if you want real (non-simulated) execution.
 
 ### One-line summary for the customer
 
-> CyberRange is an **emulation-class** range: 36 ATT&CK-mapped modules (16 real
-> on Docker; 16 real on the Proxmox VM tier; 4 simulated) and 12 scenarios —
-> including a full **Active Directory attack path** (Kerberoasting, AS-REP,
-> NTLM lateral, DCSync-exposure audit) and a **flagship ransomware kill
-> chain** (recon → persistence → discovery → collection → inhibit-recovery →
-> service-stop → canary-impact → ransom-note), spanning 13 of 14 Enterprise
-> tactics. Delivered through red-blue, solo, purple, and guided-lesson
-> formats, with a signed-content safety model, fog-of-war investigation, and
-> explainable five-dimension scoring. It runs from a 4 GB laptop (simulated)
-> up to an enterprise hypervisor cluster, needs no paid license except
-> customer-supplied Windows media for the VM tier, and lets customers author
-> their own trusted content without engineering.
+> CyberRange is an **emulation-class** range: 42 ATT&CK-mapped modules
+> (22 real on Docker; 16 real on the Proxmox VM tier; 4 simulated) and
+> 13 scenarios — including a full **Active Directory attack path**, a
+> **flagship ransomware kill chain**, and a **cloud intrusion kill chain**
+> covering the identity-plane techniques (metadata-cred theft, OAuth
+> consent, account manipulation, cloud-storage exfil, mailbox-rule
+> foothold) — spanning 13 of 14 Enterprise tactics. Delivered through
+> red-blue, solo, purple, and guided-lesson formats, with a signed-content
+> safety model, fog-of-war investigation, and explainable five-dimension
+> scoring. It runs from a 4 GB laptop (simulated) up to an enterprise
+> hypervisor cluster, needs no paid license except customer-supplied
+> Windows media for the VM tier (and an optional customer-owned cloud
+> sandbox for Phase-2 cloud execution), and lets customers author their
+> own trusted content without engineering.

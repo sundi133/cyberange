@@ -117,7 +117,12 @@ these fill depth and the high-value surfaces):
       chaining 8 stages from recon through canary-impact with timed injects
       and a lesson that teaches the inhibit-recovery / service-stop
       containment window.
-- [ ] **4. Cloud TTPs (if the customer base is cloud-first).** ~63 cloud atomics
-      surfaced in the import (AWS, Azure-AD, GCP, O365); zero curated coverage
-      today. Real cloud execution needs a cloud adapter (like the VM tier), so
-      this is a surface, not a quick add.
+- [x] **4. Cloud TTPs.** DONE: six starter cloud modules on the Docker-real
+      tier (metadata-cred theft T1552.005, OAuth consent T1528, account
+      manipulation T1098, cloud-storage access T1530, exfil-to-cloud
+      T1567.002, mail-forward rule T1114.003); 12 detection rules
+      (log-basis + sim fallback); flagship CR-CLOUD-FLAG-001 scenario; the
+      CloudProvisioner adapter seam (`backend/cyberrange/provisioners/cloud.py`,
+      MarkerCloudProvisioner + from_env + resolver precedence); and
+      `docs/CLOUD_SETUP.md` showing how a customer plugs their cloud SDK
+      into the seam for Phase 2 real-tier execution.

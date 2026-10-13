@@ -573,5 +573,173 @@
       ],
       "line_regex": "\\[ransom-note\\]"
     }
+  },
+  {
+    "id": "DR-CLOUD-METADATA-LOG",
+    "technique_id": "T1552.005",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Cloud instance-metadata credential request",
+    "description": "A workload requested IAM role credentials from the instance metadata service - cloud credential theft.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[cloud-metadata\\]"
+    }
+  },
+  {
+    "id": "DR-CLOUD-METADATA-SIM",
+    "technique_id": "T1552.005",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Instance-metadata credential theft (coverage)",
+    "description": "T1552.005 observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1552.005"
+    }
+  },
+  {
+    "id": "DR-CLOUD-OAUTH-LOG",
+    "technique_id": "T1528",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Cloud OAuth consent / app-grant",
+    "description": "An OAuth app consent-grant pattern - wide-scope delegated permissions granted via user consent.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[cloud-oauth\\]"
+    }
+  },
+  {
+    "id": "DR-CLOUD-OAUTH-SIM",
+    "technique_id": "T1528",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "OAuth consent abuse (coverage)",
+    "description": "T1528 observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1528"
+    }
+  },
+  {
+    "id": "DR-CLOUD-ACCT-MANIP-LOG",
+    "technique_id": "T1098",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Cloud account manipulation",
+    "description": "Trust-policy / access-key manipulation pattern.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[cloud-acct-manip\\]"
+    }
+  },
+  {
+    "id": "DR-CLOUD-ACCT-MANIP-SIM",
+    "technique_id": "T1098",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Account manipulation (coverage)",
+    "description": "T1098 observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1098"
+    }
+  },
+  {
+    "id": "DR-CLOUD-STORAGE-LOG",
+    "technique_id": "T1530",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "Cloud storage bulk-access pattern",
+    "description": "Bulk list / get-object burst across cloud storage buckets.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[cloud-storage\\]"
+    }
+  },
+  {
+    "id": "DR-CLOUD-STORAGE-SIM",
+    "technique_id": "T1530",
+    "rule_version": "v1",
+    "severity": "medium",
+    "title": "Data from cloud storage (coverage)",
+    "description": "T1530 observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1530"
+    }
+  },
+  {
+    "id": "DR-CLOUD-EXFIL-LOG",
+    "technique_id": "T1567.002",
+    "rule_version": "v1",
+    "severity": "critical",
+    "title": "Exfiltration to external cloud storage",
+    "description": "Egress to a cloud-storage bucket outside the organisation.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[cloud-exfil\\]"
+    }
+  },
+  {
+    "id": "DR-CLOUD-EXFIL-SIM",
+    "technique_id": "T1567.002",
+    "rule_version": "v1",
+    "severity": "critical",
+    "title": "Exfil to cloud storage (coverage)",
+    "description": "T1567.002 observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1567.002"
+    }
+  },
+  {
+    "id": "DR-CLOUD-MAILRULE-LOG",
+    "technique_id": "T1114.003",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Mail-forwarding rule creation",
+    "description": "A mailbox rule forwarding externally / archiving silently.",
+    "match": {
+      "kinds": [
+        "process-output"
+      ],
+      "line_regex": "\\[cloud-mailrule\\]"
+    }
+  },
+  {
+    "id": "DR-CLOUD-MAILRULE-SIM",
+    "technique_id": "T1114.003",
+    "rule_version": "v1",
+    "severity": "high",
+    "title": "Email forwarding rule (coverage)",
+    "description": "T1114.003 observed in the range (simulated).",
+    "match": {
+      "kinds": [
+        "ttp-emulation"
+      ],
+      "technique": "T1114.003"
+    }
   }
 ]

@@ -543,6 +543,93 @@
         "Incident Response",
         "Cybersecurity Principles"
       ]
+    },
+    "T1528": {
+      "tactic": "Credential Access",
+      "nist_csf": [
+        "PR.AA",
+        "DE.CM"
+      ],
+      "nice": [
+        "Cyber Defense Analyst"
+      ],
+      "cis": [
+        "CIS 5 Account Management",
+        "CIS 6 Access Control Management"
+      ],
+      "cae": [
+        "Cybersecurity Principles",
+        "IA Fundamentals"
+      ]
+    },
+    "T1098": {
+      "tactic": "Persistence",
+      "nist_csf": [
+        "DE.CM",
+        "PR.PS"
+      ],
+      "nice": [
+        "Cyber Defense Analyst"
+      ],
+      "cis": [
+        "CIS 8 Audit Log Management"
+      ],
+      "cae": [
+        "Operating Systems Concepts",
+        "Network Defense"
+      ]
+    },
+    "T1530": {
+      "tactic": "Collection",
+      "nist_csf": [
+        "PR.DS",
+        "DE.CM"
+      ],
+      "nice": [
+        "Cyber Defense Analyst"
+      ],
+      "cis": [
+        "CIS 3 Data Protection"
+      ],
+      "cae": [
+        "Cybersecurity Principles",
+        "Network Defense"
+      ]
+    },
+    "T1567": {
+      "tactic": "Exfiltration",
+      "nist_csf": [
+        "PR.DS",
+        "DE.CM"
+      ],
+      "nice": [
+        "Cyber Defense Analyst"
+      ],
+      "cis": [
+        "CIS 3 Data Protection",
+        "CIS 13 Network Monitoring & Defense"
+      ],
+      "cae": [
+        "Network Defense",
+        "Cybersecurity Principles"
+      ]
+    },
+    "T1114": {
+      "tactic": "Collection",
+      "nist_csf": [
+        "PR.DS",
+        "DE.CM"
+      ],
+      "nice": [
+        "Cyber Defense Analyst"
+      ],
+      "cis": [
+        "CIS 3 Data Protection"
+      ],
+      "cae": [
+        "Cybersecurity Principles",
+        "Network Defense"
+      ]
     }
   }
 }

@@ -1345,5 +1345,221 @@
       ]
     },
     "signed": true
+  },
+  {
+    "id": "CR-MOD-CLOUD-METADATA-001",
+    "name": "Cloud instance-metadata credential request pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1552.005"
+    ],
+    "tactic": "Credential Access",
+    "platform": "linux",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "endpoint": "enum[imds-v1,imds-v2]"
+    },
+    "preconditions": [
+      "Linux attacker host reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "HTTP request to 169.254.169.254 pattern",
+      "role-credentials path access"
+    ],
+    "cleanup": "None; marker emission only. No metadata endpoint is contacted.",
+    "detection_notes": "A workload reaching 169.254.169.254 for IAM role credentials from a process that normally does not is the classic cloud-cred-theft tell.",
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo \"[cloud-metadata] instance-metadata credential-request pattern\"; echo \"[cloud-metadata] endpoint: http://169.254.169.254/latest/meta-data/iam/security-credentials/\"; echo \"[cloud-metadata] role: cr-sandbox-workload\"; echo \"[cloud-metadata] pattern: role-credentials path accessed from unexpected process\"; echo \"[cloud-metadata] complete\""
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-CLOUD-OAUTH-001",
+    "name": "Cloud OAuth consent / app-grant pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1528"
+    ],
+    "tactic": "Credential Access",
+    "platform": "linux",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Linux attacker host reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "OAuth app consent grant audit event pattern",
+      "wide-scope delegated permissions grant"
+    ],
+    "cleanup": "None; marker emission only. No OAuth app is registered.",
+    "detection_notes": "An OAuth app granted wide-scope delegated permissions (Mail.ReadWrite, offline_access) via user consent is a persistent identity foothold - detect on the consent event itself, not on later use.",
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo \"[cloud-oauth] OAuth app consent grant pattern\"; echo \"[cloud-oauth] app: cr-sandbox-oauth-app\"; echo \"[cloud-oauth] scopes: Mail.ReadWrite offline_access Files.Read.All\"; echo \"[cloud-oauth] pattern: wide-scope user consent to third-party app\"; echo \"[cloud-oauth] complete\""
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-CLOUD-ACCT-MANIP-001",
+    "name": "Cloud account manipulation pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1098"
+    ],
+    "tactic": "Persistence",
+    "platform": "linux",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Linux attacker host reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "role trust-policy modification pattern",
+      "new access-key creation on existing principal"
+    ],
+    "cleanup": "None; marker emission only. No identity is actually modified.",
+    "detection_notes": "A trust-policy change that adds an external principal, or a new access key issued for an existing identity, is an identity-foothold pattern - the account itself becomes the persistence.",
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo \"[cloud-acct-manip] cloud account manipulation pattern\"; echo \"[cloud-acct-manip] principal: cr-sandbox-user\"; echo \"[cloud-acct-manip] pattern: trust-policy modification + new access-key creation\"; echo \"[cloud-acct-manip] signal: identity-foothold persistence\"; echo \"[cloud-acct-manip] complete\""
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-CLOUD-STORAGE-001",
+    "name": "Data from cloud storage access pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1530"
+    ],
+    "tactic": "Collection",
+    "platform": "linux",
+    "safety_class": "S1",
+    "approval": "Security content reviewer",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Linux attacker host reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "cloud storage bulk-list / bulk-get access pattern",
+      "cross-bucket enumeration"
+    ],
+    "cleanup": "None; marker emission only. No storage is actually accessed.",
+    "detection_notes": "Bulk list/get across many buckets from one principal, especially across accounts, is cloud-stage collection.",
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo \"[cloud-storage] cloud storage bulk-access pattern\"; echo \"[cloud-storage] principal: cr-sandbox-user\"; echo \"[cloud-storage] pattern: cross-bucket list and get-object burst\"; echo \"[cloud-storage] scope: cr-sandbox-* buckets in cr-sandbox account\"; echo \"[cloud-storage] complete\""
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-CLOUD-EXFIL-001",
+    "name": "Exfiltration to cloud storage pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1567.002"
+    ],
+    "tactic": "Exfiltration",
+    "platform": "linux",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Linux attacker host reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "egress to external cloud storage bucket pattern",
+      "data-movement to non-corporate account"
+    ],
+    "cleanup": "None; marker emission only. No data is actually moved.",
+    "detection_notes": "Egress to an external cloud-storage bucket (one not owned by the organisation) is the cloud-era exfil channel; the destination account is the signal.",
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo \"[cloud-exfil] exfiltration to external cloud storage pattern\"; echo \"[cloud-exfil] source: cr-sandbox internal workload\"; echo \"[cloud-exfil] destination: external-attacker-bucket (lab stand-in)\"; echo \"[cloud-exfil] pattern: outbound to non-corporate cloud storage account\"; echo \"[cloud-exfil] complete\""
+      ]
+    },
+    "signed": true
+  },
+  {
+    "id": "CR-MOD-CLOUD-MAILRULE-001",
+    "name": "Malicious email-forwarding rule pattern",
+    "version": "1.0.0",
+    "technique_ids": [
+      "T1114.003"
+    ],
+    "tactic": "Collection",
+    "platform": "linux",
+    "safety_class": "S2",
+    "approval": "Administrator + explicit scenario policy",
+    "inputs": {
+      "scope": "enum[marker]"
+    },
+    "preconditions": [
+      "Linux attacker host reachable"
+    ],
+    "timeout_seconds": 60,
+    "expected_telemetry": [
+      "mailbox-rule creation audit event pattern",
+      "forward-to-external rule pattern"
+    ],
+    "cleanup": "None; marker emission only. No mailbox is actually modified.",
+    "detection_notes": "A mailbox rule forwarding to an external address, or silently moving sensitive mail to an obscure folder, is a durable collection foothold - detect on rule creation, not on mail flow.",
+    "execution": {
+      "adapter": "docker",
+      "image": "alpine:3.19",
+      "network": "none",
+      "cmd": [
+        "sh",
+        "-c",
+        "echo \"[cloud-mailrule] malicious email-forwarding rule pattern\"; echo \"[cloud-mailrule] mailbox: cr-sandbox-user@example.corp\"; echo \"[cloud-mailrule] rule: forward-to-external + move-to-rss-feeds\"; echo \"[cloud-mailrule] pattern: silent forwarding + archive-of-interest filter\"; echo \"[cloud-mailrule] complete\""
+      ]
+    },
+    "signed": true
   }
 ]

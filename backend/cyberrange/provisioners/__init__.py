@@ -4,7 +4,13 @@ Selection is by environment so a deployment's tier is an operational choice,
 not a code change:
 
   * ``CR_PROXMOX_*`` fully configured -> the VM tier,
-  * otherwise -> the container tier.
+  * ``CR_CLOUD_PROVIDER`` set            -> the cloud tier,
+  * otherwise                           -> the container tier.
+
+The VM tier takes precedence over the cloud tier when both are set, because a
+customer with real hypervisor hardware is explicitly asking for VM-based
+targets; the cloud tier is an *additive* surface the cloud scenarios need and
+the VM/container scenarios do not use.
 
 A tier that cannot be built never silently downgrades without saying so; the
 resolver records why, and ``/api/health`` reports which tier is live.
@@ -38,6 +44,16 @@ def resolve() -> RangeProvisioner:
             return vm
         _REASON = "container tier (proxmox host set but templates/token incomplete)"
         return ContainerProvisioner()
+    if os.environ.get("CR_CLOUD_PROVIDER"):
+        from .cloud import from_env as cloud_from_env  # optional tier
+        try:
+            cloud = cloud_from_env()
+        except Exception as exc:
+            _REASON = f"container tier (cloud config rejected: {exc})"
+            return ContainerProvisioner()
+        if cloud is not None:
+            _REASON = f"cloud tier ({cloud.provider})"
+            return cloud
     _REASON = "container tier (default)"
     return ContainerProvisioner()
 

@@ -1222,5 +1222,150 @@
         }
       ]
     }
+  },
+  {
+    "id": "CR-CLOUD-FLAG-001",
+    "name": "Cloud intrusion kill chain (flagship)",
+    "version": "1.0.0",
+    "mode": "red-blue",
+    "difficulty": "advanced",
+    "duration_min": [
+      120,
+      180
+    ],
+    "topology_id": "TOPO-STD5",
+    "team_objective": "Red walks a cloud-era kill chain - metadata credential theft, account manipulation, cross-bucket collection, exfil to external cloud storage, and a persistent foothold via a mailbox rule and an OAuth consent grant. Blue reconstructs the chain from the cloud audit stream.",
+    "technique_ids": [
+      "T1552.005",
+      "T1098",
+      "T1530",
+      "T1567.002",
+      "T1114.003",
+      "T1528"
+    ],
+    "module_ids": [
+      "CR-MOD-CLOUD-METADATA-001",
+      "CR-MOD-CLOUD-ACCT-MANIP-001",
+      "CR-MOD-CLOUD-STORAGE-001",
+      "CR-MOD-CLOUD-EXFIL-001",
+      "CR-MOD-CLOUD-MAILRULE-001",
+      "CR-MOD-CLOUD-OAUTH-001"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Walk the cloud chain cleanly from metadata theft to a persistent OAuth / mailrule foothold.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Reconstruct the chain from the cloud audit stream; alert on the identity-foothold stages (OAuth consent, mailrule) because those are the ones that stay after you evict the attacker.",
+        "points": 60
+      }
+    ],
+    "injects": [
+      {
+        "at_min": 15,
+        "type": "soc-alert",
+        "text": "SOC: credential-request pattern to the instance-metadata endpoint from an unexpected workload."
+      },
+      {
+        "at_min": 40,
+        "type": "soc-alert",
+        "text": "SOC: trust-policy change on cr-sandbox-user + new access key issued."
+      },
+      {
+        "at_min": 65,
+        "type": "soc-alert",
+        "text": "SOC: cross-bucket list / get-object burst from a single principal."
+      },
+      {
+        "at_min": 85,
+        "type": "escalation",
+        "text": "DR: egress to an external cloud-storage bucket - exfil signal."
+      },
+      {
+        "at_min": 110,
+        "type": "escalation",
+        "text": "DR: mailbox forwarding rule to external address + wide-scope OAuth app consent."
+      }
+    ],
+    "expected_evidence": [
+      "metadata credential-request",
+      "trust-policy modification",
+      "cross-bucket storage access",
+      "egress to external cloud storage",
+      "mailbox-rule creation",
+      "OAuth consent grant"
+    ],
+    "safety_class": "S2",
+    "learning": {
+      "overview": "Walk a cloud-era intrusion end to end. Every stage lives entirely in the cloud control plane - cloud audit logs, IAM, mailboxes - which is where the majority of enterprise incidents now live.",
+      "concepts": [
+        "Cloud intrusions start with identity (metadata-theft, OAuth consent), not with endpoint.",
+        "Account manipulation (new keys, trust-policy edits) is cloud persistence - the identity itself is the foothold.",
+        "Mailbox rules and OAuth grants outlive the attacker's credentials; detect on the grant, not on later misuse."
+      ],
+      "steps": [
+        {
+          "title": "Metadata credential theft",
+          "module_id": "CR-MOD-CLOUD-METADATA-001",
+          "instructions": "Exercise the instance-metadata credential-request pattern from the attacker host.",
+          "observe": "A high-severity metadata detection fires (T1552.005)."
+        },
+        {
+          "title": "Account manipulation",
+          "module_id": "CR-MOD-CLOUD-ACCT-MANIP-001",
+          "instructions": "Exercise the trust-policy and access-key manipulation pattern.",
+          "observe": "An account-manipulation detection fires (T1098)."
+        },
+        {
+          "title": "Cross-bucket collection",
+          "module_id": "CR-MOD-CLOUD-STORAGE-001",
+          "instructions": "Exercise the cross-bucket bulk-access pattern.",
+          "observe": "A cloud-storage detection fires (T1530)."
+        },
+        {
+          "title": "Exfil to external cloud",
+          "module_id": "CR-MOD-CLOUD-EXFIL-001",
+          "instructions": "Exercise the egress-to-external-bucket pattern.",
+          "observe": "A critical cloud-exfil detection fires (T1567.002)."
+        },
+        {
+          "title": "Mailbox-rule foothold",
+          "module_id": "CR-MOD-CLOUD-MAILRULE-001",
+          "instructions": "Exercise the external-forwarding mailbox-rule pattern.",
+          "observe": "A mail-rule detection fires (T1114.003)."
+        },
+        {
+          "title": "OAuth consent foothold",
+          "module_id": "CR-MOD-CLOUD-OAUTH-001",
+          "instructions": "Exercise the OAuth wide-scope consent-grant pattern.",
+          "observe": "An OAuth consent detection fires (T1528)."
+        }
+      ],
+      "quiz": [
+        {
+          "q": "Which cloud-foothold stage survives a credential rotation?",
+          "options": [
+            "Metadata credential theft",
+            "Mailbox rules and OAuth consent grants",
+            "A single S3 bulk-get"
+          ],
+          "answer": 1,
+          "explain": "Rotating credentials evicts a session; a mailbox rule or OAuth grant is a durable identity-plane foothold."
+        },
+        {
+          "q": "Where does a defender detect account manipulation first?",
+          "options": [
+            "In endpoint EDR",
+            "In the cloud audit stream (CloudTrail, Azure Audit, GCP Admin Activity)",
+            "In network netflow"
+          ],
+          "answer": 1,
+          "explain": "Identity events live in the cloud control plane; the audit stream is the primary signal."
+        }
+      ]
+    }
   }
 ]
