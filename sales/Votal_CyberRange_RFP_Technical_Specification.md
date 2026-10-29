@@ -557,6 +557,171 @@ go-live, and both are contractual.
 
 ---
 
+## 6. Support, service levels & maintenance
+
+- **Req 6.1 — MUST** provide tiered technical support with **severity-based
+  response targets**: Sev-1 (platform down / exercise-blocking) response **≤ 1
+  business hour**, Sev-2 (major function impaired) **≤ 4 business hours**, Sev-3
+  (minor / question) **≤ 1 business day**, during contracted support hours.
+  *Evidence:* support policy + ticketing channel. *(P1.)*
+- **Req 6.2 — MUST** publish a **security-patch SLA**: critical-severity
+  vulnerabilities in the platform or its shipped dependencies remediated or
+  mitigated **≤ 14 days** of a fix being available, high **≤ 30 days**.
+  *Evidence:* vulnerability-management policy. *(P1.)*
+- **Req 6.3 (GA) — MUST** deliver platform upgrades with **forward-compatible,
+  auto-applied schema migrations**, a documented rollback to the prior image,
+  and **no loss of locked evidence**, so an upgrade is a controlled operation
+  rather than a migration project. *Evidence:* upgrade-across-schema-change
+  transcript.
+- **Req 6.4 — MUST** publish a **version-support / end-of-life policy** (how long
+  a release is supported, upgrade windows, deprecation notice period).
+  *Evidence:* lifecycle policy. *(P1.)*
+- **Req 6.5 (GA) — MUST** ship **signed content-library updates** (new
+  scenarios, modules, detection rules) that install without a platform upgrade
+  and without outbound connectivity (air-gap-compatible packs). *Evidence:*
+  content-pack install transcript.
+
+## 7. Platform security assurance & compliance
+
+- **Req 7.1 (GA) — MUST** follow a **secure development practice**: all shipped
+  executable content cryptographically signed, unsigned content refused at
+  execution, least-privilege execution, and a safety-class model enforced in the
+  execution path. *Evidence:* signing + refusal demonstration (B11).
+- **Req 7.2 — MUST** supply a **Software Bill of Materials (SBOM)** and run
+  **dependency vulnerability scanning**, remediating per the §6.2 SLA. The core
+  platform's standard-library-only design minimises third-party CVE exposure by
+  construction. *Evidence:* SBOM + latest scan summary. *(SBOM: GA; managed
+  scanning cadence: P1.)*
+- **Req 7.3 — MUST** undergo an **independent third-party penetration test** of
+  the platform at least annually and make a summary/attestation available under
+  NDA, and MUST operate a **responsible-disclosure channel**. *Evidence:*
+  pen-test attestation + disclosure policy. *(P1.)*
+- **Req 7.4 — MUST** operate the managed service under **controls aligned to SOC
+  2 / ISO 27001 and GDPR**. *Stated honestly:* this is **control-framework
+  alignment**; a formal SOC 2 Type II / ISO 27001 certificate is a **committed
+  pursuit (P1)** and will be evidenced by the auditor's report when issued — not
+  claimed as held today. *Evidence:* control-mapping document; certificate on
+  issuance.
+- **Req 7.5 (GA) — MUST** keep the **control plane unreachable from tenant/lab
+  workloads** and default lab networks to **egress-deny**, so adversary content
+  cannot reach the management plane or the internet (B2/B/§4.3). *Evidence:*
+  network-policy test.
+
+## 8. Data governance & privacy
+
+- **Req 8.1 (GA) — MUST** operate on **synthetic lab data only** — scenarios use
+  seeded synthetic users/assets and benign stand-ins, so the platform does not
+  require real PII to function. *Evidence:* seed-data description.
+- **Req 8.2 — MUST** support **configurable data retention and hard deletion**
+  of exercises, evidence, and user records, and **immediate session revocation**
+  on user disable (GA). *Evidence:* retention configuration + deletion
+  transcript. *(Retention policy controls: P1; session revocation: GA.)*
+- **Req 8.3 (GA) — MUST** provide **full data export/portability** — exercises
+  and reports in JSON/CSV/HTML/DOCX, and the datastore via standard SQLite file
+  or PostgreSQL dump — so the Purchaser is never locked in. *Evidence:* export
+  set + database dump.
+- **Req 8.4 — MUST** support **GDPR obligations** for learner records (access,
+  rectification, erasure) through the admin/API surface, with processing
+  confined to the Purchaser-selected region on the managed tier. *Evidence:*
+  data-subject-request walkthrough. *(P1.)*
+- **Req 8.5 (GA) — MUST** keep an **append-only audit ledger** of access and
+  state change sufficient to reconstruct who did what, when (see §4.5).
+
+## 9. Interoperability & standards
+
+- **Req 9.1 (GA) — MUST** expose a complete, documented **REST/JSON API** with
+  bearer-token auth and structured status codes, covering every platform action.
+  *Evidence:* API reference + scripted exercise.
+- **Req 9.2 — MUST** support enterprise identity via **SAML 2.0 / OIDC SSO** and
+  **SCIM** user/group provisioning, mapping IdP groups to platform roles without
+  changing the RBAC layer. *(SSO/OIDC + SCIM: P1; RBAC isolation enabling it:
+  GA.)* *Evidence:* live IdP login + provisioning (B17).
+- **Req 9.3 — MUST** ingest external threat content via **STIX/TAXII** and
+  standard detection formats (**Sigma**-style rules are native), and import
+  **Atomic Red Team / MITRE CALDERA** content behind the reviewer-sign workflow
+  (GA). *(STIX/TAXII ingest: P1; Sigma-style + ART/CALDERA import: GA.)*
+  *Evidence:* import + sign + run.
+- **Req 9.4 — MUST** forward **platform operational and exercise events to an
+  external SIEM** (syslog/CEF or JSON), in addition to the bundled Wazuh
+  integration, so the Purchaser SOC can monitor the platform itself. *(Bundled
+  Wazuh + normalized JSON contract: GA; syslog/CEF forwarder and
+  Elastic/Sentinel/Splunk adapters: P1.)* *Evidence:* event arriving in an
+  external SIEM.
+- **Req 9.5 (GA) — MUST** map technique content to **NIST CSF 2.0, NICE,
+  CIS v8, and CAE-CD** for curriculum and accreditation evidence (see §3.6).
+
+## 10. Accessibility, documentation & enablement
+
+- **Req 10.1 — MUST** target **WCAG 2.1 AA** for the operator/learner web
+  interface (keyboard navigation, contrast, screen-reader labels). *Evidence:*
+  accessibility conformance statement. *(P1.)*
+- **Req 10.2 (GA) — MUST** supply complete **administrator, operator, author,
+  and API documentation**, including a lab guide, a customer-demo runbook, a
+  testing guide, an authoring guide, and a deployment guide. *Evidence:* the
+  documentation set (shipped in-repo today).
+- **Req 10.3 — MUST** provide **onboarding and instructor enablement**
+  (administrator training, scenario-authoring workshop, and a run-through of the
+  red/blue/purple exercise loop) as a professional-services package. *Evidence:*
+  enablement plan. *(P1.)*
+- **Req 10.4 (GA) — MUST** run in a **modern evergreen browser with no client
+  install and no build step**; the dashboard is a single static page served by
+  the control plane. *Evidence:* browser-support note.
+
+## 11. Vendor assurance & product lifecycle
+
+- **Req 11.1 — MUST** publish a **release cadence and semantic versioning
+  policy**, with a defined deprecation-notice period, so the Purchaser can plan
+  upgrades. *Evidence:* versioning/release policy. *(P1.)*
+- **Req 11.2 — MUST** maintain **threat-content currency**, delivering signed
+  updates that track new ATT&CK techniques and notable adversary behaviors on a
+  published cadence. *Evidence:* content-update cadence + changelog. *(P1.)*
+- **Req 11.3 — MUST** offer a **source/build escrow or continuity arrangement**
+  so the Purchaser is protected against vendor discontinuity, consistent with the
+  platform's open, dependency-light, self-hostable design (which already lets a
+  Purchaser run the platform entirely on its own infrastructure, air-gapped).
+  *Evidence:* escrow/continuity option. *(P1; full self-host + data portability:
+  GA.)*
+- **Req 11.4 (GA) — MUST** be **self-hostable with no mandatory vendor call-home
+  and no per-seat metering requiring connectivity**, so continuity of operation
+  does not depend on the vendor's availability.
+
+## 12. Compliance summary (bidder response matrix)
+
+For each requirement area the bidder MUST mark **Compliant (GA)**, **Compliant
+(committed / go-live)**, **Partial**, or **Non-compliant**, and cite the evidence
+artifact. Votal AI's self-assessment:
+
+| Area | §  | Votal AI position |
+|---|---|---|
+| On-premises prerequisites | 1 | Compliant (GA); VM tier & multi-node committed |
+| Deployment architecture (on-prem + SaaS) | 2 | Compliant (GA core); HA/managed/PITR committed |
+| Cyber-range capabilities | 3 | Compliant (GA); Windows/AD & extra sensors committed |
+| Security & administration | 4 | Compliant (GA); SSO/multi-tenant/residency committed |
+| Acceptance criteria & POC | 5 | Compliant (GA scope demoable now; P1 at go-live) |
+| Support, SLAs & maintenance | 6 | Committed; upgrade/content delivery GA |
+| Platform security & compliance | 7 | GA controls in place; certifications committed |
+| Data governance & privacy | 8 | Compliant (GA export/synthetic/audit); privacy controls committed |
+| Interoperability & standards | 9 | Compliant (GA API/Wazuh/crosswalks); SSO/STIX/forwarder committed |
+| Accessibility, docs & enablement | 10 | Docs/browser GA; WCAG & services committed |
+| Vendor assurance & lifecycle | 11 | Self-host/portability GA; policies & escrow committed |
+
+---
+
+## Appendix A — Glossary
+
+| Term | Meaning |
+|---|---|
+| **ATT&CK** | MITRE's adversary tactics & techniques knowledge base |
+| **GA / P1** | Shipping today (demo at POC) / committed Phase-1 deliverable (accepted at go-live) |
+| **MTTD / MTTR** | Mean time to detect / to respond |
+| **RPO / RTO** | Recovery point / recovery time objective |
+| **S0–S2 / Prohibited** | Safety classes governing executable content |
+| **Fog of war** | Query-layer redaction of attacker attribution from the defender view |
+| **Live range** | Persistent, connected, no-egress target set where a foothold survives across steps |
+| **Purple delta** | Baseline-to-replay detection-coverage change per technique |
+
+---
+
 *This specification was prepared from Votal AI's CyberRange build. GA capability
 counts reflect the current catalog and are verifiable through the platform's own
 API at POC; committed (P1) capabilities are accepted at go-live against the
