@@ -722,6 +722,30 @@ artifact. Votal AI's self-assessment:
 
 ---
 
+## Appendix B — Reference architecture
+
+Figure B-1 shows the CyberRange reference architecture. An operator web
+dashboard (no build step, no client install) drives a stdlib HTTP control plane
+over REST/JSON. The control plane carries the catalog, lifecycle state machine,
+RBAC, scoring, detection engine, reporting, and the append-only audit ledger,
+and it sits behind three deliberate portability seams, each of which is an
+interface swap rather than a redesign:
+
+- **Persistence** — SQLite (evaluation) and PostgreSQL/Supabase (production) are
+  interchangeable by connection string.
+- **Execution** — a container-backed adapter (GA) and a hypervisor-backed VM/AD
+  adapter (P1) plug into the same execution interface; modules degrade to a
+  simulated adapter when no execution host is present.
+- **Identity** — local login (GA) and SSO/OIDC (P1) sit at the edge with the
+  RBAC layer unchanged.
+
+Telemetry flows to an internal synchronized timeline and, optionally, to a real
+SIEM (bundled Wazuh; Elastic/Sentinel/Splunk via the normalized contract).
+
+![Figure B-1 — CyberRange reference architecture: operator dashboard, stdlib control plane, and the persistence, execution, and telemetry seams.](assets/appendix_a_architecture.png)
+
+---
+
 *This specification was prepared from Votal AI's CyberRange build. GA capability
 counts reflect the current catalog and are verifiable through the platform's own
 API at POC; committed (P1) capabilities are accepted at go-live against the
