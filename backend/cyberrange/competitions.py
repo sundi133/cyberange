@@ -310,6 +310,34 @@ class Competitions:
                 "team": team["name"], "team_total": team_total,
                 "challenge_id": challenge_id}
 
+    # ----------------------------------------------------- practice arena --
+    PRACTICE_NAME = "CyberRange Practice Arena"
+
+    def seed_practice_arena(self, actor: str = "system", role: str = "admin") -> dict:
+        """Create (idempotently) a standing, always-open competition populated
+        with the generated practice-lab library. Safe to call repeatedly."""
+        from . import labs
+        existing = self.db.query_one(
+            "SELECT id FROM competitions WHERE name=?", (self.PRACTICE_NAME,))
+        if existing:
+            cid = existing["id"]
+            have = self.db.query_one(
+                "SELECT COUNT(*) AS n FROM competition_challenges WHERE competition_id=?",
+                (cid,))["n"]
+            if have:
+                return {"id": cid, "created": False, "challenges": have}
+        else:
+            comp = self.create(
+                actor, role, name=self.PRACTICE_NAME,
+                description=("Always-open practice library: labs auto-mapped to the "
+                             "ATT&CK catalog, detection rules, and framework crosswalks."),
+                mode="ctf", scoring="static",
+                start_at="1970-01-01T00:00:00+00:00", end_at=None, published=True)
+            cid = comp["id"]
+        generated = labs.generate_labs()
+        self.add_challenges_bulk(actor, role, cid, generated)
+        return {"id": cid, "created": True, "challenges": len(generated)}
+
     # -------------------------------------------------------- leaderboard --
     def leaderboard(self, cid: str, role: str | None = None) -> dict:
         if role is not None:

@@ -17,6 +17,17 @@ def _cmd_serve(args):
     run(host=args.host, port=args.port, db_path=args.db)
 
 
+def _cmd_seed_labs(args):
+    """Populate the standing Practice Arena competition with generated labs."""
+    from .db import connect
+    from . import labs
+    svc = CyberRangeService(connect(args.db))
+    res = svc.competitions.seed_practice_arena()
+    state = "created" if res["created"] else "already populated"
+    print(f"Practice Arena {res['id']}: {res['challenges']} labs ({state}).")
+    print(json.dumps(labs.lab_summary(), indent=2))
+
+
 def _cmd_catalog(args):
     print(json.dumps({
         "scenarios": [s["id"] for s in catalog.scenarios()],
@@ -77,6 +88,11 @@ def main(argv=None):
 
     p_cat = sub.add_parser("catalog", help="print catalog summary")
     p_cat.set_defaults(func=_cmd_catalog)
+
+    p_labs = sub.add_parser("seed-labs",
+                            help="populate the Practice Arena with generated labs")
+    p_labs.add_argument("--db", default=None, help="SQLite path (default: backend/data/cyberrange.db)")
+    p_labs.set_defaults(func=_cmd_seed_labs)
 
     p_demo = sub.add_parser("demo", help="run an end-to-end exercise in memory")
     p_demo.set_defaults(func=_cmd_demo)

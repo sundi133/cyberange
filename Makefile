@@ -1,4 +1,4 @@
-.PHONY: help serve demo seed test catalog clean
+.PHONY: help serve demo seed seed-labs test catalog clean
 
 PY ?= python3
 PORT ?= 8080
@@ -8,6 +8,7 @@ help:
 	@echo "  make serve [PORT=8080]  - run dashboard + API"
 	@echo "  make demo               - end-to-end exercise in memory"
 	@echo "  make seed               - create prof/red1/blue1 + a running exercise"
+	@echo "  make seed-labs          - populate the Practice Arena (140+ labs)"
 	@echo "  make test               - run the test suite"
 	@echo "  make catalog            - print seeded content summary"
 	@echo "  make clean              - remove runtime db + caches"
@@ -20,6 +21,9 @@ demo:
 
 seed:
 	$(PY) scripts/seed_demo.py
+
+seed-labs:
+	cd backend && $(PY) -m cyberrange seed-labs
 
 test:
 	cd backend && $(PY) -m unittest discover -s tests -v
