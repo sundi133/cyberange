@@ -208,9 +208,9 @@ class Competitions:
             raise ServiceError("points must be positive", 400)
         # Dynamic challenges decay toward a floor; static ones are fixed.
         if comp["scoring"] == "dynamic":
-            min_points = (max(0, round(points * DEFAULT_MIN_FRACTION))
+            min_points = (round(points * DEFAULT_MIN_FRACTION)
                           if min_points is None else int(min_points))
-            min_points = min(min_points, points)
+            min_points = max(0, min(min_points, points))  # clamp to [0, points]
             decay = DEFAULT_DECAY if decay is None else max(1, int(decay))
         else:
             min_points, decay = points, 0

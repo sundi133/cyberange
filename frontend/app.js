@@ -1553,7 +1553,7 @@ async function openCompetition(cid) {
   const joinBtn = document.getElementById("comp-join");
   if (joinBtn) joinBtn.onclick = () => joinTeam(cid);
   const addcBtn = document.getElementById("comp-addc");
-  if (addcBtn) addcBtn.onclick = () => renderChallengeForm(cid);
+  if (addcBtn) addcBtn.onclick = () => renderChallengeForm(cid, c.scoring);
 
   const split = el('<div class="split"></div>');
   // ----- challenges column -----
@@ -1755,9 +1755,8 @@ function renderCompetitionForm() {
   };
 }
 
-async function renderChallengeForm(cid) {
-  const mods = await api("GET", "/modules").catch(() => []);
-  const back = $main().innerHTML;
+async function renderChallengeForm(cid, scoring) {
+  const dynamic = scoring === "dynamic";
   $main().innerHTML = "";
   const f = el(`<form class="panel" style="max-width:560px">
     <div class="phead">Add challenge</div>
@@ -1771,8 +1770,13 @@ async function renderChallengeForm(cid) {
         </select></label>
       <label class="lbl" style="flex:1">Difficulty
         <select id="ch-diff"><option>easy</option><option selected>medium</option><option>hard</option></select></label>
-      <label class="lbl" style="flex:1">Points<input id="ch-pts" type="number" value="100" min="1" /></label>
+      <label class="lbl" style="flex:1">${dynamic ? "Starting points" : "Points"}<input id="ch-pts" type="number" value="100" min="1" /></label>
     </div>
+    ${dynamic ? `<div class="row">
+      <label class="lbl" style="flex:1">Floor (min points)<input id="ch-min" type="number" min="0" placeholder="default 50%" /></label>
+      <label class="lbl" style="flex:1">Decay (solves to floor)<input id="ch-decay" type="number" min="1" placeholder="default 20" /></label>
+    </div>
+    <p class="phelp" style="margin:-4px 0 4px">Dynamic: value falls from starting points toward the floor, reaching it at about this many solves. Leave blank for the defaults (50% / 20).</p>` : ""}
     <label class="lbl">Technique ID (optional)<input id="ch-tech" placeholder="T1021" /></label>
     <label class="lbl">Prompt<textarea id="ch-prompt" placeholder="What the player must do and where the flag is"></textarea></label>
     <label class="lbl">Flag<input id="ch-flag" required placeholder="CR{...}" /></label>
@@ -1786,12 +1790,20 @@ async function renderChallengeForm(cid) {
   document.getElementById("ch-cancel").onclick = () => openCompetition(cid);
   f.onsubmit = async (e) => {
     e.preventDefault();
+    const intOrNull = (id) => {
+      const elm = document.getElementById(id);
+      if (!elm || elm.value === "") return null;
+      const n = parseInt(elm.value, 10);
+      return Number.isNaN(n) ? null : n;
+    };
     try {
       await api("POST", `/competitions/${cid}/challenges`, {
         title: document.getElementById("ch-title").value.trim(),
         category: document.getElementById("ch-cat").value,
         difficulty: document.getElementById("ch-diff").value,
         points: parseInt(document.getElementById("ch-pts").value, 10) || 100,
+        min_points: intOrNull("ch-min"),
+        decay: intOrNull("ch-decay"),
         technique_id: document.getElementById("ch-tech").value.trim(),
         prompt: document.getElementById("ch-prompt").value.trim(),
         flag: document.getElementById("ch-flag").value,

@@ -333,7 +333,8 @@ def build_router(svc: CyberRangeService) -> Router:
             flag=b.get("flag", ""), category=b.get("category", "misc"),
             technique_id=b.get("technique_id", ""), difficulty=b.get("difficulty", "medium"),
             points=b.get("points", 100), prompt=b.get("prompt", ""),
-            hint=b.get("hint", ""), module_id=b.get("module_id", ""))
+            hint=b.get("hint", ""), module_id=b.get("module_id", ""),
+            min_points=b.get("min_points"), decay=b.get("decay"))
     r.add("POST", "/api/competitions/{cid}/challenges", add_challenge)
 
     def join_competition(ctx):

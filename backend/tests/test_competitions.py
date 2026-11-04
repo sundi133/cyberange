@@ -225,6 +225,25 @@ class DynamicScoringTest(unittest.TestCase):
         self.assertTrue(r["first_blood"])
         self.assertEqual(r["bonus"], 0)
 
+    def test_per_challenge_decay_override(self):
+        # A steeper, lower-floor challenge alongside the default one.
+        steep = self.c.add_challenge("admin", "admin", self.comp["id"], title="Steep",
+                                     flag="CR{s}", points=500, min_points=50, decay=5)
+        got = {c["title"]: c for c in self.c.get(self.comp["id"])["challenges"]}
+        self.assertEqual(got["Steep"]["min_points"], 50)
+        self.assertEqual(got["Steep"]["decay"], 5)
+        # At 5 solves the steep one is at its (lower) floor; the default (decay 20)
+        # is still well above its own floor.
+        from cyberrange.competitions import dynamic_value
+        self.assertEqual(dynamic_value(500, 50, 5, 5), 50)
+        self.assertGreater(dynamic_value(500, 250, 20, 5), 250)
+
+    def test_floor_override_clamped(self):
+        ch = self.c.add_challenge("admin", "admin", self.comp["id"], title="Clamp",
+                                  flag="CR{c}", points=200, min_points=999, decay=10)
+        got = {c["title"]: c for c in self.c.get(self.comp["id"])["challenges"]}
+        self.assertEqual(got["Clamp"]["min_points"], 200)  # clamped to points
+
     def test_static_competition_does_not_decay(self):
         comp = self.c.create("admin", "admin", name="Stat", mode="ctf",
                              scoring="static", start_at=_iso(-60),
