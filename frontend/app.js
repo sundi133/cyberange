@@ -1543,6 +1543,7 @@ async function openCompetition(cid) {
     <span class="badge comp-${c.status}">${COMPETE_STATUS[c.status] || c.status}</span>
     <strong style="font-size:17px">${esc(c.name)}</strong>
     <span class="muted" style="font-size:13px">${c.challenges.length} challenges · ${c.total_points} pts</span>
+    ${c.scoring === "dynamic" ? '<span class="tag" title="Points decay as more teams solve; all solvers share the current value">⚡ dynamic scoring</span>' : ""}
     ${c.my_team ? `<span class="tag role">Team: ${esc(c.my_team.name)}</span>`
       : (canPlay ? '<button class="act" id="comp-join">Join a team</button>' : "")}
     ${canManage ? '<button class="ghost" id="comp-addc">+ Challenge</button>' : ""}
@@ -1580,6 +1581,7 @@ async function openCompetition(cid) {
 
 function challengeRow(cid, ch, status, myTeam) {
   const solved = ch.solved;
+  const dyn = ch.decay && ch.decay > 0;
   const row = el(`<div class="chal ${solved ? "solved" : ""}">
     <div class="chal-main">
       <div class="row" style="gap:8px">
@@ -1589,7 +1591,9 @@ function challengeRow(cid, ch, status, myTeam) {
       </div>
       ${ch.prompt ? `<p class="muted" style="margin:4px 0 0;font-size:12.5px">${esc(ch.prompt)}</p>` : ""}
     </div>
-    <div class="chal-pts">${ch.points}<span>pts</span></div>
+    <div class="chal-pts">${ch.points}<span>pts</span>${
+      dyn ? `<div class="chal-decay" title="decays from ${ch.max_points} toward ${ch.min_points}">↓ ${ch.max_points}→${ch.min_points} · ${ch.solves || 0} solve${ch.solves === 1 ? "" : "s"}</div>` : ""
+    }</div>
   </div>`);
   const canPlay = can("competition:participate");
   if (solved) {
@@ -1693,6 +1697,15 @@ function renderCompetitionForm() {
       <label class="lbl" style="flex:1">Mode
         <select id="nc-mode"><option value="ctf">CTF (flags)</option><option value="exercise">Exercise</option></select>
       </label>
+      <label class="lbl" style="flex:1">Scoring
+        <select id="nc-scoring">
+          <option value="static">Static (fixed points)</option>
+          <option value="dynamic">Dynamic (decays with solves)</option>
+        </select>
+      </label>
+    </div>
+    <p class="phelp" id="nc-scoring-note" style="margin:-4px 0 4px">Static: every challenge is worth its fixed points.</p>
+    <div class="row">
       <label class="lbl" style="flex:1">Opens<input id="nc-start" type="datetime-local" /></label>
       <label class="lbl" style="flex:1">Closes<input id="nc-end" type="datetime-local" /></label>
     </div>
@@ -1706,6 +1719,12 @@ function renderCompetitionForm() {
   </form>`);
   $main().appendChild(f);
   document.getElementById("nc-cancel").onclick = () => switchView("compete");
+  const scoringSel = document.getElementById("nc-scoring");
+  scoringSel.onchange = () => {
+    document.getElementById("nc-scoring-note").textContent = scoringSel.value === "dynamic"
+      ? "Dynamic: a challenge opens at full points and decays toward a floor (≈50%) as more teams solve it; all solvers share its current value — so rarer solves stay worth more."
+      : "Static: every challenge is worth its fixed points.";
+  };
   f.onsubmit = async (e) => {
     e.preventDefault();
     const toIso = (id) => {
@@ -1717,6 +1736,7 @@ function renderCompetitionForm() {
         name: document.getElementById("nc-name").value.trim(),
         description: document.getElementById("nc-desc").value.trim(),
         mode: document.getElementById("nc-mode").value,
+        scoring: scoringSel.value,
         start_at: toIso("nc-start"), end_at: toIso("nc-end"),
         published: document.getElementById("nc-pub").checked,
       });

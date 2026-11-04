@@ -50,6 +50,26 @@ def verify_flag(flag: str, salt: str, expected_hash: str) -> bool:
     return hmac.compare_digest(candidate, expected_hash)
 
 
+# Dynamic-scoring defaults (CTFd-style). A challenge opens at its full `points`
+# and decays toward `min_points` as teams solve it, reaching the floor at about
+# `decay` solves. All solvers share the challenge's current value, so a rarely
+# solved (harder) challenge stays worth more for everyone who cracked it.
+DEFAULT_DECAY = 20
+DEFAULT_MIN_FRACTION = 0.5
+
+
+def dynamic_value(initial: int, minimum, decay, solves: int) -> int:
+    """Current worth of a challenge after `solves` solves (CTFd decay curve)."""
+    initial = int(initial)
+    minimum = initial if minimum is None else min(int(minimum), initial)
+    solves = max(0, int(solves))
+    if not decay or int(decay) <= 0 or minimum >= initial or solves == 0:
+        return initial
+    f = (minimum - initial) / float(int(decay) ** 2)
+    v = round(f * (solves ** 2) + initial)
+    return int(max(minimum, min(initial, v)))
+
+
 class Competitions:
     def __init__(self, db, audit, docker_ok=None):
         self.db = db
@@ -84,6 +104,34 @@ class Competitions:
         if not row:
             raise ServiceError("Unknown competition", 404)
         return row
+
+    def _solve_counts(self, cid: str) -> dict:
+        return {r["challenge_id"]: r["n"] for r in self.db.query(
+            "SELECT challenge_id, COUNT(*) AS n FROM competition_solves "
+            "WHERE competition_id=? GROUP BY challenge_id", (cid,))}
+
+    @staticmethod
+    def _value(chal: dict, scoring: str, solves: int) -> int:
+        """Current worth of a challenge: fixed for static, decayed for dynamic."""
+        if scoring == "dynamic":
+            return dynamic_value(chal["points"], chal.get("min_points"),
+                                 chal.get("decay"), solves)
+        return int(chal["points"])
+
+    def _team_points(self, cid: str, team_id: str, scoring: str,
+                     counts: dict | None = None) -> int:
+        counts = self._solve_counts(cid) if counts is None else counts
+        chals = {r["id"]: row_to_dict(r) for r in self.db.query(
+            "SELECT id, points, min_points, decay FROM competition_challenges "
+            "WHERE competition_id=?", (cid,))}
+        total = 0
+        for r in self.db.query(
+                "SELECT challenge_id FROM competition_solves "
+                "WHERE competition_id=? AND team_id=?", (cid, team_id)):
+            c = chals.get(r["challenge_id"])
+            if c:
+                total += self._value(c, scoring, counts.get(r["challenge_id"], 0))
+        return total
 
     # ----------------------------------------------------------- authoring -
     def create(self, actor: str, role: str, *, name: str, description: str = "",
@@ -132,9 +180,10 @@ class Competitions:
     def add_challenge(self, actor: str, role: str, cid: str, *, title: str,
                       flag: str, category: str = "misc", technique_id: str = "",
                       difficulty: str = "medium", points: int = 100,
-                      prompt: str = "", hint: str = "", module_id: str = "") -> dict:
+                      prompt: str = "", hint: str = "", module_id: str = "",
+                      min_points=None, decay=None) -> dict:
         rbac.require(role, "competition:manage")
-        self._get_row(cid)
+        comp = self._get_row(cid)
         if not title or not title.strip():
             raise ServiceError("Challenge title is required", 400)
         if not _norm_flag(flag):
@@ -145,6 +194,14 @@ class Competitions:
             raise ServiceError("points must be an integer", 400)
         if points <= 0:
             raise ServiceError("points must be positive", 400)
+        # Dynamic challenges decay toward a floor; static ones are fixed.
+        if comp["scoring"] == "dynamic":
+            min_points = (max(0, round(points * DEFAULT_MIN_FRACTION))
+                          if min_points is None else int(min_points))
+            min_points = min(min_points, points)
+            decay = DEFAULT_DECAY if decay is None else max(1, int(decay))
+        else:
+            min_points, decay = points, 0
         digest, salt = hash_flag(flag)
         ch_id = "CR-CHAL-" + uuid.uuid4().hex[:10]
         ordinal = self.db.query_one(
@@ -152,10 +209,11 @@ class Competitions:
             (cid,))["n"]
         self.db.execute(
             "INSERT INTO competition_challenges (id, competition_id, title, category, "
-            "technique_id, difficulty, points, prompt, hint, module_id, flag_hash, "
-            "flag_salt, ordinal, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "technique_id, difficulty, points, min_points, decay, prompt, hint, "
+            "module_id, flag_hash, flag_salt, ordinal, created_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (ch_id, cid, title.strip(), category, technique_id, difficulty, points,
-             prompt, hint, module_id, digest, salt, ordinal, _iso()))
+             min_points, decay, prompt, hint, module_id, digest, salt, ordinal, _iso()))
         self._audit(actor, role, "competition:add_challenge", ch_id,
                     f"{cid} {points}pt {category}")
         return {"id": ch_id, "competition_id": cid, "title": title.strip(),
@@ -173,12 +231,17 @@ class Competitions:
         return n
 
     # ------------------------------------------------------------- reading -
-    def _challenge_public(self, row: dict, solved_ids: set | None = None) -> dict:
-        """A challenge as seen by participants - never includes the flag."""
+    def _challenge_public(self, row: dict, solved_ids: set | None = None,
+                          *, value=None, solves=None) -> dict:
+        """A challenge as seen by participants - never includes the flag.
+        `value` is the current (possibly decayed) worth; `points` the ceiling."""
         out = {
             "id": row["id"], "title": row["title"], "category": row["category"],
             "technique_id": row["technique_id"], "difficulty": row["difficulty"],
-            "points": row["points"], "prompt": row["prompt"], "hint": row["hint"],
+            "points": value if value is not None else row["points"],
+            "max_points": row["points"], "min_points": row.get("min_points"),
+            "decay": row.get("decay"), "solves": solves,
+            "prompt": row["prompt"], "hint": row["hint"],
             "module_id": row["module_id"], "ordinal": row["ordinal"],
         }
         if solved_ids is not None:
@@ -222,6 +285,8 @@ class Competitions:
         chal_rows = [row_to_dict(r) for r in self.db.query(
             "SELECT * FROM competition_challenges WHERE competition_id=? "
             "ORDER BY ordinal, created_at", (cid,))]
+        scoring = row["scoring"]
+        counts = self._solve_counts(cid)
         solved_ids = set()
         my_team = None
         if actor:
@@ -230,14 +295,18 @@ class Competitions:
                 solved_ids = {r["challenge_id"] for r in self.db.query(
                     "SELECT challenge_id FROM competition_solves "
                     "WHERE competition_id=? AND team_id=?", (cid, my_team["id"]))}
+        public = []
+        for c in chal_rows:
+            n = counts.get(c["id"], 0)
+            public.append(self._challenge_public(
+                c, solved_ids, value=self._value(c, scoring, n), solves=n))
         return {
             "id": cid, "name": row["name"], "description": row["description"],
-            "mode": row["mode"], "scoring": row["scoring"],
+            "mode": row["mode"], "scoring": scoring,
             "start_at": row["start_at"], "end_at": row["end_at"],
             "status": self._status(row), "published": bool(row["published"]),
-            "total_points": sum(c["points"] for c in chal_rows),
-            "challenges": [self._challenge_public(c, solved_ids) for c in chal_rows],
-            "my_team": my_team,
+            "total_points": sum(p["points"] for p in public),
+            "challenges": public, "my_team": my_team,
         }
 
     # ------------------------------------------------------------- teams ---
@@ -314,7 +383,9 @@ class Competitions:
             "SELECT COUNT(*) AS n FROM competition_solves WHERE competition_id=? AND "
             "challenge_id=?", (cid, challenge_id))["n"]
         first_blood = prior == 0
-        points = int(chal["points"])
+        scoring = row["scoring"]
+        # Current worth after counting this solve (decays with each solve).
+        points = self._value(chal, scoring, prior + 1)
         self.db.execute(
             "INSERT INTO competition_solves (competition_id, challenge_id, team_id, "
             "username, points_awarded, first_blood, solved_at) VALUES (?,?,?,?,?,?,?)",
@@ -322,11 +393,10 @@ class Competitions:
              _iso()))
         self._audit(actor, role, "competition:solve", challenge_id,
                     f"{cid} {points}pt{' first-blood' if first_blood else ''}")
-        team_total = self.db.query_one(
-            "SELECT COALESCE(SUM(points_awarded),0) AS t FROM competition_solves "
-            "WHERE competition_id=? AND team_id=?", (cid, team["id"]))["t"]
+        team_total = self._team_points(cid, team["id"], scoring)
         return {"correct": True, "points": points, "first_blood": first_blood,
                 "team": team["name"], "team_total": team_total,
+                "dynamic": scoring == "dynamic", "solves": prior + 1,
                 "challenge_id": challenge_id}
 
     # ----------------------------------------------------- practice arena --
@@ -424,20 +494,25 @@ class Competitions:
         if role is not None:
             rbac.require(role, "competition:read")
         comp = self._get_row(cid)
+        scoring = comp["scoring"]
+        counts = self._solve_counts(cid)
         teams = [row_to_dict(r) for r in self.db.query(
             "SELECT id, name FROM competition_teams WHERE competition_id=?", (cid,))]
         board = []
         for team in teams:
+            # Score is the sum of each solved challenge's CURRENT value, so a
+            # dynamic board re-prices every team as challenges decay.
+            points = self._team_points(cid, team["id"], scoring, counts)
             agg = self.db.query_one(
-                "SELECT COALESCE(SUM(points_awarded),0) AS pts, COUNT(*) AS solves, "
-                "MAX(solved_at) AS last FROM competition_solves "
-                "WHERE competition_id=? AND team_id=?", (cid, team["id"]))
+                "SELECT COUNT(*) AS solves, MAX(solved_at) AS last "
+                "FROM competition_solves WHERE competition_id=? AND team_id=?",
+                (cid, team["id"]))
             members = [r["username"] for r in self.db.query(
                 "SELECT username FROM competition_team_members "
                 "WHERE competition_id=? AND team_id=?", (cid, team["id"]))]
             board.append({
                 "team": team["name"], "team_id": team["id"],
-                "points": int(agg["pts"] or 0), "solves": int(agg["solves"] or 0),
+                "points": int(points), "solves": int(agg["solves"] or 0),
                 "last_solve": agg["last"], "members": members,
             })
         # Rank by points desc, then earliest last-solve (faster to the score).

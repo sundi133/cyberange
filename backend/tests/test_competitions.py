@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from cyberrange import rbac
-from cyberrange.competitions import hash_flag, verify_flag
+from cyberrange.competitions import dynamic_value, hash_flag, verify_flag
 from cyberrange.db import Database
 from cyberrange.service import CyberRangeService, ServiceError
 
@@ -140,6 +140,75 @@ class CompetitionTest(unittest.TestCase):
         with self.assertRaises(ServiceError):
             self.c.create("admin", "admin", name="bad",
                           start_at=_iso(3600), end_at=_iso(60), published=True)
+
+
+class DynamicValueTest(unittest.TestCase):
+    def test_no_solves_is_full_value(self):
+        self.assertEqual(dynamic_value(500, 100, 20, 0), 500)
+
+    def test_monotonic_decay(self):
+        vals = [dynamic_value(500, 100, 20, n) for n in range(0, 25)]
+        self.assertEqual(vals[0], 500)
+        for a, b in zip(vals, vals[1:]):
+            self.assertGreaterEqual(a, b)  # never increases
+
+    def test_floor_is_respected(self):
+        self.assertEqual(dynamic_value(500, 100, 20, 20), 100)   # ~floor at decay
+        self.assertEqual(dynamic_value(500, 100, 20, 999), 100)  # clamped below
+
+    def test_static_like_when_no_decay_or_floor(self):
+        self.assertEqual(dynamic_value(300, 300, 20, 5), 300)  # min == initial
+        self.assertEqual(dynamic_value(300, 100, 0, 5), 300)   # decay disabled
+
+
+class DynamicScoringTest(unittest.TestCase):
+    def setUp(self):
+        self.svc = CyberRangeService(Database(":memory:"))
+        self.c = self.svc.competitions
+        self.comp = self.c.create("admin", "admin", name="Dyn", mode="ctf",
+                                  scoring="dynamic", start_at=_iso(-60),
+                                  end_at=_iso(3600), published=True)
+        self.ch = self.c.add_challenge("admin", "admin", self.comp["id"],
+                                       title="Pwn", flag="CR{x}", points=500)
+
+    def test_defaults_applied(self):
+        got = self.c.get(self.comp["id"])
+        c = got["challenges"][0]
+        self.assertEqual(c["max_points"], 500)
+        self.assertEqual(c["min_points"], 250)   # 50% default
+        self.assertEqual(c["decay"], 20)
+        self.assertEqual(c["points"], 500)       # current value, no solves yet
+        self.assertEqual(c["solves"], 0)
+
+    def test_value_decays_as_teams_solve(self):
+        r1 = self.c.submit_flag("red1", "red", self.comp["id"], self.ch["id"], "CR{x}")
+        self.assertTrue(r1["dynamic"])
+        self.assertLess(r1["points"], 500)       # already below ceiling
+        first = r1["points"]
+        self.c.submit_flag("blue1", "blue", self.comp["id"], self.ch["id"], "CR{x}")
+        got = self.c.get(self.comp["id"])
+        self.assertLess(got["challenges"][0]["points"], first)  # decayed further
+        self.assertEqual(got["challenges"][0]["solves"], 2)
+
+    def test_all_solvers_share_current_value(self):
+        self.c.submit_flag("red1", "red", self.comp["id"], self.ch["id"], "CR{x}")
+        self.c.submit_flag("blue1", "blue", self.comp["id"], self.ch["id"], "CR{x}")
+        board = {b["team"]: b["points"] for b in
+                 self.c.leaderboard(self.comp["id"])["standings"]}
+        # Both teams hold the same (current, decayed) value for the one challenge.
+        self.assertEqual(board["red1"], board["blue1"])
+        self.assertEqual(board["red1"], dynamic_value(500, 250, 20, 2))
+
+    def test_static_competition_does_not_decay(self):
+        comp = self.c.create("admin", "admin", name="Stat", mode="ctf",
+                             scoring="static", start_at=_iso(-60),
+                             end_at=_iso(3600), published=True)
+        ch = self.c.add_challenge("admin", "admin", comp["id"], title="q",
+                                  flag="CR{s}", points=300)
+        self.c.submit_flag("red1", "red", comp["id"], ch["id"], "CR{s}")
+        self.c.submit_flag("blue1", "blue", comp["id"], ch["id"], "CR{s}")
+        got = self.c.get(comp["id"])
+        self.assertEqual(got["challenges"][0]["points"], 300)  # unchanged
 
 
 class HandsOnLabTest(unittest.TestCase):

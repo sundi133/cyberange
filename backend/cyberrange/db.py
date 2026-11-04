@@ -184,6 +184,8 @@ CREATE TABLE IF NOT EXISTS competition_challenges (
     technique_id TEXT,
     difficulty TEXT,
     points INTEGER NOT NULL DEFAULT 100,
+    min_points INTEGER,
+    decay INTEGER,
     prompt TEXT,
     hint TEXT,
     module_id TEXT,
@@ -241,6 +243,10 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "basis": "TEXT",
         "severity": "TEXT",
         "detail": "TEXT",
+    },
+    "competition_challenges": {
+        "min_points": "INTEGER",
+        "decay": "INTEGER",
     },
 }
 
