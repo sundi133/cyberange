@@ -128,8 +128,13 @@ def generate_labs() -> list[dict]:
                     f"for a known indicator. Submit one literal string it matches."),
             hint="Look for the tell-tale artifact an operator would grep for.")
 
-    # ---- Family B: adversary emulation from modules ----
+    # ---- Family B: adversary emulation from curated modules ----
+    # Only curated modules become attribution labs; imported content (which can
+    # run into the thousands) contributes hands-on labs instead (see
+    # generate_handson_labs), so the knowledge library stays concise.
     for m in catalog.modules():
+        if m.get("_import"):
+            continue
         tids = m.get("technique_ids") or []
         if not tids:
             continue

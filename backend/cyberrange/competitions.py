@@ -330,13 +330,9 @@ class Competitions:
         from . import labs
         existing = self.db.query_one(
             "SELECT id FROM competitions WHERE name=?", (self.PRACTICE_NAME,))
+        created = not existing
         if existing:
             cid = existing["id"]
-            have = self.db.query_one(
-                "SELECT COUNT(*) AS n FROM competition_challenges WHERE competition_id=?",
-                (cid,))["n"]
-            if have:
-                return {"id": cid, "created": False, "challenges": have}
         else:
             comp = self.create(
                 actor, role, name=self.PRACTICE_NAME,
@@ -345,10 +341,20 @@ class Competitions:
                 mode="ctf", scoring="static",
                 start_at="1970-01-01T00:00:00+00:00", end_at=None, published=True)
             cid = comp["id"]
+        # Incremental: generate the current library and add only challenges whose
+        # title is not already present, so re-running after importing/signing new
+        # modules folds the new hands-on labs in without duplicating.
         secret = self._secret(self._get_row(cid))
         generated = labs.generate_labs() + labs.generate_handson_labs(secret)
-        self.add_challenges_bulk(actor, role, cid, generated)
-        return {"id": cid, "created": True, "challenges": len(generated)}
+        have_titles = {r["title"] for r in self.db.query(
+            "SELECT title FROM competition_challenges WHERE competition_id=?", (cid,))}
+        fresh = [g for g in generated if g["title"] not in have_titles]
+        if fresh:
+            self.add_challenges_bulk(actor, role, cid, fresh)
+        total = self.db.query_one(
+            "SELECT COUNT(*) AS n FROM competition_challenges WHERE competition_id=?",
+            (cid,))["n"]
+        return {"id": cid, "created": created, "added": len(fresh), "challenges": total}
 
     def run_lab(self, actor: str, role: str, cid: str, challenge_id: str) -> dict:
         """Execute a hands-on lab's backing module on an isolated target and

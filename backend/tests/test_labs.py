@@ -40,6 +40,26 @@ class LabGeneratorTest(unittest.TestCase):
         self.assertEqual(sum(s["by_category"].values()), len(self.labs))
 
 
+class ImportedPackTest(unittest.TestCase):
+    """The committed Atomic Red Team starter pack ships signed hands-on labs."""
+
+    def test_pack_loads_signed_and_executable(self):
+        from cyberrange import catalog
+        imported = [m for m in catalog.modules() if m.get("_import")]
+        self.assertGreaterEqual(len(imported), 50)
+        for m in imported:
+            self.assertTrue(m.get("signed"), m["id"])
+            self.assertEqual((m.get("execution") or {}).get("adapter"), "docker")
+            self.assertEqual(m["platform"], "linux")
+            # Vetted subset carries no risk flags.
+            self.assertFalse(m.get("_import", {}).get("risk_flags"), m["id"])
+
+    def test_imported_modules_become_handson_labs(self):
+        handson = labs.generate_handson_labs("secret")
+        from_import = [l for l in handson if l["module_id"].startswith("CR-ATOMIC")]
+        self.assertGreaterEqual(len(from_import), 50)
+
+
 class PracticeArenaSeedTest(unittest.TestCase):
     def setUp(self):
         self.svc = CyberRangeService(Database(":memory:"))

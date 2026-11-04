@@ -35,9 +35,23 @@ def _staged_modules() -> list[dict]:
         return json.load(fh)
 
 
+@functools.lru_cache(maxsize=None)
+def _imported_modules() -> list[dict]:
+    # Vetted, signed external content shipped with the product (e.g. the
+    # reviewed Atomic Red Team Linux-shell starter pack). Unlike the staged
+    # file this is committed, so the hands-on labs it backs ship by default.
+    # Optional: absent file -> none.
+    path = SEED_DIR / "modules.imported.json"
+    if not path.exists():
+        return []
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 def modules() -> list[dict]:
-    """Signed seed modules plus any staged (imported, unsigned) modules."""
-    return list(_load("modules")) + list(_staged_modules())
+    """Curated seed modules, the shipped imported pack, and any locally staged
+    (imported, unsigned) modules."""
+    return list(_load("modules")) + list(_imported_modules()) + list(_staged_modules())
 
 
 @functools.lru_cache(maxsize=None)
