@@ -34,6 +34,19 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(data["status"], "ok")
 
+    def test_security_headers_present(self):
+        # Every response (API and static) must carry the hardening headers.
+        for path in ("/api/health", "/"):
+            conn = HTTPConnection("127.0.0.1", self.port, timeout=5)
+            conn.request("GET", path)
+            resp = conn.getresponse()
+            resp.read()
+            conn.close()
+            self.assertEqual(resp.getheader("X-Content-Type-Options"), "nosniff", path)
+            self.assertEqual(resp.getheader("X-Frame-Options"), "DENY", path)
+            self.assertIn("default-src 'self'", resp.getheader("Content-Security-Policy") or "", path)
+            self.assertEqual(resp.getheader("Referrer-Policy"), "no-referrer", path)
+
     def test_catalog_endpoints(self):
         status, scenarios = self._req("GET", "/api/scenarios")
         self.assertEqual(status, 200)

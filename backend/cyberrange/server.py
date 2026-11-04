@@ -334,6 +334,29 @@ class _Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):  # quieter default logging
         pass
 
+    # Security response headers applied to every response (API, files, static,
+    # and errors). TLS/HSTS is terminated and set at the reverse proxy, so it is
+    # intentionally not emitted here. CSP allows inline styles because the SPA
+    # writes a few inline style attributes; no inline <script> is used.
+    _SECURITY_HEADERS = {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "no-referrer",
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Permissions-Policy": "geolocation=(), camera=(), microphone=()",
+        "Content-Security-Policy": (
+            "default-src 'self'; script-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+            "font-src 'self'; connect-src 'self'; object-src 'none'; "
+            "base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        ),
+    }
+
+    def end_headers(self):
+        for name, value in self._SECURITY_HEADERS.items():
+            self.send_header(name, value)
+        super().end_headers()
+
     def _send_json(self, obj, status=200):
         body = json.dumps(obj, default=str).encode("utf-8")
         self.send_response(status)
