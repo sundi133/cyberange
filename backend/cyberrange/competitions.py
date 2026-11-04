@@ -198,12 +198,20 @@ class Competitions:
             nteam = self.db.query_one(
                 "SELECT COUNT(*) AS n FROM competition_teams WHERE competition_id=?",
                 (cid,))["n"]
+            categories = {r["category"] or "misc": r["n"] for r in self.db.query(
+                "SELECT category, COUNT(*) AS n FROM competition_challenges "
+                "WHERE competition_id=? GROUP BY category ORDER BY n DESC", (cid,))}
+            nhandson = self.db.query_one(
+                "SELECT COUNT(*) AS n FROM competition_challenges "
+                "WHERE competition_id=? AND module_id IS NOT NULL AND module_id<>''",
+                (cid,))["n"]
             out.append({
                 "id": cid, "name": row["name"], "description": row["description"],
                 "mode": row["mode"], "scoring": row["scoring"],
                 "start_at": row["start_at"], "end_at": row["end_at"],
                 "status": self._status(row), "published": bool(row["published"]),
                 "challenges": nchal, "teams": nteam,
+                "categories": categories, "hands_on": nhandson,
             })
         return out
 

@@ -1442,6 +1442,26 @@ const COMPETE_STATUS = {
   draft: "Draft", scheduled: "Scheduled", live: "Live", ended: "Ended",
 };
 
+const CATEGORY_LABELS = {
+  "hands-on": "Hands-on", detection: "Detection (SOC)", forensics: "Forensics",
+  adversary: "Adversary emulation", "threat-intel": "Threat intel",
+  recon: "Recon", "initial-access": "Initial access", execution: "Execution",
+  privesc: "Privilege esc.", "cred-access": "Credential access",
+  lateral: "Lateral movement", exfil: "Exfiltration", misc: "Misc",
+};
+const catLabel = (c) => CATEGORY_LABELS[c] || c;
+
+function competeSummary(comps) {
+  let labs = 0, handsOn = 0;
+  const cats = {};
+  comps.forEach((c) => {
+    labs += c.challenges || 0;
+    handsOn += c.hands_on || 0;
+    Object.entries(c.categories || {}).forEach(([k, n]) => { cats[k] = (cats[k] || 0) + n; });
+  });
+  return { labs, handsOn, cats, comps: comps.length };
+}
+
 async function viewCompete() {
   const comps = await api("GET", "/competitions");
   const canManage = can("competition:manage");
@@ -1459,8 +1479,30 @@ async function viewCompete() {
                 : "Check back when your instructor schedules a competition.")));
     return;
   }
+
+  // ----- library summary across all competitions -----
+  const s = competeSummary(comps);
+  if (s.labs) {
+    const chips = Object.entries(s.cats)
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, n]) => `<span class="cat-chip"><span class="cat-dot cat-${k}"></span>${esc(catLabel(k))}<span class="cat-n">${n}</span></span>`)
+      .join("");
+    $main().appendChild(el(`<div class="lab-summary">
+      <div class="lab-stats">
+        <div class="stat"><span class="stat-n">${s.labs}</span><span class="stat-l">labs</span></div>
+        <div class="stat"><span class="stat-n">${s.handsOn}</span><span class="stat-l">hands-on</span></div>
+        <div class="stat"><span class="stat-n">${s.comps}</span><span class="stat-l">competition${s.comps === 1 ? "" : "s"}</span></div>
+      </div>
+      <div class="cat-chips">${chips}</div>
+    </div>`));
+  }
+
   const grid = el('<div class="grid"></div>');
   comps.forEach((c) => {
+    const catLine = Object.entries(c.categories || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, n]) => `<span class="cat-chip sm"><span class="cat-dot cat-${k}"></span>${esc(catLabel(k))}<span class="cat-n">${n}</span></span>`)
+      .join("");
     const card = el(`<div class="card comp-card">
       <div class="row" style="justify-content:space-between">
         <span class="badge comp-${c.status}">${COMPETE_STATUS[c.status] || c.status}</span>
@@ -1469,11 +1511,12 @@ async function viewCompete() {
       <h4 style="margin-top:8px">${esc(c.name)}</h4>
       <p>${esc(c.description || "")}</p>
       <div class="kv" style="margin-top:8px">
-        <span>Challenges</span><span>${c.challenges}</span>
+        <span>Challenges</span><span>${c.challenges}${c.hands_on ? ` <span class="faint">(${c.hands_on} hands-on)</span>` : ""}</span>
         <span>Teams</span><span>${c.teams}</span>
         ${c.start_at ? `<span>Opens</span><span>${fmtWhen(c.start_at)}</span>` : ""}
         ${c.end_at ? `<span>Closes</span><span>${fmtWhen(c.end_at)}</span>` : ""}
       </div>
+      ${catLine ? `<div class="cat-chips" style="margin-top:10px">${catLine}</div>` : ""}
     </div>`);
     card.onclick = () => openCompetition(c.id);
     grid.appendChild(card);

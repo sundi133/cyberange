@@ -660,3 +660,32 @@ tr.me-row:hover { background: var(--accent-soft); }
 }
 .lab-out.sim { border-left-color: var(--warn); }
 .tag.hands-on, .badge.hands-on { background: var(--ok-soft); color: var(--ok); }
+
+/* ------------------------------------------------- compete lab summary */
+.lab-summary {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s6);
+  padding: var(--s4); margin-bottom: var(--s4);
+  background: var(--surface); border: 1px solid var(--border-soft);
+  border-radius: var(--r); box-shadow: var(--shadow);
+}
+.lab-stats { display: flex; gap: var(--s5); }
+.stat { display: flex; flex-direction: column; line-height: 1.1; }
+.stat-n { font-size: 24px; font-weight: 720; color: var(--text); letter-spacing: -.02em;
+          font-variant-numeric: tabular-nums; }
+.stat-l { font-size: 11px; font-weight: 600; text-transform: uppercase;
+          letter-spacing: .06em; color: var(--text-faint); margin-top: 2px; }
+.cat-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cat-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 9px; border-radius: var(--r-full);
+  font-size: 12px; font-weight: 550; color: var(--text-muted);
+  background: var(--surface-2); border: 1px solid var(--border-soft);
+}
+.cat-chip.sm { font-size: 11px; padding: 2px 7px; }
+.cat-n { font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.cat-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); flex: none; }
+.cat-dot.cat-hands-on     { background: var(--ok); }
+.cat-dot.cat-detection    { background: var(--accent); }
+.cat-dot.cat-forensics    { background: var(--purple); }
+.cat-dot.cat-adversary    { background: var(--danger); }
+.cat-dot.cat-threat-intel { background: var(--warn); }
