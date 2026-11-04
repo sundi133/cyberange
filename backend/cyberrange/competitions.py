@@ -1,0 +1,339 @@
+"""Competitions, CTF challenges, scheduling, and leaderboards.
+
+A competition is a scheduled event (start/end window) holding a set of
+challenges. Each challenge carries a hidden flag, stored as a salted SHA-256
+hash - never in plaintext - and a point value. Participants join a team and
+submit flags; a correct, not-yet-solved flag records a solve (with first-blood
+tracking) and advances the team on a live leaderboard.
+
+RBAC is enforced here (not only at the route), consistent with the rest of the
+service layer: `competition:manage` to create/author, `competition:participate`
+to join and submit, `competition:read` to view.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import hmac
+import secrets
+import uuid
+from datetime import datetime, timezone
+
+from . import rbac
+from .db import row_to_dict
+from .service import ServiceError
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _iso(dt: datetime | None = None) -> str:
+    return (dt or _now()).isoformat()
+
+
+def _norm_flag(flag: str) -> str:
+    return (flag or "").strip()
+
+
+def hash_flag(flag: str, salt: str | None = None) -> tuple[str, str]:
+    """Return (hash_hex, salt_hex) for a flag. Salted SHA-256."""
+    if salt is None:
+        salt = secrets.token_hex(16)
+    digest = hashlib.sha256((salt + _norm_flag(flag)).encode("utf-8")).hexdigest()
+    return digest, salt
+
+
+def verify_flag(flag: str, salt: str, expected_hash: str) -> bool:
+    candidate, _ = hash_flag(flag, salt)
+    return hmac.compare_digest(candidate, expected_hash)
+
+
+class Competitions:
+    def __init__(self, db, audit):
+        self.db = db
+        self._audit = audit  # callable(actor, role, action, target, detail)
+
+    # ----------------------------------------------------------- status ----
+    @staticmethod
+    def _status(row: dict) -> str:
+        """Derive the live status from the publish flag and the schedule."""
+        if not row.get("published"):
+            return "draft"
+        now = _iso()
+        start, end = row.get("start_at"), row.get("end_at")
+        if start and now < start:
+            return "scheduled"
+        if end and now >= end:
+            return "ended"
+        return "live"
+
+    def _get_row(self, cid: str) -> dict:
+        row = row_to_dict(self.db.query_one(
+            "SELECT * FROM competitions WHERE id=?", (cid,)))
+        if not row:
+            raise ServiceError("Unknown competition", 404)
+        return row
+
+    # ----------------------------------------------------------- authoring -
+    def create(self, actor: str, role: str, *, name: str, description: str = "",
+               mode: str = "ctf", scoring: str = "static",
+               start_at: str | None = None, end_at: str | None = None,
+               published: bool = False) -> dict:
+        rbac.require(role, "competition:manage")
+        if not name or not name.strip():
+            raise ServiceError("Competition name is required", 400)
+        if mode not in ("ctf", "exercise"):
+            raise ServiceError("mode must be 'ctf' or 'exercise'", 400)
+        if scoring not in ("static", "dynamic"):
+            raise ServiceError("scoring must be 'static' or 'dynamic'", 400)
+        if start_at and end_at and end_at <= start_at:
+            raise ServiceError("end_at must be after start_at", 400)
+        cid = "CR-COMP-" + uuid.uuid4().hex[:10]
+        self.db.execute(
+            "INSERT INTO competitions (id, name, description, mode, scoring, "
+            "start_at, end_at, published, created_by, created_at, meta) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (cid, name.strip(), description, mode, scoring, start_at, end_at,
+             1 if published else 0, actor, _iso(), None))
+        self._audit(actor, role, "competition:create", cid, name.strip())
+        return self.get(cid)
+
+    def update(self, actor: str, role: str, cid: str, **fields) -> dict:
+        rbac.require(role, "competition:manage")
+        self._get_row(cid)
+        allowed = {"name", "description", "start_at", "end_at", "published", "scoring"}
+        sets, params = [], []
+        for key, val in fields.items():
+            if key not in allowed or val is None:
+                continue
+            if key == "published":
+                val = 1 if val else 0
+            sets.append(f"{key}=?")
+            params.append(val)
+        if sets:
+            params.append(cid)
+            self.db.execute(
+                f"UPDATE competitions SET {', '.join(sets)} WHERE id=?", tuple(params))
+            self._audit(actor, role, "competition:update", cid, ",".join(sorted(fields)))
+        return self.get(cid)
+
+    def add_challenge(self, actor: str, role: str, cid: str, *, title: str,
+                      flag: str, category: str = "misc", technique_id: str = "",
+                      difficulty: str = "medium", points: int = 100,
+                      prompt: str = "", hint: str = "", module_id: str = "") -> dict:
+        rbac.require(role, "competition:manage")
+        self._get_row(cid)
+        if not title or not title.strip():
+            raise ServiceError("Challenge title is required", 400)
+        if not _norm_flag(flag):
+            raise ServiceError("A non-empty flag is required", 400)
+        try:
+            points = int(points)
+        except (TypeError, ValueError):
+            raise ServiceError("points must be an integer", 400)
+        if points <= 0:
+            raise ServiceError("points must be positive", 400)
+        digest, salt = hash_flag(flag)
+        ch_id = "CR-CHAL-" + uuid.uuid4().hex[:10]
+        ordinal = self.db.query_one(
+            "SELECT COUNT(*) AS n FROM competition_challenges WHERE competition_id=?",
+            (cid,))["n"]
+        self.db.execute(
+            "INSERT INTO competition_challenges (id, competition_id, title, category, "
+            "technique_id, difficulty, points, prompt, hint, module_id, flag_hash, "
+            "flag_salt, ordinal, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (ch_id, cid, title.strip(), category, technique_id, difficulty, points,
+             prompt, hint, module_id, digest, salt, ordinal, _iso()))
+        self._audit(actor, role, "competition:add_challenge", ch_id,
+                    f"{cid} {points}pt {category}")
+        return {"id": ch_id, "competition_id": cid, "title": title.strip(),
+                "points": points, "category": category}
+
+    def add_challenges_bulk(self, actor: str, role: str, cid: str,
+                            challenges: list[dict]) -> int:
+        """Add many challenges in one call (used to seed a challenge bank)."""
+        rbac.require(role, "competition:manage")
+        self._get_row(cid)
+        n = 0
+        for ch in challenges:
+            self.add_challenge(actor, role, cid, **ch)
+            n += 1
+        return n
+
+    # ------------------------------------------------------------- reading -
+    def _challenge_public(self, row: dict, solved_ids: set | None = None) -> dict:
+        """A challenge as seen by participants - never includes the flag."""
+        out = {
+            "id": row["id"], "title": row["title"], "category": row["category"],
+            "technique_id": row["technique_id"], "difficulty": row["difficulty"],
+            "points": row["points"], "prompt": row["prompt"], "hint": row["hint"],
+            "module_id": row["module_id"], "ordinal": row["ordinal"],
+        }
+        if solved_ids is not None:
+            out["solved"] = row["id"] in solved_ids
+        return out
+
+    def list(self, role: str) -> list[dict]:
+        rbac.require(role, "competition:read")
+        rows = [row_to_dict(r) for r in self.db.query(
+            "SELECT * FROM competitions ORDER BY created_at DESC")]
+        out = []
+        for row in rows:
+            cid = row["id"]
+            nchal = self.db.query_one(
+                "SELECT COUNT(*) AS n FROM competition_challenges WHERE competition_id=?",
+                (cid,))["n"]
+            nteam = self.db.query_one(
+                "SELECT COUNT(*) AS n FROM competition_teams WHERE competition_id=?",
+                (cid,))["n"]
+            out.append({
+                "id": cid, "name": row["name"], "description": row["description"],
+                "mode": row["mode"], "scoring": row["scoring"],
+                "start_at": row["start_at"], "end_at": row["end_at"],
+                "status": self._status(row), "published": bool(row["published"]),
+                "challenges": nchal, "teams": nteam,
+            })
+        return out
+
+    def get(self, cid: str, actor: str | None = None, role: str | None = None) -> dict:
+        if role is not None:
+            rbac.require(role, "competition:read")
+        row = self._get_row(cid)
+        chal_rows = [row_to_dict(r) for r in self.db.query(
+            "SELECT * FROM competition_challenges WHERE competition_id=? "
+            "ORDER BY ordinal, created_at", (cid,))]
+        solved_ids = set()
+        my_team = None
+        if actor:
+            my_team = self._team_for(cid, actor)
+            if my_team:
+                solved_ids = {r["challenge_id"] for r in self.db.query(
+                    "SELECT challenge_id FROM competition_solves "
+                    "WHERE competition_id=? AND team_id=?", (cid, my_team["id"]))}
+        return {
+            "id": cid, "name": row["name"], "description": row["description"],
+            "mode": row["mode"], "scoring": row["scoring"],
+            "start_at": row["start_at"], "end_at": row["end_at"],
+            "status": self._status(row), "published": bool(row["published"]),
+            "total_points": sum(c["points"] for c in chal_rows),
+            "challenges": [self._challenge_public(c, solved_ids) for c in chal_rows],
+            "my_team": my_team,
+        }
+
+    # ------------------------------------------------------------- teams ---
+    def _team_for(self, cid: str, username: str) -> dict | None:
+        row = self.db.query_one(
+            "SELECT t.id, t.name FROM competition_team_members m "
+            "JOIN competition_teams t ON t.id = m.team_id "
+            "WHERE m.competition_id=? AND m.username=?", (cid, username))
+        return row_to_dict(row) if row else None
+
+    def join(self, actor: str, role: str, cid: str, team_name: str) -> dict:
+        rbac.require(role, "competition:participate")
+        self._get_row(cid)
+        if not team_name or not team_name.strip():
+            raise ServiceError("Team name is required", 400)
+        team_name = team_name.strip()
+        existing = self._team_for(cid, actor)
+        if existing:
+            if existing["name"] == team_name:
+                return existing
+            raise ServiceError(
+                f"You are already on team '{existing['name']}' in this competition", 409)
+        team = row_to_dict(self.db.query_one(
+            "SELECT id, name FROM competition_teams WHERE competition_id=? AND name=?",
+            (cid, team_name)))
+        if not team:
+            tid = "CR-TEAM-" + uuid.uuid4().hex[:10]
+            self.db.execute(
+                "INSERT INTO competition_teams (id, competition_id, name, created_by, "
+                "created_at) VALUES (?,?,?,?,?)", (tid, cid, team_name, actor, _iso()))
+            team = {"id": tid, "name": team_name}
+        self.db.execute(
+            "INSERT INTO competition_team_members (competition_id, team_id, username, "
+            "joined_at) VALUES (?,?,?,?)", (cid, team["id"], actor, _iso()))
+        self._audit(actor, role, "competition:join", cid, team_name)
+        return team
+
+    def _ensure_team(self, actor: str, role: str, cid: str) -> dict:
+        """Return the actor's team, auto-creating a solo team if none."""
+        team = self._team_for(cid, actor)
+        if team:
+            return team
+        return self.join(actor, role, cid, actor)
+
+    # ----------------------------------------------------------- submit ----
+    def submit_flag(self, actor: str, role: str, cid: str, challenge_id: str,
+                    flag: str) -> dict:
+        rbac.require(role, "competition:participate")
+        row = self._get_row(cid)
+        status = self._status(row)
+        if status != "live":
+            raise ServiceError(
+                f"Submissions are closed - competition is {status}", 409)
+        chal = row_to_dict(self.db.query_one(
+            "SELECT * FROM competition_challenges WHERE id=? AND competition_id=?",
+            (challenge_id, cid)))
+        if not chal:
+            raise ServiceError("Unknown challenge", 404)
+        team = self._ensure_team(actor, role, cid)
+
+        correct = verify_flag(flag, chal["flag_salt"], chal["flag_hash"])
+        if not correct:
+            self._audit(actor, role, "competition:submit_wrong", challenge_id, cid)
+            return {"correct": False, "challenge_id": challenge_id}
+
+        already = self.db.query_one(
+            "SELECT id FROM competition_solves WHERE competition_id=? AND "
+            "challenge_id=? AND team_id=?", (cid, challenge_id, team["id"]))
+        if already:
+            return {"correct": True, "already_solved": True, "points": 0,
+                    "challenge_id": challenge_id}
+
+        prior = self.db.query_one(
+            "SELECT COUNT(*) AS n FROM competition_solves WHERE competition_id=? AND "
+            "challenge_id=?", (cid, challenge_id))["n"]
+        first_blood = prior == 0
+        points = int(chal["points"])
+        self.db.execute(
+            "INSERT INTO competition_solves (competition_id, challenge_id, team_id, "
+            "username, points_awarded, first_blood, solved_at) VALUES (?,?,?,?,?,?,?)",
+            (cid, challenge_id, team["id"], actor, points, 1 if first_blood else 0,
+             _iso()))
+        self._audit(actor, role, "competition:solve", challenge_id,
+                    f"{cid} {points}pt{' first-blood' if first_blood else ''}")
+        team_total = self.db.query_one(
+            "SELECT COALESCE(SUM(points_awarded),0) AS t FROM competition_solves "
+            "WHERE competition_id=? AND team_id=?", (cid, team["id"]))["t"]
+        return {"correct": True, "points": points, "first_blood": first_blood,
+                "team": team["name"], "team_total": team_total,
+                "challenge_id": challenge_id}
+
+    # -------------------------------------------------------- leaderboard --
+    def leaderboard(self, cid: str, role: str | None = None) -> dict:
+        if role is not None:
+            rbac.require(role, "competition:read")
+        comp = self._get_row(cid)
+        teams = [row_to_dict(r) for r in self.db.query(
+            "SELECT id, name FROM competition_teams WHERE competition_id=?", (cid,))]
+        board = []
+        for team in teams:
+            agg = self.db.query_one(
+                "SELECT COALESCE(SUM(points_awarded),0) AS pts, COUNT(*) AS solves, "
+                "MAX(solved_at) AS last FROM competition_solves "
+                "WHERE competition_id=? AND team_id=?", (cid, team["id"]))
+            members = [r["username"] for r in self.db.query(
+                "SELECT username FROM competition_team_members "
+                "WHERE competition_id=? AND team_id=?", (cid, team["id"]))]
+            board.append({
+                "team": team["name"], "team_id": team["id"],
+                "points": int(agg["pts"] or 0), "solves": int(agg["solves"] or 0),
+                "last_solve": agg["last"], "members": members,
+            })
+        # Rank by points desc, then earliest last-solve (faster to the score).
+        board.sort(key=lambda r: (-r["points"], r["last_solve"] or "~"))
+        for i, entry in enumerate(board, 1):
+            entry["rank"] = i
+        return {"competition_id": cid, "name": comp["name"],
+                "status": self._status(comp), "standings": board}

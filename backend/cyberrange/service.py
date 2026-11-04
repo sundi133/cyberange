@@ -59,6 +59,10 @@ class CyberRangeService:
         # VM tier when it is configured. Everything above here is unchanged by
         # the choice; see cyberrange/provisioners/base.py.
         self._provisioner = provisioners.resolve()
+        # Competitions/CTF engine (leaderboards, scheduling). Imported locally to
+        # avoid an import cycle (competitions imports ServiceError from here).
+        from .competitions import Competitions
+        self.competitions = Competitions(self.db, self._audit)
         self._seed_admin()
 
     def _tier_network(self, range_id: str) -> str:

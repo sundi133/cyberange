@@ -626,3 +626,28 @@ tbody tr:hover { background: var(--surface-2); }
   main { padding: var(--s4); }
   .logline { grid-template-columns: 1fr; gap: 2px; }
 }
+
+/* ------------------------------------------------------- competitions */
+.badge.comp-live      { background: var(--ok-soft);     color: var(--ok); }
+.badge.comp-scheduled { background: var(--accent-soft); color: var(--accent); }
+.badge.comp-ended     { background: var(--surface-3);   color: var(--text-muted); }
+.badge.comp-draft     { background: var(--warn-soft);   color: var(--warn); }
+.comp-card { cursor: pointer; }
+.comp-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+
+.chal {
+  display: grid; grid-template-columns: 1fr auto; align-items: center;
+  gap: var(--s3); padding: 11px 0; border-bottom: 1px solid var(--border-soft);
+}
+.chal:last-child { border-bottom: 0; }
+.chal.solved { opacity: .68; }
+.chal-pts {
+  font-size: 18px; font-weight: 700; color: var(--accent);
+  font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap;
+}
+.chal-pts span { font-size: 10px; font-weight: 600; color: var(--text-faint); margin-left: 3px; }
+.chal-flag { grid-column: 1 / -1; display: flex; gap: var(--s2); align-items: center; }
+.chal-flag input { flex: 1; font-family: var(--mono); }
+.chal-flag.solved-tag { color: var(--ok); font-weight: 650; font-size: 13px; }
+tr.me-row { background: var(--accent-soft); }
+tr.me-row:hover { background: var(--accent-soft); }

@@ -20,6 +20,7 @@ PERMISSIONS = {
     "report:read",
     "cohort:manage", "assignment:manage", "gradebook:read", "learn:participate",
     "scenario:author",
+    "competition:read", "competition:participate", "competition:manage",
     "admin:manage_users", "admin:manage_images", "admin:audit", "admin:emergency",
 }
 
@@ -27,33 +28,34 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
     "red": {
         "catalog:read", "range:read", "exercise:read", "exercise:participate",
         "exercise:submit_evidence", "module:read", "module:execute", "report:read",
-        "learn:participate",
+        "learn:participate", "competition:read", "competition:participate",
     },
     "blue": {
         "catalog:read", "range:read", "exercise:read", "exercise:participate",
         "exercise:submit_evidence", "module:read", "report:read", "scoring:read",
-        "learn:participate",
+        "learn:participate", "competition:read", "competition:participate",
     },
     "purple": {
         "catalog:read", "range:read", "exercise:read", "exercise:participate",
         "module:read", "module:execute", "report:read", "scoring:read",
-        "learn:participate",
+        "learn:participate", "competition:read", "competition:participate",
     },
     "solo": {
         "catalog:read", "range:read", "range:create", "range:lifecycle",
         "exercise:read", "exercise:participate",
         "exercise:submit_evidence", "module:read", "module:execute", "report:read",
-        "learn:participate",
+        "learn:participate", "competition:read", "competition:participate",
     },
     "instructor": {
         "catalog:read", "range:create", "range:read", "range:lifecycle",
         "exercise:read", "exercise:inject", "exercise:score_override",
         "module:read", "module:execute", "report:read", "scoring:read",
         "cohort:manage", "assignment:manage", "gradebook:read", "scenario:author",
+        "competition:read", "competition:manage", "competition:participate",
     },
     "security_leader": {
         "catalog:read", "range:read", "exercise:read", "report:read", "scoring:read",
-        "gradebook:read",
+        "gradebook:read", "competition:read",
     },
     "admin": set(PERMISSIONS),  # full control plane
 }
@@ -110,6 +112,9 @@ PERMISSION_LABELS: dict[str, str] = {
     "scenario:author": "Create new scenarios from the module catalog",
     "gradebook:read": "View the class gradebook",
     "learn:participate": "Take guided lessons",
+    "competition:read": "View competitions & leaderboards",
+    "competition:participate": "Join a team and submit flags",
+    "competition:manage": "Create competitions & author challenges",
     "admin:manage_users": "Provision & manage user accounts",
     "admin:manage_images": "Manage VM/OCI images",
     "admin:audit": "Read the audit ledger",
