@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import secrets
 import uuid
 from datetime import datetime, timezone
@@ -50,9 +51,18 @@ def verify_flag(flag: str, salt: str, expected_hash: str) -> bool:
 
 
 class Competitions:
-    def __init__(self, db, audit):
+    def __init__(self, db, audit, docker_ok=None):
         self.db = db
         self._audit = audit  # callable(actor, role, action, target, detail)
+        self.docker_ok = docker_ok
+
+    def _secret(self, row: dict) -> str:
+        """Per-competition secret used to derive hands-on proof tokens."""
+        meta = row.get("meta") or {}
+        if isinstance(meta, dict) and meta.get("lab_secret"):
+            return meta["lab_secret"]
+        # Stable fallback for rows created before secrets were stored.
+        return hashlib.sha256(("lab:" + row["id"]).encode()).hexdigest()[:32]
 
     # ----------------------------------------------------------- status ----
     @staticmethod
@@ -90,12 +100,13 @@ class Competitions:
         if start_at and end_at and end_at <= start_at:
             raise ServiceError("end_at must be after start_at", 400)
         cid = "CR-COMP-" + uuid.uuid4().hex[:10]
+        meta = json.dumps({"lab_secret": secrets.token_hex(16)})
         self.db.execute(
             "INSERT INTO competitions (id, name, description, mode, scoring, "
             "start_at, end_at, published, created_by, created_at, meta) "
             "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
             (cid, name.strip(), description, mode, scoring, start_at, end_at,
-             1 if published else 0, actor, _iso(), None))
+             1 if published else 0, actor, _iso(), meta))
         self._audit(actor, role, "competition:create", cid, name.strip())
         return self.get(cid)
 
@@ -334,9 +345,65 @@ class Competitions:
                 mode="ctf", scoring="static",
                 start_at="1970-01-01T00:00:00+00:00", end_at=None, published=True)
             cid = comp["id"]
-        generated = labs.generate_labs()
+        secret = self._secret(self._get_row(cid))
+        generated = labs.generate_labs() + labs.generate_handson_labs(secret)
         self.add_challenges_bulk(actor, role, cid, generated)
         return {"id": cid, "created": True, "challenges": len(generated)}
+
+    def run_lab(self, actor: str, role: str, cid: str, challenge_id: str) -> dict:
+        """Execute a hands-on lab's backing module on an isolated target and
+        return the real output - which ends with the proof token the player then
+        submits as the flag. Degrades to a labelled simulated run without Docker."""
+        rbac.require(role, "competition:participate")
+        row = self._get_row(cid)
+        if self._status(row) != "live":
+            raise ServiceError(f"Competition is {self._status(row)}, not live", 409)
+        chal = row_to_dict(self.db.query_one(
+            "SELECT * FROM competition_challenges WHERE id=? AND competition_id=?",
+            (challenge_id, cid)))
+        if not chal:
+            raise ServiceError("Unknown challenge", 404)
+        module_id = chal.get("module_id")
+        if not module_id:
+            raise ServiceError("This challenge is not a hands-on lab", 400)
+
+        from . import catalog, execution, labs
+        module = catalog.get_module(module_id)
+        if not module:
+            raise ServiceError(f"Unknown module: {module_id}", 404)
+        if not module.get("signed"):
+            raise ServiceError(f"Refusing to run unsigned module: {module_id}", 403)
+        spec = module.get("execution") or {}
+        if spec.get("adapter") != "docker":
+            raise ServiceError("This lab's module is not container-executable", 400)
+
+        token = labs.proof_token(self._secret(row), module_id)
+        base_cmd = spec.get("cmd") or ["sh", "-c", ":"]
+        inner = base_cmd[-1] if isinstance(base_cmd, list) and base_cmd else ":"
+        wrapped = dict(module)
+        wrapped_spec = dict(spec)
+        wrapped_spec["cmd"] = ["sh", "-c", f'{inner}; echo "{token}"']
+        wrapped["execution"] = wrapped_spec
+
+        adapter = execution.select_adapter(wrapped, docker_ok=self.docker_ok)
+        try:
+            result = adapter.run(wrapped, {}, int(module.get("timeout_seconds", 120)))
+        except execution.ExecutionError as exc:
+            raise ServiceError(f"Execution failed: {exc}", 500)
+
+        output = [r["payload"]["line"] for r in result.records
+                  if r.get("kind") == "process-output" and "line" in r.get("payload", {})]
+        note = None
+        if not result.real:
+            # Simulated: the wrapped echo did not actually run. Surface the token
+            # with an honest label rather than leaving the lab unsolvable.
+            output = output + [token]
+            note = ("Simulated run - no Docker host reachable. On a real execution "
+                    "tier the token is emitted by the live container.")
+        self._audit(actor, role, "competition:lab_run", challenge_id,
+                    f"{cid} {module_id} {'real' if result.real else 'sim'}")
+        return {"module_id": module_id, "real": bool(result.real),
+                "output": output, "note": note}
 
     # -------------------------------------------------------- leaderboard --
     def leaderboard(self, cid: str, role: str | None = None) -> dict:

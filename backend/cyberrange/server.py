@@ -347,6 +347,11 @@ def build_router(svc: CyberRangeService) -> Router:
             b.get("challenge_id", ""), b.get("flag", ""))
     r.add("POST", "/api/competitions/{cid}/submit", submit_flag)
 
+    def run_lab(ctx):
+        return svc.competitions.run_lab(ctx["user"], ctx["role"],
+                                        ctx["params"]["cid"], ctx["params"]["chid"])
+    r.add("POST", "/api/competitions/{cid}/challenges/{chid}/run", run_lab)
+
     r.add("GET", "/api/competitions/{cid}/leaderboard",
           lambda ctx: svc.competitions.leaderboard(ctx["params"]["cid"], ctx["role"]))
 

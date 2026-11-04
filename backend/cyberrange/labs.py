@@ -15,9 +15,55 @@ Lab families:
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import re
 
 from . import catalog
+
+# A hands-on lab's flag is a proof-of-execution token: it only appears when the
+# player actually runs the technique (the run loop appends an echo of it to the
+# module's command). It is derived from a per-competition secret + the module id
+# so it is deterministic (the stored flag matches) but not guessable in advance.
+FLAG_PREFIX = "CR"
+
+
+def proof_token(secret: str, module_id: str) -> str:
+    digest = hmac.new(secret.encode("utf-8"), module_id.encode("utf-8"),
+                      hashlib.sha256).hexdigest()[:16]
+    return f"{FLAG_PREFIX}{{{module_id.split('-')[-1].lower()}_{digest}}}"
+
+
+_HANDSON_POINTS = {"S0": 150, "S1": 250, "S2": 400}
+
+
+def generate_handson_labs(secret: str) -> list[dict]:
+    """Hands-on labs from every signed, real-execution module - curated or
+    imported-then-signed (Atomic Red Team / CALDERA). The player launches the
+    technique on an isolated target and submits the token it emits."""
+    out = []
+    for m in catalog.modules():
+        spec = m.get("execution") or {}
+        if not m.get("signed") or spec.get("adapter") != "docker":
+            continue
+        tid = (m.get("technique_ids") or [""])[0]
+        safety = m.get("safety_class", "S1")
+        src = (m.get("_import") or {}).get("source")
+        origin = f" (imported from {src})" if src else ""
+        out.append({
+            "title": f"Hands-on: {m.get('name', m['id'])}",
+            "flag": proof_token(secret, m["id"]),
+            "category": "hands-on",
+            "points": _HANDSON_POINTS.get(safety, 250),
+            "difficulty": "hard" if safety == "S2" else "medium",
+            "technique_id": tid,
+            "module_id": m["id"],
+            "prompt": (f"Run the technique \"{m.get('name','')}\"{origin} on an "
+                       f"isolated target. Launch it below, read the real output, "
+                       f"and submit the proof token it emits (CR{{…}})."),
+            "hint": "Use 'Launch & run'; the token is printed at the end of the output.",
+        })
+    return out
 
 _SEV_POINTS = {"critical": 300, "high": 250, "medium": 150, "low": 100}
 _SAFETY_POINTS = {"S0": 100, "S1": 150, "S2": 250}

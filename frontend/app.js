@@ -1552,7 +1552,16 @@ function challengeRow(cid, ch, status, myTeam) {
   if (solved) {
     row.appendChild(el('<div class="chal-flag solved-tag">✓ Solved</div>'));
   } else if (status === "live" && canPlay) {
-    const f = el(`<form class="chal-flag"><input placeholder="flag…" />
+    if (ch.module_id) {
+      const runbar = el(`<div class="chal-flag">
+        <button class="ghost" type="button">▶ Launch &amp; run</button>
+        <span class="tag tech">${esc(ch.module_id)}</span></div>`);
+      const out = el('<pre class="lab-out" hidden></pre>');
+      runbar.querySelector("button").onclick = () => runLab(cid, ch.id, runbar.querySelector("button"), out);
+      row.appendChild(runbar);
+      row.appendChild(out);
+    }
+    const f = el(`<form class="chal-flag"><input placeholder="CR{…} flag…" />
       <button class="act" type="submit">Submit</button></form>`);
     f.onsubmit = (e) => { e.preventDefault(); submitFlag(cid, ch.id, f.querySelector("input")); };
     row.appendChild(f);
@@ -1587,6 +1596,21 @@ function leaderboardPanel(board) {
   });
   panel.appendChild(t);
   return panel;
+}
+
+async function runLab(cid, chalId, btn, out) {
+  btn.disabled = true; btn.textContent = "Running…";
+  try {
+    const res = await api("POST", `/competitions/${cid}/challenges/${chalId}/run`, {});
+    const lines = res.output || [];
+    out.textContent = (lines.join("\n") || "(no output)") +
+      (res.note ? `\n\n[${res.note}]` : "");
+    out.hidden = false;
+    out.classList.toggle("sim", !res.real);
+    toast(res.real ? "Executed on isolated target — read the token below"
+                   : "Simulated run — token shown below");
+  } catch (e) { toast(e.message, "err"); }
+  finally { btn.disabled = false; btn.textContent = "▶ Launch & run"; }
 }
 
 async function submitFlag(cid, chalId, input) {

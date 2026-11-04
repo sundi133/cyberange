@@ -142,5 +142,49 @@ class CompetitionTest(unittest.TestCase):
                           start_at=_iso(3600), end_at=_iso(60), published=True)
 
 
+class HandsOnLabTest(unittest.TestCase):
+    def setUp(self):
+        self.svc = CyberRangeService(Database(":memory:"))
+        self.c = self.svc.competitions
+        self.cid = self.c.seed_practice_arena()["id"]
+
+    def _handson_challenge(self):
+        comp = self.c.get(self.cid)
+        return next(c for c in comp["challenges"] if c.get("module_id"))
+
+    def test_handson_labs_exist_and_reference_signed_modules(self):
+        from cyberrange import catalog
+        comp = self.c.get(self.cid)
+        handson = [c for c in comp["challenges"] if c.get("module_id")]
+        self.assertGreaterEqual(len(handson), 10)
+        for c in handson:
+            mod = catalog.get_module(c["module_id"])
+            self.assertTrue(mod and mod.get("signed"))
+            self.assertEqual((mod.get("execution") or {}).get("adapter"), "docker")
+
+    def test_run_reveals_token_and_it_solves(self):
+        ch = self._handson_challenge()
+        # Submitting without running: the player doesn't know the token yet.
+        run = self.c.run_lab("red1", "red", self.cid, ch["id"])
+        self.assertIn("output", run)
+        # The proof token (CR{...}) is present in the run output.
+        token = next(ln for ln in run["output"] if ln.startswith("CR{"))
+        res = self.c.submit_flag("red1", "red", self.cid, ch["id"], token)
+        self.assertTrue(res["correct"])
+        self.assertEqual(res["points"], ch["points"])
+
+    def test_run_rejected_for_non_handson_challenge(self):
+        comp = self.c.get(self.cid)
+        knowledge = next(c for c in comp["challenges"] if not c.get("module_id"))
+        with self.assertRaises(ServiceError) as cm:
+            self.c.run_lab("red1", "red", self.cid, knowledge["id"])
+        self.assertEqual(cm.exception.status, 400)
+
+    def test_run_requires_participation(self):
+        ch = self._handson_challenge()
+        with self.assertRaises(rbac.AuthorizationError):
+            self.c.run_lab("obs", "security_leader", self.cid, ch["id"])
+
+
 if __name__ == "__main__":
     unittest.main()

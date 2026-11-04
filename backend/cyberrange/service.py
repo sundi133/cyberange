@@ -62,7 +62,8 @@ class CyberRangeService:
         # Competitions/CTF engine (leaderboards, scheduling). Imported locally to
         # avoid an import cycle (competitions imports ServiceError from here).
         from .competitions import Competitions
-        self.competitions = Competitions(self.db, self._audit)
+        self.competitions = Competitions(self.db, self._audit,
+                                         docker_ok=self._docker_ok)
         self._seed_admin()
 
     def _tier_network(self, range_id: str) -> str:
