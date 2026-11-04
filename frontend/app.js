@@ -1588,6 +1588,8 @@ function challengeRow(cid, ch, status, myTeam) {
         <strong>${esc(ch.title)}</strong>
         ${ch.technique_id ? `<span class="tag tech">${esc(ch.technique_id)}</span>` : ""}
         <span class="tag">${esc(ch.difficulty || "")}</span>
+        ${ch.first_blood_bonus ? `<span class="tag blood">🩸 +${ch.first_blood_bonus} first blood</span>`
+          : (ch.blooded ? '<span class="tag" style="opacity:.7">🩸 claimed</span>' : "")}
       </div>
       ${ch.prompt ? `<p class="muted" style="margin:4px 0 0;font-size:12.5px">${esc(ch.prompt)}</p>` : ""}
     </div>
@@ -1627,8 +1629,9 @@ function leaderboardPanel(board) {
     panel.appendChild(el('<p class="muted" style="font-size:13px">No teams yet.</p>'));
     return panel;
   }
+  const anyBlood = board.standings.some((s) => s.bloods);
   const t = el(`<div class="table-wrap"><table>
-    <thead><tr><th>#</th><th>Team</th><th>Solves</th><th style="text-align:right">Points</th></tr></thead>
+    <thead><tr><th>#</th><th>Team</th><th>Solves</th>${anyBlood ? "<th>🩸</th>" : ""}<th style="text-align:right">Points</th></tr></thead>
     <tbody></tbody></table></div>`);
   const tb = t.querySelector("tbody");
   board.standings.forEach((s) => {
@@ -1638,6 +1641,7 @@ function leaderboardPanel(board) {
       <td><strong>${esc(s.team)}</strong>${mine ? ' <span class="tag role">you</span>' : ""}
         <div class="faint" style="font-size:11px">${esc(s.members.join(", "))}</div></td>
       <td>${s.solves}</td>
+      ${anyBlood ? `<td>${s.bloods || ""}</td>` : ""}
       <td style="text-align:right;font-variant-numeric:tabular-nums"><strong>${s.points}</strong></td>
     </tr>`));
   });
@@ -1668,7 +1672,8 @@ async function submitFlag(cid, chalId, input) {
       { challenge_id: chalId, flag });
     if (res.correct && res.already_solved) toast("Already solved by your team.");
     else if (res.correct) {
-      toast(`Correct! +${res.points} pts${res.first_blood ? " · 🩸 first blood!" : ""}`);
+      const bonus = res.bonus ? ` (+${res.bonus} bonus)` : "";
+      toast(`Correct! +${res.points} pts${bonus}${res.first_blood ? " · 🩸 first blood!" : ""}`);
       openCompetition(cid);
     } else {
       toast("Incorrect flag.", "err");
@@ -1708,7 +1713,10 @@ function renderCompetitionForm() {
     <div class="row">
       <label class="lbl" style="flex:1">Opens<input id="nc-start" type="datetime-local" /></label>
       <label class="lbl" style="flex:1">Closes<input id="nc-end" type="datetime-local" /></label>
+      <label class="lbl" style="flex:1">First-blood bonus
+        <input id="nc-blood" type="number" min="0" max="100" value="10" /></label>
     </div>
+    <p class="phelp" style="margin:-4px 0 4px">First team to solve each challenge earns this % of its value as a locked bonus (0 to disable).</p>
     <label class="lbl" style="flex-direction:row;align-items:center;gap:8px">
       <input id="nc-pub" type="checkbox" checked style="width:auto" /> Publish now (visible to participants)
     </label>
@@ -1737,6 +1745,7 @@ function renderCompetitionForm() {
         description: document.getElementById("nc-desc").value.trim(),
         mode: document.getElementById("nc-mode").value,
         scoring: scoringSel.value,
+        first_blood_bonus_pct: parseInt(document.getElementById("nc-blood").value, 10) || 0,
         start_at: toIso("nc-start"), end_at: toIso("nc-end"),
         published: document.getElementById("nc-pub").checked,
       });

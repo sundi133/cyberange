@@ -317,7 +317,8 @@ def build_router(svc: CyberRangeService) -> Router:
             ctx["user"], ctx["role"], name=b.get("name", ""),
             description=b.get("description", ""), mode=b.get("mode", "ctf"),
             scoring=b.get("scoring", "static"), start_at=b.get("start_at"),
-            end_at=b.get("end_at"), published=bool(b.get("published", False)))
+            end_at=b.get("end_at"), published=bool(b.get("published", False)),
+            first_blood_bonus_pct=b.get("first_blood_bonus_pct", 0))
     r.add("POST", "/api/competitions", create_competition)
 
     def update_competition(ctx):

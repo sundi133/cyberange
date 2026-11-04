@@ -199,6 +199,32 @@ class DynamicScoringTest(unittest.TestCase):
         self.assertEqual(board["red1"], board["blue1"])
         self.assertEqual(board["red1"], dynamic_value(500, 250, 20, 2))
 
+    def test_first_blood_bonus_locked_on_top_of_live_value(self):
+        comp = self.c.create("admin", "admin", name="Blood", mode="ctf",
+                             scoring="dynamic", first_blood_bonus_pct=10,
+                             start_at=_iso(-60), end_at=_iso(3600), published=True)
+        ch = self.c.add_challenge("admin", "admin", comp["id"], title="q",
+                                  flag="CR{b}", points=500)
+        self.c.join("red1", "red", comp["id"], "A")
+        self.c.join("blue1", "blue", comp["id"], "B")
+        r1 = self.c.submit_flag("red1", "red", comp["id"], ch["id"], "CR{b}")
+        self.assertTrue(r1["first_blood"])
+        self.assertEqual(r1["bonus"], round(r1["points"] * 0.10))  # 10% of value
+        r2 = self.c.submit_flag("blue1", "blue", comp["id"], ch["id"], "CR{b}")
+        self.assertFalse(r2["first_blood"])
+        self.assertEqual(r2["bonus"], 0)
+        board = {b["team"]: b for b in self.c.leaderboard(comp["id"])["standings"]}
+        # Both hold the same live value; A also keeps the locked blood bonus.
+        self.assertEqual(board["A"]["points"], board["B"]["points"] + r1["bonus"])
+        self.assertEqual(board["A"]["bloods"], 1)
+        self.assertEqual(board["B"]["bloods"], 0)
+
+    def test_no_bonus_when_disabled(self):
+        # Default competitions (0%) award no blood bonus.
+        r = self.c.submit_flag("red1", "red", self.comp["id"], self.ch["id"], "CR{x}")
+        self.assertTrue(r["first_blood"])
+        self.assertEqual(r["bonus"], 0)
+
     def test_static_competition_does_not_decay(self):
         comp = self.c.create("admin", "admin", name="Stat", mode="ctf",
                              scoring="static", start_at=_iso(-60),

@@ -84,6 +84,11 @@ class Competitions:
         # Stable fallback for rows created before secrets were stored.
         return hashlib.sha256(("lab:" + row["id"]).encode()).hexdigest()[:32]
 
+    @staticmethod
+    def _bonus_pct(row: dict) -> int:
+        meta = row.get("meta") or {}
+        return int(meta.get("first_blood_bonus_pct", 0)) if isinstance(meta, dict) else 0
+
     # ----------------------------------------------------------- status ----
     @staticmethod
     def _status(row: dict) -> str:
@@ -126,18 +131,20 @@ class Competitions:
             "WHERE competition_id=?", (cid,))}
         total = 0
         for r in self.db.query(
-                "SELECT challenge_id FROM competition_solves "
+                "SELECT challenge_id, bonus FROM competition_solves "
                 "WHERE competition_id=? AND team_id=?", (cid, team_id)):
             c = chals.get(r["challenge_id"])
             if c:
                 total += self._value(c, scoring, counts.get(r["challenge_id"], 0))
+            # First-blood bonus is locked at solve time, on top of the live value.
+            total += int(r["bonus"] or 0)
         return total
 
     # ----------------------------------------------------------- authoring -
     def create(self, actor: str, role: str, *, name: str, description: str = "",
                mode: str = "ctf", scoring: str = "static",
                start_at: str | None = None, end_at: str | None = None,
-               published: bool = False) -> dict:
+               published: bool = False, first_blood_bonus_pct: int = 0) -> dict:
         rbac.require(role, "competition:manage")
         if not name or not name.strip():
             raise ServiceError("Competition name is required", 400)
@@ -147,8 +154,13 @@ class Competitions:
             raise ServiceError("scoring must be 'static' or 'dynamic'", 400)
         if start_at and end_at and end_at <= start_at:
             raise ServiceError("end_at must be after start_at", 400)
+        try:
+            fb_pct = max(0, min(100, int(first_blood_bonus_pct)))
+        except (TypeError, ValueError):
+            raise ServiceError("first_blood_bonus_pct must be 0-100", 400)
         cid = "CR-COMP-" + uuid.uuid4().hex[:10]
-        meta = json.dumps({"lab_secret": secrets.token_hex(16)})
+        meta = json.dumps({"lab_secret": secrets.token_hex(16),
+                           "first_blood_bonus_pct": fb_pct})
         self.db.execute(
             "INSERT INTO competitions (id, name, description, mode, scoring, "
             "start_at, end_at, published, created_by, created_at, meta) "
@@ -295,14 +307,21 @@ class Competitions:
                 solved_ids = {r["challenge_id"] for r in self.db.query(
                     "SELECT challenge_id FROM competition_solves "
                     "WHERE competition_id=? AND team_id=?", (cid, my_team["id"]))}
+        pct = self._bonus_pct(row)
         public = []
         for c in chal_rows:
             n = counts.get(c["id"], 0)
-            public.append(self._challenge_public(
-                c, solved_ids, value=self._value(c, scoring, n), solves=n))
+            value = self._value(c, scoring, n)
+            entry = self._challenge_public(c, solved_ids, value=value, solves=n)
+            if pct > 0:
+                entry["blooded"] = n > 0            # first blood already claimed?
+                if n == 0:
+                    entry["first_blood_bonus"] = round(value * pct / 100)
+            public.append(entry)
         return {
             "id": cid, "name": row["name"], "description": row["description"],
             "mode": row["mode"], "scoring": scoring,
+            "first_blood_bonus_pct": pct,
             "start_at": row["start_at"], "end_at": row["end_at"],
             "status": self._status(row), "published": bool(row["published"]),
             "total_points": sum(p["points"] for p in public),
@@ -386,18 +405,23 @@ class Competitions:
         scoring = row["scoring"]
         # Current worth after counting this solve (decays with each solve).
         points = self._value(chal, scoring, prior + 1)
+        # First blood earns an extra bonus, locked now on top of the live value.
+        pct = self._bonus_pct(row)
+        bonus = round(points * pct / 100) if (first_blood and pct > 0) else 0
         self.db.execute(
             "INSERT INTO competition_solves (competition_id, challenge_id, team_id, "
-            "username, points_awarded, first_blood, solved_at) VALUES (?,?,?,?,?,?,?)",
-            (cid, challenge_id, team["id"], actor, points, 1 if first_blood else 0,
-             _iso()))
+            "username, points_awarded, bonus, first_blood, solved_at) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (cid, challenge_id, team["id"], actor, points, bonus,
+             1 if first_blood else 0, _iso()))
         self._audit(actor, role, "competition:solve", challenge_id,
-                    f"{cid} {points}pt{' first-blood' if first_blood else ''}")
+                    f"{cid} {points}pt{f'+{bonus} blood' if bonus else ''}"
+                    f"{' first-blood' if first_blood else ''}")
         team_total = self._team_points(cid, team["id"], scoring)
-        return {"correct": True, "points": points, "first_blood": first_blood,
-                "team": team["name"], "team_total": team_total,
-                "dynamic": scoring == "dynamic", "solves": prior + 1,
-                "challenge_id": challenge_id}
+        return {"correct": True, "points": points, "bonus": bonus,
+                "first_blood": first_blood, "team": team["name"],
+                "team_total": team_total, "dynamic": scoring == "dynamic",
+                "solves": prior + 1, "challenge_id": challenge_id}
 
     # ----------------------------------------------------- practice arena --
     PRACTICE_NAME = "CyberRange Practice Arena"
@@ -504,15 +528,16 @@ class Competitions:
             # dynamic board re-prices every team as challenges decay.
             points = self._team_points(cid, team["id"], scoring, counts)
             agg = self.db.query_one(
-                "SELECT COUNT(*) AS solves, MAX(solved_at) AS last "
-                "FROM competition_solves WHERE competition_id=? AND team_id=?",
-                (cid, team["id"]))
+                "SELECT COUNT(*) AS solves, COALESCE(SUM(first_blood),0) AS bloods, "
+                "MAX(solved_at) AS last FROM competition_solves "
+                "WHERE competition_id=? AND team_id=?", (cid, team["id"]))
             members = [r["username"] for r in self.db.query(
                 "SELECT username FROM competition_team_members "
                 "WHERE competition_id=? AND team_id=?", (cid, team["id"]))]
             board.append({
                 "team": team["name"], "team_id": team["id"],
                 "points": int(points), "solves": int(agg["solves"] or 0),
+                "bloods": int(agg["bloods"] or 0),
                 "last_solve": agg["last"], "members": members,
             })
         # Rank by points desc, then earliest last-solve (faster to the score).

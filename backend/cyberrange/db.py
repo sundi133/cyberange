@@ -219,6 +219,7 @@ CREATE TABLE IF NOT EXISTS competition_solves (
     team_id TEXT NOT NULL,
     username TEXT,
     points_awarded INTEGER NOT NULL,
+    bonus INTEGER NOT NULL DEFAULT 0,
     first_blood INTEGER NOT NULL DEFAULT 0,
     solved_at TEXT NOT NULL,
     UNIQUE (competition_id, challenge_id, team_id)
@@ -247,6 +248,9 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "competition_challenges": {
         "min_points": "INTEGER",
         "decay": "INTEGER",
+    },
+    "competition_solves": {
+        "bonus": "INTEGER",
     },
 }
 
