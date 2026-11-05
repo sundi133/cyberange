@@ -306,6 +306,57 @@ def build_router(svc: CyberRangeService) -> Router:
             full_log=b.get("full_log"))
     r.add("POST", "/api/siem/alert", siem_alert)
 
+    # ---- competitions / CTF / leaderboards ----
+    r.add("GET", "/api/competitions", lambda ctx: svc.competitions.list(ctx["role"]))
+    r.add("GET", "/api/competitions/{cid}",
+          lambda ctx: svc.competitions.get(ctx["params"]["cid"], ctx["user"], ctx["role"]))
+
+    def create_competition(ctx):
+        b = ctx["body"]
+        return svc.competitions.create(
+            ctx["user"], ctx["role"], name=b.get("name", ""),
+            description=b.get("description", ""), mode=b.get("mode", "ctf"),
+            scoring=b.get("scoring", "static"), start_at=b.get("start_at"),
+            end_at=b.get("end_at"), published=bool(b.get("published", False)),
+            first_blood_bonus_pct=b.get("first_blood_bonus_pct", 0))
+    r.add("POST", "/api/competitions", create_competition)
+
+    def update_competition(ctx):
+        return svc.competitions.update(ctx["user"], ctx["role"],
+                                       ctx["params"]["cid"], **ctx["body"])
+    r.add("POST", "/api/competitions/{cid}", update_competition)
+
+    def add_challenge(ctx):
+        b = ctx["body"]
+        return svc.competitions.add_challenge(
+            ctx["user"], ctx["role"], ctx["params"]["cid"], title=b.get("title", ""),
+            flag=b.get("flag", ""), category=b.get("category", "misc"),
+            technique_id=b.get("technique_id", ""), difficulty=b.get("difficulty", "medium"),
+            points=b.get("points", 100), prompt=b.get("prompt", ""),
+            hint=b.get("hint", ""), module_id=b.get("module_id", ""),
+            min_points=b.get("min_points"), decay=b.get("decay"))
+    r.add("POST", "/api/competitions/{cid}/challenges", add_challenge)
+
+    def join_competition(ctx):
+        return svc.competitions.join(ctx["user"], ctx["role"],
+                                     ctx["params"]["cid"], ctx["body"].get("team", ""))
+    r.add("POST", "/api/competitions/{cid}/teams", join_competition)
+
+    def submit_flag(ctx):
+        b = ctx["body"]
+        return svc.competitions.submit_flag(
+            ctx["user"], ctx["role"], ctx["params"]["cid"],
+            b.get("challenge_id", ""), b.get("flag", ""))
+    r.add("POST", "/api/competitions/{cid}/submit", submit_flag)
+
+    def run_lab(ctx):
+        return svc.competitions.run_lab(ctx["user"], ctx["role"],
+                                        ctx["params"]["cid"], ctx["params"]["chid"])
+    r.add("POST", "/api/competitions/{cid}/challenges/{chid}/run", run_lab)
+
+    r.add("GET", "/api/competitions/{cid}/leaderboard",
+          lambda ctx: svc.competitions.leaderboard(ctx["params"]["cid"], ctx["role"]))
+
     # ---- admin ----
     r.add("GET", "/api/audit",
           lambda ctx: svc.audit_log(ctx["role"], int(_first(ctx["query"], "limit") or 200)))
@@ -333,6 +384,29 @@ class _Handler(BaseHTTPRequestHandler):
 
     def log_message(self, fmt, *args):  # quieter default logging
         pass
+
+    # Security response headers applied to every response (API, files, static,
+    # and errors). TLS/HSTS is terminated and set at the reverse proxy, so it is
+    # intentionally not emitted here. CSP allows inline styles because the SPA
+    # writes a few inline style attributes; no inline <script> is used.
+    _SECURITY_HEADERS = {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "no-referrer",
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Permissions-Policy": "geolocation=(), camera=(), microphone=()",
+        "Content-Security-Policy": (
+            "default-src 'self'; script-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+            "font-src 'self'; connect-src 'self'; object-src 'none'; "
+            "base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        ),
+    }
+
+    def end_headers(self):
+        for name, value in self._SECURITY_HEADERS.items():
+            self.send_header(name, value)
+        super().end_headers()
 
     def _send_json(self, obj, status=200):
         body = json.dumps(obj, default=str).encode("utf-8")

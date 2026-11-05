@@ -161,6 +161,69 @@ CREATE TABLE IF NOT EXISTS progress (
     updated_at TEXT NOT NULL,
     UNIQUE (username, assignment_id, scenario_id)
 );
+
+CREATE TABLE IF NOT EXISTS competitions (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    mode TEXT NOT NULL,
+    scoring TEXT NOT NULL,
+    start_at TEXT,
+    end_at TEXT,
+    published INTEGER NOT NULL DEFAULT 0,
+    created_by TEXT,
+    created_at TEXT NOT NULL,
+    meta TEXT
+);
+
+CREATE TABLE IF NOT EXISTS competition_challenges (
+    id TEXT PRIMARY KEY,
+    competition_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    category TEXT,
+    technique_id TEXT,
+    difficulty TEXT,
+    points INTEGER NOT NULL DEFAULT 100,
+    min_points INTEGER,
+    decay INTEGER,
+    prompt TEXT,
+    hint TEXT,
+    module_id TEXT,
+    flag_hash TEXT NOT NULL,
+    flag_salt TEXT NOT NULL,
+    ordinal INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS competition_teams (
+    id TEXT PRIMARY KEY,
+    competition_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    created_by TEXT,
+    created_at TEXT NOT NULL,
+    UNIQUE (competition_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS competition_team_members (
+    competition_id TEXT NOT NULL,
+    team_id TEXT NOT NULL,
+    username TEXT NOT NULL,
+    joined_at TEXT NOT NULL,
+    PRIMARY KEY (competition_id, username)
+);
+
+CREATE TABLE IF NOT EXISTS competition_solves (
+    id {AUTOPK},
+    competition_id TEXT NOT NULL,
+    challenge_id TEXT NOT NULL,
+    team_id TEXT NOT NULL,
+    username TEXT,
+    points_awarded INTEGER NOT NULL,
+    bonus INTEGER NOT NULL DEFAULT 0,
+    first_blood INTEGER NOT NULL DEFAULT 0,
+    solved_at TEXT NOT NULL,
+    UNIQUE (competition_id, challenge_id, team_id)
+);
 """
 
 _JSON_COLUMNS = ("meta", "payload", "score", "steps_done")
@@ -181,6 +244,13 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "basis": "TEXT",
         "severity": "TEXT",
         "detail": "TEXT",
+    },
+    "competition_challenges": {
+        "min_points": "INTEGER",
+        "decay": "INTEGER",
+    },
+    "competition_solves": {
+        "bonus": "INTEGER",
     },
 }
 

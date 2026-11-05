@@ -17,6 +17,43 @@ def _cmd_serve(args):
     run(host=args.host, port=args.port, db_path=args.db)
 
 
+def _cmd_import_atomics(args):
+    """Import an Atomic Red Team checkout into the staged (unsigned) catalog."""
+    import pathlib
+    from . import ingest
+    try:
+        mods = ingest.import_atomic_dir(args.src, limit=args.limit)
+    except ModuleNotFoundError:
+        print("PyYAML is required: python3 -m venv .venv && . .venv/bin/activate "
+              "&& pip install pyyaml", file=sys.stderr)
+        return
+    staged = pathlib.Path(args.out) if args.out else (
+        pathlib.Path(__file__).parent / "seed" / "modules.staged.json")
+    existing = []
+    if staged.exists():
+        existing = json.loads(staged.read_text() or "[]")
+    have = {m["id"] for m in existing}
+    added = [m for m in mods if m["id"] not in have]
+    staged.write_text(json.dumps(existing + added, indent=2))
+    print(f"Imported {len(added)} new modules (of {len(mods)} converted) "
+          f"into {staged}")
+    print(json.dumps(ingest.import_summary(existing + added), indent=2))
+    print("All imported modules are UNSIGNED and cannot run until reviewed and "
+          "signed (scripts/sign_modules.py). Signed Linux-shell modules then "
+          "become hands-on labs automatically (make seed-labs).")
+
+
+def _cmd_seed_labs(args):
+    """Populate the standing Practice Arena competition with generated labs."""
+    from .db import connect
+    from . import labs
+    svc = CyberRangeService(connect(args.db))
+    res = svc.competitions.seed_practice_arena()
+    state = "created" if res["created"] else "already populated"
+    print(f"Practice Arena {res['id']}: {res['challenges']} labs ({state}).")
+    print(json.dumps(labs.lab_summary(), indent=2))
+
+
 def _cmd_catalog(args):
     print(json.dumps({
         "scenarios": [s["id"] for s in catalog.scenarios()],
@@ -77,6 +114,18 @@ def main(argv=None):
 
     p_cat = sub.add_parser("catalog", help="print catalog summary")
     p_cat.set_defaults(func=_cmd_catalog)
+
+    p_labs = sub.add_parser("seed-labs",
+                            help="populate the Practice Arena with generated labs")
+    p_labs.add_argument("--db", default=None, help="SQLite path (default: backend/data/cyberrange.db)")
+    p_labs.set_defaults(func=_cmd_seed_labs)
+
+    p_imp = sub.add_parser("import-atomics",
+                           help="import an Atomic Red Team checkout (unsigned, for review)")
+    p_imp.add_argument("--src", required=True, help="path to atomic-red-team/atomics")
+    p_imp.add_argument("--limit", type=int, default=1000)
+    p_imp.add_argument("--out", default=None, help="staging file (default: seed/modules.staged.json)")
+    p_imp.set_defaults(func=_cmd_import_atomics)
 
     p_demo = sub.add_parser("demo", help="run an end-to-end exercise in memory")
     p_demo.set_defaults(func=_cmd_demo)

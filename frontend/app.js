@@ -1,6 +1,6 @@
 "use strict";
 
-const state = { view: "catalog", exercise: null, range: null };
+const state = { view: "catalog", exercise: null, range: null, competition: null };
 const session = { token: null, username: null, role: null, display: null, permissions: [] };
 
 const TOKEN_KEY = "cr_token";
@@ -1437,16 +1437,396 @@ async function loadGradebook(cid) {
 }
 
 // ---------------- Router ----------------
+// ---------------- Compete (CTF / competitions / leaderboards) ----------------
+const COMPETE_STATUS = {
+  draft: "Draft", scheduled: "Scheduled", live: "Live", ended: "Ended",
+};
+
+const CATEGORY_LABELS = {
+  "hands-on": "Hands-on", detection: "Detection (SOC)", forensics: "Forensics",
+  adversary: "Adversary emulation", "threat-intel": "Threat intel",
+  recon: "Recon", "initial-access": "Initial access", execution: "Execution",
+  privesc: "Privilege esc.", "cred-access": "Credential access",
+  lateral: "Lateral movement", exfil: "Exfiltration", misc: "Misc",
+};
+const catLabel = (c) => CATEGORY_LABELS[c] || c;
+
+function competeSummary(comps) {
+  let labs = 0, handsOn = 0;
+  const cats = {};
+  comps.forEach((c) => {
+    labs += c.challenges || 0;
+    handsOn += c.hands_on || 0;
+    Object.entries(c.categories || {}).forEach(([k, n]) => { cats[k] = (cats[k] || 0) + n; });
+  });
+  return { labs, handsOn, cats, comps: comps.length };
+}
+
+async function viewCompete() {
+  const comps = await api("GET", "/competitions");
+  const canManage = can("competition:manage");
+  const head = el(`<div class="toolbar">
+    ${canManage ? '<button class="act" id="comp-new">+ New competition</button>' : ""}
+    <button class="ghost" id="comp-refresh">Refresh</button>
+  </div>`);
+  $main().appendChild(head);
+  document.getElementById("comp-refresh").onclick = () => switchView("compete");
+  if (canManage) document.getElementById("comp-new").onclick = () => renderCompetitionForm();
+
+  if (!comps.length) {
+    $main().appendChild(el(emptyState("🏁", "No competitions yet",
+      canManage ? "Create one to run a CTF or team event with a live leaderboard."
+                : "Check back when your instructor schedules a competition.")));
+    return;
+  }
+
+  // ----- library summary across all competitions -----
+  const s = competeSummary(comps);
+  if (s.labs) {
+    const chips = Object.entries(s.cats)
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, n]) => `<span class="cat-chip"><span class="cat-dot cat-${k}"></span>${esc(catLabel(k))}<span class="cat-n">${n}</span></span>`)
+      .join("");
+    $main().appendChild(el(`<div class="lab-summary">
+      <div class="lab-stats">
+        <div class="stat"><span class="stat-n">${s.labs}</span><span class="stat-l">labs</span></div>
+        <div class="stat"><span class="stat-n">${s.handsOn}</span><span class="stat-l">hands-on</span></div>
+        <div class="stat"><span class="stat-n">${s.comps}</span><span class="stat-l">competition${s.comps === 1 ? "" : "s"}</span></div>
+      </div>
+      <div class="cat-chips">${chips}</div>
+    </div>`));
+  }
+
+  const grid = el('<div class="grid"></div>');
+  comps.forEach((c) => {
+    const catLine = Object.entries(c.categories || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, n]) => `<span class="cat-chip sm"><span class="cat-dot cat-${k}"></span>${esc(catLabel(k))}<span class="cat-n">${n}</span></span>`)
+      .join("");
+    const card = el(`<div class="card comp-card">
+      <div class="row" style="justify-content:space-between">
+        <span class="badge comp-${c.status}">${COMPETE_STATUS[c.status] || c.status}</span>
+        <span class="tag mode">${esc(c.mode)}</span>
+      </div>
+      <h4 style="margin-top:8px">${esc(c.name)}</h4>
+      <p>${esc(c.description || "")}</p>
+      <div class="kv" style="margin-top:8px">
+        <span>Challenges</span><span>${c.challenges}${c.hands_on ? ` <span class="faint">(${c.hands_on} hands-on)</span>` : ""}</span>
+        <span>Teams</span><span>${c.teams}</span>
+        ${c.start_at ? `<span>Opens</span><span>${fmtWhen(c.start_at)}</span>` : ""}
+        ${c.end_at ? `<span>Closes</span><span>${fmtWhen(c.end_at)}</span>` : ""}
+      </div>
+      ${catLine ? `<div class="cat-chips" style="margin-top:10px">${catLine}</div>` : ""}
+    </div>`);
+    card.onclick = () => openCompetition(c.id);
+    grid.appendChild(card);
+  });
+  $main().appendChild(grid);
+}
+
+function fmtWhen(iso) {
+  try { return new Date(iso).toLocaleString(); } catch { return esc(iso); }
+}
+
+async function openCompetition(cid) {
+  state.competition = cid;
+  $main().innerHTML = "";
+  const [c, board] = await Promise.all([
+    api("GET", `/competitions/${cid}`),
+    api("GET", `/competitions/${cid}/leaderboard`),
+  ]);
+  const canManage = can("competition:manage");
+  const canPlay = can("competition:participate");
+
+  const bar = el(`<div class="toolbar">
+    <button class="ghost" id="comp-back">← All competitions</button>
+    <span class="badge comp-${c.status}">${COMPETE_STATUS[c.status] || c.status}</span>
+    <strong style="font-size:17px">${esc(c.name)}</strong>
+    <span class="muted" style="font-size:13px">${c.challenges.length} challenges · ${c.total_points} pts</span>
+    ${c.scoring === "dynamic" ? '<span class="tag" title="Points decay as more teams solve; all solvers share the current value">⚡ dynamic scoring</span>' : ""}
+    ${c.my_team ? `<span class="tag role">Team: ${esc(c.my_team.name)}</span>`
+      : (canPlay ? '<button class="act" id="comp-join">Join a team</button>' : "")}
+    ${canManage ? '<button class="ghost" id="comp-addc">+ Challenge</button>' : ""}
+  </div>`);
+  $main().appendChild(bar);
+  document.getElementById("comp-back").onclick = () => switchView("compete");
+  const joinBtn = document.getElementById("comp-join");
+  if (joinBtn) joinBtn.onclick = () => joinTeam(cid);
+  const addcBtn = document.getElementById("comp-addc");
+  if (addcBtn) addcBtn.onclick = () => renderChallengeForm(cid, c.scoring);
+
+  const split = el('<div class="split"></div>');
+  // ----- challenges column -----
+  const left = el('<div></div>');
+  if (!c.challenges.length) {
+    left.appendChild(el(emptyState("🎯", "No challenges yet",
+      canManage ? "Add one with + Challenge." : "Nothing here yet.")));
+  } else {
+    const byCat = {};
+    c.challenges.forEach((ch) => { (byCat[ch.category || "misc"] ??= []).push(ch); });
+    Object.entries(byCat).forEach(([cat, items]) => {
+      const panel = el(`<div class="panel"><div class="phead">${esc(cat)}</div></div>`);
+      items.forEach((ch) => panel.appendChild(challengeRow(cid, ch, c.status, c.my_team)));
+      left.appendChild(panel);
+    });
+  }
+  split.appendChild(left);
+
+  // ----- leaderboard column -----
+  const right = el('<div></div>');
+  right.appendChild(leaderboardPanel(board));
+  split.appendChild(right);
+  $main().appendChild(split);
+}
+
+function challengeRow(cid, ch, status, myTeam) {
+  const solved = ch.solved;
+  const dyn = ch.decay && ch.decay > 0;
+  const row = el(`<div class="chal ${solved ? "solved" : ""}">
+    <div class="chal-main">
+      <div class="row" style="gap:8px">
+        <strong>${esc(ch.title)}</strong>
+        ${ch.technique_id ? `<span class="tag tech">${esc(ch.technique_id)}</span>` : ""}
+        <span class="tag">${esc(ch.difficulty || "")}</span>
+        ${ch.first_blood_bonus ? `<span class="tag blood">🩸 +${ch.first_blood_bonus} first blood</span>`
+          : (ch.blooded ? '<span class="tag" style="opacity:.7">🩸 claimed</span>' : "")}
+      </div>
+      ${ch.prompt ? `<p class="muted" style="margin:4px 0 0;font-size:12.5px">${esc(ch.prompt)}</p>` : ""}
+    </div>
+    <div class="chal-pts">${ch.points}<span>pts</span>${
+      dyn ? `<div class="chal-decay" title="decays from ${ch.max_points} toward ${ch.min_points}">↓ ${ch.max_points}→${ch.min_points} · ${ch.solves || 0} solve${ch.solves === 1 ? "" : "s"}</div>` : ""
+    }</div>
+  </div>`);
+  const canPlay = can("competition:participate");
+  if (solved) {
+    row.appendChild(el('<div class="chal-flag solved-tag">✓ Solved</div>'));
+  } else if (status === "live" && canPlay) {
+    if (ch.module_id) {
+      const runbar = el(`<div class="chal-flag">
+        <button class="ghost" type="button">▶ Launch &amp; run</button>
+        <span class="tag tech">${esc(ch.module_id)}</span></div>`);
+      const out = el('<pre class="lab-out" hidden></pre>');
+      runbar.querySelector("button").onclick = () => runLab(cid, ch.id, runbar.querySelector("button"), out);
+      row.appendChild(runbar);
+      row.appendChild(out);
+    }
+    const f = el(`<form class="chal-flag"><input placeholder="CR{…} flag…" />
+      <button class="act" type="submit">Submit</button></form>`);
+    f.onsubmit = (e) => { e.preventDefault(); submitFlag(cid, ch.id, f.querySelector("input")); };
+    row.appendChild(f);
+  } else if (status !== "live") {
+    row.appendChild(el(`<div class="chal-flag muted" style="font-size:12px">${status}</div>`));
+  }
+  return row;
+}
+
+function leaderboardPanel(board) {
+  const panel = el(`<div class="panel">
+    <div class="phead">Leaderboard</div>
+    <div class="phelp">Ranked by points, then earliest to the score.</div>
+  </div>`);
+  if (!board.standings.length) {
+    panel.appendChild(el('<p class="muted" style="font-size:13px">No teams yet.</p>'));
+    return panel;
+  }
+  const anyBlood = board.standings.some((s) => s.bloods);
+  const t = el(`<div class="table-wrap"><table>
+    <thead><tr><th>#</th><th>Team</th><th>Solves</th>${anyBlood ? "<th>🩸</th>" : ""}<th style="text-align:right">Points</th></tr></thead>
+    <tbody></tbody></table></div>`);
+  const tb = t.querySelector("tbody");
+  board.standings.forEach((s) => {
+    const mine = session.username && s.members.includes(session.username);
+    tb.appendChild(el(`<tr class="${mine ? "me-row" : ""}">
+      <td>${s.rank <= 3 ? ["🥇", "🥈", "🥉"][s.rank - 1] : s.rank}</td>
+      <td><strong>${esc(s.team)}</strong>${mine ? ' <span class="tag role">you</span>' : ""}
+        <div class="faint" style="font-size:11px">${esc(s.members.join(", "))}</div></td>
+      <td>${s.solves}</td>
+      ${anyBlood ? `<td>${s.bloods || ""}</td>` : ""}
+      <td style="text-align:right;font-variant-numeric:tabular-nums"><strong>${s.points}</strong></td>
+    </tr>`));
+  });
+  panel.appendChild(t);
+  return panel;
+}
+
+async function runLab(cid, chalId, btn, out) {
+  btn.disabled = true; btn.textContent = "Running…";
+  try {
+    const res = await api("POST", `/competitions/${cid}/challenges/${chalId}/run`, {});
+    const lines = res.output || [];
+    out.textContent = (lines.join("\n") || "(no output)") +
+      (res.note ? `\n\n[${res.note}]` : "");
+    out.hidden = false;
+    out.classList.toggle("sim", !res.real);
+    toast(res.real ? "Executed on isolated target — read the token below"
+                   : "Simulated run — token shown below");
+  } catch (e) { toast(e.message, "err"); }
+  finally { btn.disabled = false; btn.textContent = "▶ Launch & run"; }
+}
+
+async function submitFlag(cid, chalId, input) {
+  const flag = input.value.trim();
+  if (!flag) return;
+  try {
+    const res = await api("POST", `/competitions/${cid}/submit`,
+      { challenge_id: chalId, flag });
+    if (res.correct && res.already_solved) toast("Already solved by your team.");
+    else if (res.correct) {
+      const bonus = res.bonus ? ` (+${res.bonus} bonus)` : "";
+      toast(`Correct! +${res.points} pts${bonus}${res.first_blood ? " · 🩸 first blood!" : ""}`);
+      openCompetition(cid);
+    } else {
+      toast("Incorrect flag.", "err");
+      input.focus(); input.select();
+    }
+  } catch (e) { toast(e.message, "err"); }
+}
+
+async function joinTeam(cid) {
+  const name = prompt("Team name (new or existing):");
+  if (!name) return;
+  try {
+    await api("POST", `/competitions/${cid}/teams`, { team: name.trim() });
+    toast(`Joined team ${name.trim()}`);
+    openCompetition(cid);
+  } catch (e) { toast(e.message, "err"); }
+}
+
+function renderCompetitionForm() {
+  $main().innerHTML = "";
+  const f = el(`<form class="panel" style="max-width:560px">
+    <div class="phead">New competition</div>
+    <label class="lbl">Name<input id="nc-name" required placeholder="Fall Red/Blue CTF" /></label>
+    <label class="lbl">Description<textarea id="nc-desc" placeholder="One line about the event"></textarea></label>
+    <div class="row">
+      <label class="lbl" style="flex:1">Mode
+        <select id="nc-mode"><option value="ctf">CTF (flags)</option><option value="exercise">Exercise</option></select>
+      </label>
+      <label class="lbl" style="flex:1">Scoring
+        <select id="nc-scoring">
+          <option value="static">Static (fixed points)</option>
+          <option value="dynamic">Dynamic (decays with solves)</option>
+        </select>
+      </label>
+    </div>
+    <p class="phelp" id="nc-scoring-note" style="margin:-4px 0 4px">Static: every challenge is worth its fixed points.</p>
+    <div class="row">
+      <label class="lbl" style="flex:1">Opens<input id="nc-start" type="datetime-local" /></label>
+      <label class="lbl" style="flex:1">Closes<input id="nc-end" type="datetime-local" /></label>
+      <label class="lbl" style="flex:1">First-blood bonus
+        <input id="nc-blood" type="number" min="0" max="100" value="10" /></label>
+    </div>
+    <p class="phelp" style="margin:-4px 0 4px">First team to solve each challenge earns this % of its value as a locked bonus (0 to disable).</p>
+    <label class="lbl" style="flex-direction:row;align-items:center;gap:8px">
+      <input id="nc-pub" type="checkbox" checked style="width:auto" /> Publish now (visible to participants)
+    </label>
+    <div class="row" style="margin-top:8px">
+      <button class="act" type="submit">Create</button>
+      <button class="ghost" type="button" id="nc-cancel">Cancel</button>
+    </div>
+  </form>`);
+  $main().appendChild(f);
+  document.getElementById("nc-cancel").onclick = () => switchView("compete");
+  const scoringSel = document.getElementById("nc-scoring");
+  scoringSel.onchange = () => {
+    document.getElementById("nc-scoring-note").textContent = scoringSel.value === "dynamic"
+      ? "Dynamic: a challenge opens at full points and decays toward a floor (≈50%) as more teams solve it; all solvers share its current value — so rarer solves stay worth more."
+      : "Static: every challenge is worth its fixed points.";
+  };
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    const toIso = (id) => {
+      const v = document.getElementById(id).value;
+      return v ? new Date(v).toISOString() : null;
+    };
+    try {
+      const c = await api("POST", "/competitions", {
+        name: document.getElementById("nc-name").value.trim(),
+        description: document.getElementById("nc-desc").value.trim(),
+        mode: document.getElementById("nc-mode").value,
+        scoring: scoringSel.value,
+        first_blood_bonus_pct: parseInt(document.getElementById("nc-blood").value, 10) || 0,
+        start_at: toIso("nc-start"), end_at: toIso("nc-end"),
+        published: document.getElementById("nc-pub").checked,
+      });
+      toast("Competition created");
+      openCompetition(c.id);
+    } catch (err) { toast(err.message, "err"); }
+  };
+}
+
+async function renderChallengeForm(cid, scoring) {
+  const dynamic = scoring === "dynamic";
+  $main().innerHTML = "";
+  const f = el(`<form class="panel" style="max-width:560px">
+    <div class="phead">Add challenge</div>
+    <label class="lbl">Title<input id="ch-title" required placeholder="Pivot through the jump host" /></label>
+    <div class="row">
+      <label class="lbl" style="flex:1">Category
+        <select id="ch-cat">
+          <option>recon</option><option>initial-access</option><option>execution</option>
+          <option>privesc</option><option>cred-access</option><option>lateral</option>
+          <option>exfil</option><option>detection</option><option>forensics</option><option>misc</option>
+        </select></label>
+      <label class="lbl" style="flex:1">Difficulty
+        <select id="ch-diff"><option>easy</option><option selected>medium</option><option>hard</option></select></label>
+      <label class="lbl" style="flex:1">${dynamic ? "Starting points" : "Points"}<input id="ch-pts" type="number" value="100" min="1" /></label>
+    </div>
+    ${dynamic ? `<div class="row">
+      <label class="lbl" style="flex:1">Floor (min points)<input id="ch-min" type="number" min="0" placeholder="default 50%" /></label>
+      <label class="lbl" style="flex:1">Decay (solves to floor)<input id="ch-decay" type="number" min="1" placeholder="default 20" /></label>
+    </div>
+    <p class="phelp" style="margin:-4px 0 4px">Dynamic: value falls from starting points toward the floor, reaching it at about this many solves. Leave blank for the defaults (50% / 20).</p>` : ""}
+    <label class="lbl">Technique ID (optional)<input id="ch-tech" placeholder="T1021" /></label>
+    <label class="lbl">Prompt<textarea id="ch-prompt" placeholder="What the player must do and where the flag is"></textarea></label>
+    <label class="lbl">Flag<input id="ch-flag" required placeholder="CR{...}" /></label>
+    <label class="lbl">Hint (optional)<input id="ch-hint" /></label>
+    <div class="row" style="margin-top:8px">
+      <button class="act" type="submit">Add challenge</button>
+      <button class="ghost" type="button" id="ch-cancel">Done</button>
+    </div>
+  </form>`);
+  $main().appendChild(f);
+  document.getElementById("ch-cancel").onclick = () => openCompetition(cid);
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    const intOrNull = (id) => {
+      const elm = document.getElementById(id);
+      if (!elm || elm.value === "") return null;
+      const n = parseInt(elm.value, 10);
+      return Number.isNaN(n) ? null : n;
+    };
+    try {
+      await api("POST", `/competitions/${cid}/challenges`, {
+        title: document.getElementById("ch-title").value.trim(),
+        category: document.getElementById("ch-cat").value,
+        difficulty: document.getElementById("ch-diff").value,
+        points: parseInt(document.getElementById("ch-pts").value, 10) || 100,
+        min_points: intOrNull("ch-min"),
+        decay: intOrNull("ch-decay"),
+        technique_id: document.getElementById("ch-tech").value.trim(),
+        prompt: document.getElementById("ch-prompt").value.trim(),
+        flag: document.getElementById("ch-flag").value,
+        hint: document.getElementById("ch-hint").value.trim(),
+      });
+      toast("Challenge added");
+      f.reset();
+      document.getElementById("ch-pts").value = "100";
+    } catch (err) { toast(err.message, "err"); }
+  };
+}
+
 const VIEWS = {
   catalog: viewCatalog, ranges: viewRanges, exercise: viewExercise,
   reference: viewReference, audit: viewAudit, admin: viewAdmin,
-  classes: viewClasses,
+  classes: viewClasses, compete: viewCompete,
 };
 
 /* Kept short: the page title already names the section, so this line says what
    you do here, not what it is called. */
 const VIEW_HELP = {
   classes: "Create a class, enrol students, assign lessons, and track progress in the gradebook.",
+  compete: "Scheduled CTF and team competitions. Join a team, submit flags, and climb the live leaderboard.",
   catalog: "Browse what the lab can run. Launch a scenario to create an isolated range.",
   ranges: "Prepare a range through its lifecycle, then start the exercise. Every range is isolated, with no internet access.",
   exercise: "The live lab. Your panels follow your role: red launches attacks, blue hunts the logs they leave behind.",
@@ -1457,7 +1837,7 @@ const VIEW_HELP = {
 
 const VIEW_TITLES = {
   classes: "Classes", catalog: "Catalog", ranges: "Ranges", exercise: "Exercise",
-  reference: "Reference", audit: "Audit", admin: "Admin",
+  reference: "Reference", audit: "Audit", admin: "Admin", compete: "Compete",
 };
 
 function switchView(name) {
@@ -1546,6 +1926,7 @@ function applySession(s) {
   roleTag.textContent = session.role;
   document.getElementById("tab-admin").hidden = !can("admin:manage_users");
   document.getElementById("tab-classes").hidden = !can("cohort:manage");
+  document.getElementById("tab-compete").hidden = !can("competition:read");
   // The ledger names the modules red executed, so it must not be an exit from
   // the defender's redacted view. NOTE: GET /api/audit does not yet enforce
   // admin:audit server-side (see docs/TESTING.md) - hiding the tab is not the
