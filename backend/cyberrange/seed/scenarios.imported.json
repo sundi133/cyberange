@@ -1,0 +1,989 @@
+[
+  {
+    "id": "CR-DRILL-T1018",
+    "name": "Discovery \u2014 T1018 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 7 real variants of T1018 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1018"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1018-05",
+      "CR-ATOMIC-T1018-06",
+      "CR-ATOMIC-T1018-11",
+      "CR-ATOMIC-T1018-12",
+      "CR-ATOMIC-T1018-13",
+      "CR-ATOMIC-T1018-14",
+      "CR-ATOMIC-T1018-22"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1018 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1018 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1018 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1027",
+    "name": "T1027 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 7 real variants of T1027 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1027"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1027_001-01",
+      "CR-ATOMIC-T1027_002-00",
+      "CR-ATOMIC-T1027_002-01",
+      "CR-ATOMIC-T1027_004-02",
+      "CR-ATOMIC-T1027_004-03",
+      "CR-ATOMIC-T1027_004-04",
+      "CR-ATOMIC-T1027_013-02"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1027 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1027 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1027 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1036",
+    "name": "T1036 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 4 real variants of T1036 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1036"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1036_003-01",
+      "CR-ATOMIC-T1036_004-02",
+      "CR-ATOMIC-T1036_007-01",
+      "CR-ATOMIC-T1036_008-00"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1036 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1036 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1036 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1049",
+    "name": "T1049 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 3 real variants of T1049 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1049"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1049-03",
+      "CR-ATOMIC-T1049-04",
+      "CR-ATOMIC-T1049-05"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1049 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1049 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1049 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1055",
+    "name": "T1055 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 6 real variants of T1055 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1055"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1055_009-00",
+      "CR-ATOMIC-T1055_009-01",
+      "CR-ATOMIC-T1055_009-02",
+      "CR-ATOMIC-T1055_009-03",
+      "CR-ATOMIC-T1055_009-04",
+      "CR-ATOMIC-T1055_009-05"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1055 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1055 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1055 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1059",
+    "name": "Execution \u2014 T1059 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 8 real variants of T1059 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1059"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1059_004-00",
+      "CR-ATOMIC-T1059_004-02",
+      "CR-ATOMIC-T1059_004-03",
+      "CR-ATOMIC-T1059_004-04",
+      "CR-ATOMIC-T1059_004-05",
+      "CR-ATOMIC-T1059_004-06",
+      "CR-ATOMIC-T1059_004-07",
+      "CR-ATOMIC-T1059_004-08"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1059 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1059 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1059 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1070",
+    "name": "Defense Evasion \u2014 T1070 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 8 real variants of T1070 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1070"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1070_003-00",
+      "CR-ATOMIC-T1070_003-01",
+      "CR-ATOMIC-T1070_003-02",
+      "CR-ATOMIC-T1070_003-03",
+      "CR-ATOMIC-T1070_003-04",
+      "CR-ATOMIC-T1070_003-05",
+      "CR-ATOMIC-T1070_003-06",
+      "CR-ATOMIC-T1070_003-07"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1070 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1070 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1070 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1082",
+    "name": "T1082 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 6 real variants of T1082 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1082"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1082-02",
+      "CR-ATOMIC-T1082-05",
+      "CR-ATOMIC-T1082-07",
+      "CR-ATOMIC-T1082-11",
+      "CR-ATOMIC-T1082-24",
+      "CR-ATOMIC-T1082-25"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1082 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1082 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1082 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1083",
+    "name": "T1083 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 3 real variants of T1083 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1083"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1083-02",
+      "CR-ATOMIC-T1083-03",
+      "CR-ATOMIC-T1083-07"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1083 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1083 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1083 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1087",
+    "name": "Discovery \u2014 T1087 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 7 real variants of T1087 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1087"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1087_001-00",
+      "CR-ATOMIC-T1087_001-02",
+      "CR-ATOMIC-T1087_001-03",
+      "CR-ATOMIC-T1087_001-04",
+      "CR-ATOMIC-T1087_001-05",
+      "CR-ATOMIC-T1087_002-22",
+      "CR-ATOMIC-T1087_002-23"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1087 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1087 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1087 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1105",
+    "name": "Command & Control \u2014 T1105 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 6 real variants of T1105 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1105"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1105-01",
+      "CR-ATOMIC-T1105-02",
+      "CR-ATOMIC-T1105-03",
+      "CR-ATOMIC-T1105-04",
+      "CR-ATOMIC-T1105-05",
+      "CR-ATOMIC-T1105-13"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1105 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1105 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1105 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1113",
+    "name": "T1113 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 4 real variants of T1113 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1113"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1113-02",
+      "CR-ATOMIC-T1113-03",
+      "CR-ATOMIC-T1113-04",
+      "CR-ATOMIC-T1113-05"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1113 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1113 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1113 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1140",
+    "name": "Defense Evasion \u2014 T1140 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 8 real variants of T1140 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1140"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1140-02",
+      "CR-ATOMIC-T1140-03",
+      "CR-ATOMIC-T1140-04",
+      "CR-ATOMIC-T1140-05",
+      "CR-ATOMIC-T1140-06",
+      "CR-ATOMIC-T1140-07",
+      "CR-ATOMIC-T1140-08",
+      "CR-ATOMIC-T1140-09"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1140 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1140 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1140 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1201",
+    "name": "T1201 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 5 real variants of T1201 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1201"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1201-00",
+      "CR-ATOMIC-T1201-01",
+      "CR-ATOMIC-T1201-02",
+      "CR-ATOMIC-T1201-03",
+      "CR-ATOMIC-T1201-04"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1201 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1201 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1201 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1222",
+    "name": "T1222 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 7 real variants of T1222 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1222"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1222_002-00",
+      "CR-ATOMIC-T1222_002-01",
+      "CR-ATOMIC-T1222_002-02",
+      "CR-ATOMIC-T1222_002-03",
+      "CR-ATOMIC-T1222_002-06",
+      "CR-ATOMIC-T1222_002-09",
+      "CR-ATOMIC-T1222_002-11"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1222 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1222 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1222 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1486",
+    "name": "Impact \u2014 T1486 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 4 real variants of T1486 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1486"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1486-00",
+      "CR-ATOMIC-T1486-01",
+      "CR-ATOMIC-T1486-02",
+      "CR-ATOMIC-T1486-03"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1486 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1486 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1486 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1546",
+    "name": "T1546 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 7 real variants of T1546 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1546"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1546_004-02",
+      "CR-ATOMIC-T1546_004-04",
+      "CR-ATOMIC-T1546_005-01",
+      "CR-ATOMIC-T1546_005-03",
+      "CR-ATOMIC-T1546_005-04",
+      "CR-ATOMIC-T1546_018-02",
+      "CR-ATOMIC-T1546_018-04"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1546 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1546 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1546 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1552",
+    "name": "Credential Access \u2014 T1552 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 8 real variants of T1552 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1552"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1552-00",
+      "CR-ATOMIC-T1552_001-02",
+      "CR-ATOMIC-T1552_001-05",
+      "CR-ATOMIC-T1552_001-17",
+      "CR-ATOMIC-T1552_001-18",
+      "CR-ATOMIC-T1552_001-19",
+      "CR-ATOMIC-T1552_001-21",
+      "CR-ATOMIC-T1552_001-22"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1552 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1552 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1552 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1560",
+    "name": "Collection \u2014 T1560 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 8 real variants of T1560 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1560"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1560_001-05",
+      "CR-ATOMIC-T1560_001-06",
+      "CR-ATOMIC-T1560_001-07",
+      "CR-ATOMIC-T1560_001-08",
+      "CR-ATOMIC-T1560_002-00",
+      "CR-ATOMIC-T1560_002-01",
+      "CR-ATOMIC-T1560_002-02",
+      "CR-ATOMIC-T1560_002-03"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1560 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1560 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1560 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1572",
+    "name": "T1572 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 5 real variants of T1572 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1572"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1572-04",
+      "CR-ATOMIC-T1572-05",
+      "CR-ATOMIC-T1572-06",
+      "CR-ATOMIC-T1572-07",
+      "CR-ATOMIC-T1572-08"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1572 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1572 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1572 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1614",
+    "name": "T1614 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 4 real variants of T1614 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1614"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1614_001-02",
+      "CR-ATOMIC-T1614_001-03",
+      "CR-ATOMIC-T1614_001-04",
+      "CR-ATOMIC-T1614_001-05"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1614 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1614 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1614 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1685",
+    "name": "T1685 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 3 real variants of T1685 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1685"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1685_002-03",
+      "CR-ATOMIC-T1685_002-04",
+      "CR-ATOMIC-T1685_002-05"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1685 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1685 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1685 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  },
+  {
+    "id": "CR-DRILL-T1690",
+    "name": "T1690 drill (Linux)",
+    "version": "0.1.0",
+    "mode": "red-blue",
+    "difficulty": "intermediate",
+    "duration_min": [
+      60,
+      90
+    ],
+    "topology_id": "TOPO-DOCKER",
+    "team_objective": "Red runs 8 real variants of T1690 on an isolated container; blue reconstructs the activity from the telemetry.",
+    "technique_ids": [
+      "T1690"
+    ],
+    "module_ids": [
+      "CR-ATOMIC-T1690-00",
+      "CR-ATOMIC-T1690-01",
+      "CR-ATOMIC-T1690-03",
+      "CR-ATOMIC-T1690-04",
+      "CR-ATOMIC-T1690-05",
+      "CR-ATOMIC-T1690-06",
+      "CR-ATOMIC-T1690-07",
+      "CR-ATOMIC-T1690-08"
+    ],
+    "objectives": [
+      {
+        "role": "red",
+        "text": "Execute the T1690 techniques and prove access.",
+        "points": 40
+      },
+      {
+        "role": "blue",
+        "text": "Detect and scope the T1690 activity from the logs.",
+        "points": 60
+      }
+    ],
+    "injects": [],
+    "expected_evidence": [
+      "Process/output telemetry from each T1690 module",
+      "Automatic detections where a rule matches the real output"
+    ],
+    "safety_class": "S1",
+    "custom": true
+  }
+]

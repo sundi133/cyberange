@@ -43,6 +43,17 @@ def _cmd_import_atomics(args):
           "become hands-on labs automatically (make seed-labs).")
 
 
+def _cmd_gen_scenarios(args):
+    """Regenerate the committed ART drill scenarios (scenarios.imported.json)."""
+    import json as _json
+    from . import catalog, scenario_gen
+    scs = scenario_gen.generate_scenarios()
+    out = catalog.SEED_DIR / "scenarios.imported.json"
+    out.write_text(_json.dumps(scs, indent=2) + "\n")
+    print(f"Wrote {len(scs)} drill scenarios to {out}")
+    print(_json.dumps(scenario_gen.summary(), indent=2))
+
+
 def _cmd_seed_labs(args):
     """Populate the standing Practice Arena competition with generated labs."""
     from .db import connect
@@ -119,6 +130,10 @@ def main(argv=None):
                             help="populate the Practice Arena with generated labs")
     p_labs.add_argument("--db", default=None, help="SQLite path (default: backend/data/cyberrange.db)")
     p_labs.set_defaults(func=_cmd_seed_labs)
+
+    p_gen = sub.add_parser("gen-scenarios",
+                           help="regenerate committed ART drill scenarios")
+    p_gen.set_defaults(func=_cmd_gen_scenarios)
 
     p_imp = sub.add_parser("import-atomics",
                            help="import an Atomic Red Team checkout (unsigned, for review)")
