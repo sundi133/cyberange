@@ -112,7 +112,7 @@ def generate_labs() -> list[dict]:
             difficulty=_SEV_DIFFICULTY.get(sev, "medium"), technique_id=tid,
             prompt=(f"A {sev}-severity alert fired: \"{d.get('title','')}\". "
                     f"{d.get('description','')} Identify the ATT&CK technique and "
-                    f"submit its ID (e.g. T1059)."),
+                    f"submit its ID (format T####)."),
             hint="Think about what the attacker was doing, then map it to ATT&CK.")
 
     # ---- Family D: IOC hunt from detection match patterns ----

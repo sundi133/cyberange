@@ -82,6 +82,19 @@ class PracticeArenaSeedTest(unittest.TestCase):
         # flags are not exposed
         self.assertFalse(any("flag" in c for c in comp["challenges"]))
 
+    def test_answer_technique_is_hidden_for_knowledge_labs(self):
+        cid = self.svc.competitions.seed_practice_arena()["id"]
+        comp = self.svc.competitions.get(cid)
+        by_cat = {}
+        for c in comp["challenges"]:
+            by_cat.setdefault(c["category"], []).append(c)
+        # Detection/adversary: the technique IS the answer, so it must not leak.
+        for cat in ("detection", "adversary"):
+            self.assertTrue(by_cat.get(cat))
+            self.assertTrue(all(c["technique_id"] == "" for c in by_cat[cat]), cat)
+        # Hands-on: the answer is a run token, so the technique stays as context.
+        self.assertTrue(any(c.get("technique_id") for c in by_cat.get("hands-on", [])))
+
     def test_a_generated_lab_can_be_solved(self):
         cid = self.svc.competitions.seed_practice_arena()["id"]
         # Pick a known detection→technique lab and solve it with its real answer.
