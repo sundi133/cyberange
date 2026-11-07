@@ -45,7 +45,9 @@ class ImportedPackTest(unittest.TestCase):
 
     def test_pack_loads_signed_and_executable(self):
         from cyberrange import catalog
-        imported = [m for m in catalog.modules() if m.get("_import")]
+        # The committed, shipped pack only - not any locally staged import,
+        # which is unsigned by design until a reviewer signs it.
+        imported = catalog._imported_modules()
         self.assertGreaterEqual(len(imported), 50)
         for m in imported:
             self.assertTrue(m.get("signed"), m["id"])
