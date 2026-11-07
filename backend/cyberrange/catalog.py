@@ -67,9 +67,22 @@ def _staged_scenarios() -> list[dict]:
         return json.load(fh)
 
 
+@functools.lru_cache(maxsize=None)
+def _imported_scenarios() -> list[dict]:
+    # Committed, generated drill scenarios (e.g. per-technique ART drills from
+    # scenario_gen). Shipped with the product, unlike the local staged file.
+    path = SEED_DIR / "scenarios.imported.json"
+    if not path.exists():
+        return []
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 def scenarios() -> list[dict]:
-    """Seed scenarios plus any authored (staged) scenarios."""
-    return list(_load("scenarios")) + list(_staged_scenarios())
+    """Curated seed scenarios, the shipped generated drills, and any authored
+    (locally staged) scenarios."""
+    return (list(_load("scenarios")) + list(_imported_scenarios())
+            + list(_staged_scenarios()))
 
 
 def topologies() -> list[dict]:
