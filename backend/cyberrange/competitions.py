@@ -247,9 +247,14 @@ class Competitions:
                           *, value=None, solves=None) -> dict:
         """A challenge as seen by participants - never includes the flag.
         `value` is the current (possibly decayed) worth; `points` the ceiling."""
+        # For labs whose answer IS the ATT&CK technique id (SOC triage and
+        # adversary-emulation), don't reveal it - not in the UI tag, not in the
+        # API - or the challenge gives itself away.
+        category = row.get("category")
+        technique_id = "" if category in ("detection", "adversary") else row["technique_id"]
         out = {
-            "id": row["id"], "title": row["title"], "category": row["category"],
-            "technique_id": row["technique_id"], "difficulty": row["difficulty"],
+            "id": row["id"], "title": row["title"], "category": category,
+            "technique_id": technique_id, "difficulty": row["difficulty"],
             "points": value if value is not None else row["points"],
             "max_points": row["points"], "min_points": row.get("min_points"),
             "decay": row.get("decay"), "solves": solves,
