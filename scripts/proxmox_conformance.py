@@ -63,6 +63,17 @@ def main() -> int:
     print(f"Templates: {tier.templates}")
     print(f"Range    : {RANGE_ID}  (VLAN {tier.vlan_tag(RANGE_ID)})\n")
 
+    # Preflight: validate the host BEFORE cloning anything, so a bad token,
+    # missing template, or non-VLAN-aware bridge fails clearly up front.
+    print("Preflight:")
+    pre = tier.preflight()
+    for level, name, detail in pre:
+        print(f"  [{level.upper():4}] {name}: {detail}")
+    if any(level == "fail" for level, _, _ in pre):
+        print("\nPreflight failed; no VMs were touched. Fix the above and re-run.")
+        return 1
+    print()
+
     def reachable():
         version = tier.client.request("GET", "/version") or {}
         return f"Proxmox VE {version.get('version', '?')}"

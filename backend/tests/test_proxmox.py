@@ -193,17 +193,83 @@ class ProxmoxProvisionerTest(unittest.TestCase):
         p, stub = self._provisioner({})
         v = p.vmid_for("range-abc", "victim")
         w = p.vmid_for("range-abc", "win-endpoint")
+        snap = [{"name": p.SNAPSHOT}]
         stub.routes = {
             f"GET /nodes/pve1/qemu/{v}/status/current": {"status": "running"},
             f"GET /nodes/pve1/qemu/{w}/status/current": {"status": "running"},
+            # snapshot present (reset checks, then provision re-checks)
+            f"GET /nodes/pve1/qemu/{v}/snapshot": [snap, snap],
+            f"GET /nodes/pve1/qemu/{w}/snapshot": [snap, snap],
+            f"POST /nodes/pve1/qemu/{v}/status/stop": None,
+            f"POST /nodes/pve1/qemu/{w}/status/stop": None,
             f"POST /nodes/pve1/qemu/{v}/snapshot/{p.SNAPSHOT}/rollback": None,
             f"POST /nodes/pve1/qemu/{w}/snapshot/{p.SNAPSHOT}/rollback": None,
-            f"GET /nodes/pve1/qemu/{v}/agent/ping": {},
-            f"GET /nodes/pve1/qemu/{w}/agent/ping": {},
         }
         p.reset("range-abc")
         rollbacks = [path for _, path, _ in stub.calls if "rollback" in path]
         self.assertEqual(len(rollbacks), 2)
+        # a running guest must be stopped before the (RAM-less) rollback
+        stops = [path for m, path, _ in stub.calls
+                 if m == "POST" and path.endswith("/status/stop")]
+        self.assertEqual(len(stops), 2)
+
+    def test_reset_snapshots_when_baseline_missing(self):
+        p, stub = self._provisioner({})
+        v = p.vmid_for("range-abc", "victim")
+        w = p.vmid_for("range-abc", "win-endpoint")
+        snap = [{"name": p.SNAPSHOT}]
+        stub.routes = {
+            f"GET /nodes/pve1/qemu/{v}/status/current": {"status": "running"},
+            f"GET /nodes/pve1/qemu/{w}/status/current": {"status": "running"},
+            # absent first (reset), present after it is taken (provision re-check)
+            f"GET /nodes/pve1/qemu/{v}/snapshot": [[], snap],
+            f"GET /nodes/pve1/qemu/{w}/snapshot": [[], snap],
+            f"POST /nodes/pve1/qemu/{v}/snapshot": None,
+            f"POST /nodes/pve1/qemu/{w}/snapshot": None,
+        }
+        p.reset("range-abc")
+        snaps = [path for m, path, _ in stub.calls
+                 if m == "POST" and path.endswith("/snapshot")]
+        rolls = [path for _, path, _ in stub.calls if "rollback" in path]
+        self.assertEqual(len(snaps), 2)   # baseline created, not rolled back
+        self.assertEqual(len(rolls), 0)
+
+    def test_provision_refuses_a_slot_collision(self):
+        p, stub = self._provisioner({})
+        v = p.vmid_for("range-abc", "victim")
+        stub.routes = {
+            f"GET /nodes/pve1/qemu/{v}/status/current": {"status": "running"},
+            f"GET /nodes/pve1/qemu/{v}/config":
+                {"description": "cyberrange=range-other target=victim"},
+        }
+        with self.assertRaises(ProvisionError) as cm:
+            p.provision("range-abc")
+        self.assertIn("owned by range", str(cm.exception))
+
+    def test_preflight_passes_on_a_ready_host(self):
+        p, stub = self._provisioner({})
+        stub.routes = {
+            "GET /version": {"version": "8.1.4"},
+            "GET /nodes/pve1/status": {"uptime": 1},
+            "GET /nodes/pve1/qemu/100/config": {"template": 1, "agent": "enabled=1"},
+            "GET /nodes/pve1/qemu/101/config": {"template": 1, "agent": "1"},
+            "GET /nodes/pve1/network/vmbr0": {"bridge_vlan_aware": 1},
+        }
+        levels = {name: lvl for lvl, name, _ in p.preflight()}
+        self.assertTrue(all(v == "pass" for v in levels.values()), levels)
+
+    def test_preflight_flags_missing_agent_and_bridge(self):
+        p, stub = self._provisioner({})
+        stub.routes = {
+            "GET /version": {"version": "8.1.4"},
+            "GET /nodes/pve1/status": {"uptime": 1},
+            "GET /nodes/pve1/qemu/100/config": {"template": 1},          # no agent
+            "GET /nodes/pve1/qemu/101/config": {"template": 1, "agent": "1"},
+            "GET /nodes/pve1/network/vmbr0": {"bridge_vlan_aware": 0},   # not VLAN-aware
+        }
+        levels = {name: lvl for lvl, name, _ in p.preflight()}
+        self.assertEqual(levels["Template 'victim'"], "fail")
+        self.assertEqual(levels["VLAN-aware bridge (range isolation)"], "warn")
 
     def test_teardown_is_best_effort(self):
         p, stub = self._provisioner({})
