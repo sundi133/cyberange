@@ -357,6 +357,36 @@ def build_router(svc: CyberRangeService) -> Router:
     r.add("GET", "/api/competitions/{cid}/leaderboard",
           lambda ctx: svc.competitions.leaderboard(ctx["params"]["cid"], ctx["role"]))
 
+    # ---- credentials: skills reports & certificates ----
+    _DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    r.add("GET", "/api/learn/skills",
+          lambda ctx: svc.credentials.skills(ctx["user"], ctx["role"]))
+    r.add("GET", "/api/learn/skills.docx",
+          lambda ctx: FileResponse(
+              reporting.skills_report_docx(svc.credentials.skills(ctx["user"], ctx["role"])),
+              _DOCX, "cyberrange-skills.docx"))
+    r.add("GET", "/api/learn/skills/{username}",
+          lambda ctx: svc.credentials.skills(ctx["user"], ctx["role"], ctx["params"]["username"]))
+
+    def issue_cert(ctx):
+        b = ctx["body"]
+        return svc.credentials.issue(
+            ctx["user"], ctx["role"], username=b.get("username", ""),
+            kind=b.get("kind", "skills"), subject_id=b.get("subject_id"),
+            title=b.get("title"))
+    r.add("POST", "/api/certificates", issue_cert)
+    r.add("GET", "/api/certificates",
+          lambda ctx: svc.credentials.list(ctx["user"], ctx["role"],
+                                           _first(ctx["query"], "username")))
+    r.add("GET", "/api/certificates/{cid}",
+          lambda ctx: svc.credentials.get(ctx["params"]["cid"]))
+    r.add("GET", "/api/certificates/{cid}/cert.docx",
+          lambda ctx: FileResponse(
+              reporting.certificate_docx(svc.credentials.get(ctx["params"]["cid"])),
+              _DOCX, f"certificate-{ctx['params']['cid']}.docx"))
+    r.add("GET", "/api/verify/{code}",
+          lambda ctx: svc.credentials.verify(ctx["params"]["code"]))
+
     # ---- admin ----
     r.add("GET", "/api/audit",
           lambda ctx: svc.audit_log(ctx["role"], int(_first(ctx["query"], "limit") or 200)))
@@ -468,7 +498,8 @@ class _Handler(BaseHTTPRequestHandler):
         if auth_header.startswith("Bearer "):
             token = auth_header[7:].strip()
 
-        is_public = (method, path) in PUBLIC_ROUTES
+        is_public = ((method, path) in PUBLIC_ROUTES
+                     or (method == "GET" and path.startswith("/api/verify/")))
         role = user = None
         if token:
             session = self.svc.resolve_token(token)

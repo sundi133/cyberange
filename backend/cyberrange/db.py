@@ -212,6 +212,20 @@ CREATE TABLE IF NOT EXISTS competition_team_members (
     PRIMARY KEY (competition_id, username)
 );
 
+CREATE TABLE IF NOT EXISTS certificates (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL,
+    display_name TEXT,
+    kind TEXT NOT NULL,
+    subject_id TEXT,
+    subject_name TEXT,
+    title TEXT NOT NULL,
+    verify_code TEXT NOT NULL,
+    issued_by TEXT,
+    issued_at TEXT NOT NULL,
+    meta TEXT
+);
+
 CREATE TABLE IF NOT EXISTS competition_solves (
     id {AUTOPK},
     competition_id TEXT NOT NULL,
