@@ -1,4 +1,5 @@
 import json
+import os
 import threading
 import unittest
 from http.client import HTTPConnection
@@ -112,7 +113,9 @@ class ApiTest(unittest.TestCase):
     def test_auth_required_by_default(self):
         # A server WITHOUT dev_auth must reject unauthenticated API calls
         # instead of defaulting them to admin (the Railway/public-deploy case).
+        os.environ["CR_ADMIN_PASSWORD"] = "admin"
         httpd = make_server("127.0.0.1", 0, db_path=":memory:")  # dev_auth off
+        os.environ.pop("CR_ADMIN_PASSWORD", None)
         port = httpd.server_address[1]
         thread = threading.Thread(target=httpd.serve_forever, daemon=True)
         thread.start()

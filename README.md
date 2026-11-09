@@ -43,18 +43,23 @@ note below).
 git clone https://github.com/sundi133/cyberange.git
 cd cyberange
 
+export CR_ADMIN_PASSWORD=admin   # dev only: lets `make serve` + `make seed` agree
 make serve            # terminal 1 — starts the dashboard + API on :8080
 make seed             # terminal 2 — creates prof/red1/blue1 + a running exercise
 ```
 
 `make serve` runs until you stop it (Ctrl-C), so `make seed` goes in a second
-terminal. Then open <http://127.0.0.1:8080/>.
+terminal (export the same `CR_ADMIN_PASSWORD` there). Then open
+<http://127.0.0.1:8080/>. Leaving `CR_ADMIN_PASSWORD` unset is the secure
+default — the server then generates a random admin password and prints it once
+to its log, but `make seed` can't log in as admin without it, so set it for the
+local loop.
 
 `make seed` prints the accounts it created and which execution mode is active:
 
 | Username | Password | Role | Lands on |
 |---|---|---|---|
-| `admin` | `admin` | admin | Catalog |
+| `admin` | `$CR_ADMIN_PASSWORD` | admin | Catalog |
 | `prof` | `profpass` | instructor | Catalog |
 | `red1` | `redpass` | red | Exercise |
 | `blue1` | `bluepass` | blue | Exercise |
@@ -77,11 +82,14 @@ launching; Windows modules always simulate until the [VM tier](deploy/vm/PROXMOX
 
 ### First run, security
 
-On first boot the platform seeds one admin account — **`admin` / `admin`**.
-**On any deployment others can reach, set `CR_ADMIN_PASSWORD` before first
-run** (it applies only against an empty database). Then use the **Admin** tab,
-or `make seed`, to provision the other roles. See [docs/ROLES.md](docs/ROLES.md)
-for what each role can do.
+On first boot the platform seeds one admin account (`admin`). There is **no
+default password**: set **`CR_ADMIN_PASSWORD` before first run** to choose one,
+or leave it unset and the platform **generates a strong random password and
+prints it once to the server log** — capture it then. Either way, change it
+in-app from **Change password** (top bar). `CR_ADMIN_PASSWORD` applies only
+against an empty database. Failed logins are rate-limited (lockout after
+repeated failures). Then use the **Admin** tab, or `make seed`, to provision the
+other roles. See [docs/ROLES.md](docs/ROLES.md) for what each role can do.
 
 ### Where to go next
 
