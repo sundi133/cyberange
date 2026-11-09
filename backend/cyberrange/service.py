@@ -64,6 +64,8 @@ class CyberRangeService:
         from .competitions import Competitions
         self.competitions = Competitions(self.db, self._audit,
                                          docker_ok=self._docker_ok)
+        from .credentials import Credentials
+        self.credentials = Credentials(self.db, self._audit)
         self._seed_admin()
 
     def _tier_network(self, range_id: str) -> str:

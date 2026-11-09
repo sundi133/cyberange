@@ -205,3 +205,66 @@ def report_docx(report: dict) -> bytes:
         z.writestr("_rels/.rels", _RELS)
         z.writestr("word/document.xml", document)
     return buf.getvalue()
+
+
+# ---- skills reports & certificates (credentials.Credentials) ----------------
+
+def _docx(paras: list[str]) -> bytes:
+    document = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                f'<w:body>{"".join(paras)}<w:sectPr/></w:body></w:document>')
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("[Content_Types].xml", _CONTENT_TYPES)
+        z.writestr("_rels/.rels", _RELS)
+        z.writestr("word/document.xml", document)
+    return buf.getvalue()
+
+
+def certificate_docx(cert: dict) -> bytes:
+    meta = cert.get("meta") or {}
+    stats = meta.get("stats") or {}
+    cov = meta.get("framework_coverage") or {}
+    P = [
+        _para("CyberRange", bold=True, size=26, color="2E75B6"),
+        _para("Certificate of Achievement", bold=True, size=44, color="1F4E79"),
+        _para("This certifies that", size=22, color="808080"),
+        _para(cert.get("display_name") or cert.get("username", ""), bold=True, size=40),
+        _para(cert.get("title", ""), size=26, color="2E75B6"),
+    ]
+    if cert.get("subject_name"):
+        P.append(_para(f"Program: {cert['subject_name']}", size=22))
+    P.append(_para(f"Issued: {str(cert.get('issued_at', ''))[:10]}", size=20, color="808080"))
+    P.append(_para("Demonstrated competency", bold=True, size=24, color="1F4E79"))
+    P.append(_para(f"Techniques demonstrated: {stats.get('techniques_demonstrated', 0)}    "
+                   f"Labs solved: {stats.get('labs_solved', 0)}    "
+                   f"Lessons completed: {stats.get('lessons_completed', 0)}", size=20))
+    P.append(_para(f"NICE roles: {', '.join(cov.get('nice', [])) or '-'}", size=20))
+    P.append(_para(f"NIST CSF: {', '.join(cov.get('nist_csf', [])) or '-'}", size=20))
+    P.append(_para(f"CIS Controls: {', '.join(cov.get('cis', [])) or '-'}", size=20))
+    P.append(_para(f"Verify code {cert.get('verify_code', '')}  ·  id {cert.get('id', '')}",
+                   size=18, color="808080"))
+    return _docx(P)
+
+
+def skills_report_docx(sk: dict) -> bytes:
+    st = sk.get("stats", {})
+    cov = sk.get("framework_coverage", {})
+    P = [
+        _para("CyberRange - Skills Report", bold=True, size=36, color="1F4E79"),
+        _para(sk.get("display_name") or sk.get("username", ""), bold=True, size=26),
+        _para(f"Generated: {str(sk.get('generated_at', ''))[:19]}", size=18, color="808080"),
+        _para("Summary", bold=True, size=26, color="1F4E79"),
+        _para(f"Lessons completed: {st.get('lessons_completed', 0)}", size=20),
+        _para(f"Labs/challenges solved: {st.get('labs_solved', 0)}", size=20),
+        _para(f"ATT&CK techniques demonstrated: {st.get('techniques_demonstrated', 0)}", size=20),
+        _para(f"Points earned: {st.get('points', 0)}", size=20),
+        _para("Framework coverage (curated, indicative)", bold=True, size=26, color="1F4E79"),
+        _para(f"NICE roles: {', '.join(cov.get('nice', [])) or '-'}", size=20),
+        _para(f"NIST CSF: {', '.join(cov.get('nist_csf', [])) or '-'}", size=20),
+        _para(f"CIS Controls: {', '.join(cov.get('cis', [])) or '-'}", size=20),
+        _para(f"NSA CAE KUs: {', '.join(cov.get('cae', [])) or '-'}", size=20),
+        _para("Techniques demonstrated", bold=True, size=26, color="1F4E79"),
+        _para(', '.join(sk.get("techniques", [])) or '-', size=19),
+    ]
+    return _docx(P)

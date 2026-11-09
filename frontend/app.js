@@ -1816,10 +1816,97 @@ async function renderChallengeForm(cid, scoring) {
   };
 }
 
+// ---------------- Skills & certificates ----------------
+const skillsState = { target: null };
+
+async function viewSkills() {
+  const target = skillsState.target || session.username;
+  const canManage = can("cohort:manage");
+
+  if (canManage) {
+    const bar = el(`<div class="toolbar">
+      <label class="lbl" style="flex-direction:row;align-items:center;gap:6px">Learner
+        <input id="sk-user" value="${esc(target)}" style="width:140px" /></label>
+      <button class="ghost" id="sk-view">View</button>
+      <button class="act" id="sk-issue">Issue certificate</button>
+    </div>`);
+    $main().appendChild(bar);
+    document.getElementById("sk-view").onclick = () => {
+      skillsState.target = document.getElementById("sk-user").value.trim() || session.username;
+      viewSkills();
+    };
+    document.getElementById("sk-issue").onclick = async () => {
+      const u = document.getElementById("sk-user").value.trim() || session.username;
+      try { await api("POST", "/certificates", { username: u, kind: "skills" });
+            toast(`Certificate issued to ${u}`); skillsState.target = u; viewSkills(); }
+      catch (e) { toast(e.message, "err"); }
+    };
+  }
+
+  let sk;
+  try { sk = await api("GET", "/learn/skills" + (target !== session.username ? "/" + encodeURIComponent(target) : "")); }
+  catch (e) { $main().appendChild(el(emptyState("⚠", "Could not load skills", esc(e.message)))); return; }
+
+  const st = sk.stats, cov = sk.framework_coverage;
+  const self = target === session.username;
+  $main().appendChild(el(`<div class="lab-summary">
+    <div class="lab-stats">
+      <div class="stat"><span class="stat-n">${st.techniques_demonstrated}</span><span class="stat-l">techniques</span></div>
+      <div class="stat"><span class="stat-n">${st.labs_solved}</span><span class="stat-l">labs solved</span></div>
+      <div class="stat"><span class="stat-n">${st.lessons_completed}</span><span class="stat-l">lessons</span></div>
+      <div class="stat"><span class="stat-n">${st.points}</span><span class="stat-l">points</span></div>
+    </div>
+    <div style="margin-left:auto">
+      <strong>${esc(sk.display_name)}</strong>
+      ${self ? `<button class="ghost" id="sk-dl" style="margin-left:10px">⬇ Skills report (DOCX)</button>` : ""}
+    </div>
+  </div>`));
+  if (self) document.getElementById("sk-dl").onclick =
+    () => downloadFile("/learn/skills.docx", "cyberrange-skills.docx");
+
+  const covRow = (label, items) => items.length
+    ? `<div class="cat-chips" style="margin:4px 0"><span class="pivot-h">${label}</span>${
+        items.map((x) => `<span class="cat-chip sm">${esc(x)}</span>`).join("")}</div>` : "";
+  $main().appendChild(el(`<div class="panel">
+    <div class="phead">Framework coverage</div>
+    <div class="phelp">Curated, indicative crosswalk from the techniques this learner has demonstrated.</div>
+    ${covRow("NICE roles", cov.nice)}
+    ${covRow("NIST CSF", cov.nist_csf)}
+    ${covRow("CIS", cov.cis)}
+    ${covRow("CAE KUs", cov.cae)}
+    ${(cov.nice.length || cov.nist_csf.length) ? "" : '<p class="muted" style="font-size:13px">No mapped techniques yet — solve labs or finish lessons to build coverage.</p>'}
+  </div>`));
+
+  const techPanel = el(`<div class="panel"><div class="phead">Techniques demonstrated (${sk.techniques.length})</div>
+    <div class="cat-chips">${sk.techniques.map((t) => `<span class="tag tech">${esc(t)}</span>`).join("") || '<span class="muted">none yet</span>'}</div></div>`);
+  $main().appendChild(techPanel);
+
+  // certificates
+  const certs = await api("GET", "/certificates" + (self ? "" : "?username=" + encodeURIComponent(target))).catch(() => []);
+  const cp = el(`<div class="panel"><div class="phead">Certificates</div></div>`);
+  if (!certs.length) {
+    cp.appendChild(el('<p class="muted" style="font-size:13px">No certificates yet.</p>'));
+  } else {
+    const t = el(`<div class="table-wrap"><table><thead><tr><th>Title</th><th>Issued</th><th>Verify</th><th></th></tr></thead><tbody></tbody></table></div>`);
+    const tb = t.querySelector("tbody");
+    certs.forEach((c) => {
+      const row = el(`<tr><td><strong>${esc(c.title)}</strong>${c.subject_name ? `<div class="faint" style="font-size:11px">${esc(c.subject_name)}</div>` : ""}</td>
+        <td>${esc(String(c.issued_at).slice(0, 10))}</td>
+        <td><span class="mono">${esc(c.verify_code)}</span></td>
+        <td><button class="ghost" data-dl="${esc(c.id)}">⬇ DOCX</button></td></tr>`);
+      row.querySelector("[data-dl]").onclick =
+        () => downloadFile(`/certificates/${c.id}/cert.docx`, `certificate-${c.id}.docx`);
+      tb.appendChild(row);
+    });
+    cp.appendChild(t);
+  }
+  $main().appendChild(cp);
+}
+
 const VIEWS = {
   catalog: viewCatalog, ranges: viewRanges, exercise: viewExercise,
   reference: viewReference, audit: viewAudit, admin: viewAdmin,
-  classes: viewClasses, compete: viewCompete,
+  classes: viewClasses, compete: viewCompete, skills: viewSkills,
 };
 
 /* Kept short: the page title already names the section, so this line says what
@@ -1827,6 +1914,7 @@ const VIEWS = {
 const VIEW_HELP = {
   classes: "Create a class, enrol students, assign lessons, and track progress in the gradebook.",
   compete: "Scheduled CTF and team competitions. Join a team, submit flags, and climb the live leaderboard.",
+  skills: "Your demonstrated ATT&amp;CK skills and framework coverage, and the certificates earned from them.",
   catalog: "Browse what the lab can run. Launch a scenario to create an isolated range.",
   ranges: "Prepare a range through its lifecycle, then start the exercise. Every range is isolated, with no internet access.",
   exercise: "The live lab. Your panels follow your role: red launches attacks, blue hunts the logs they leave behind.",
@@ -1837,7 +1925,7 @@ const VIEW_HELP = {
 
 const VIEW_TITLES = {
   classes: "Classes", catalog: "Catalog", ranges: "Ranges", exercise: "Exercise",
-  reference: "Reference", audit: "Audit", admin: "Admin", compete: "Compete",
+  reference: "Reference", audit: "Audit", admin: "Admin", compete: "Compete", skills: "Skills",
 };
 
 function switchView(name) {
