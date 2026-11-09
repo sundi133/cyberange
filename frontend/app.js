@@ -2033,6 +2033,42 @@ function showLogin(message) {
   document.getElementById("li-err").textContent = message || "";
   document.getElementById("li-pass").value = "";
   document.getElementById("li-user").focus();
+  revealSsoIfEnabled();
+}
+
+async function revealSsoIfEnabled() {
+  try {
+    const h = await (await fetch("/api/health")).json();
+    if (h && h.oidc) {
+      document.getElementById("btn-sso").hidden = false;
+      document.getElementById("sso-sep").hidden = false;
+    }
+  } catch { /* health unreachable — leave SSO hidden */ }
+}
+
+// Complete an SSO round-trip: the callback redirects to /#sso=<one-time-code>
+// (or /#sso_error=...). Redeem the code for a real session, keeping the token
+// out of query strings, referrers, and the server's logs.
+async function handleSsoRedirect() {
+  const hash = location.hash || "";
+  const ok = hash.match(/[#&]sso=([^&]+)/);
+  const err = hash.match(/[#&]sso_error=([^&]+)/);
+  if (ok) {
+    history.replaceState(null, "", location.pathname + location.search);
+    try {
+      const s = await api("POST", "/auth/oidc/exchange", { code: decodeURIComponent(ok[1]) });
+      applySession(s); hideLogin();
+      toast(`Signed in as ${s.username} (${s.role})`);
+      switchView(defaultView()); checkHealth(); setInterval(checkHealth, 15000);
+    } catch (e) { showLogin("SSO sign-in failed: " + e.message); }
+    return true;
+  }
+  if (err) {
+    history.replaceState(null, "", location.pathname + location.search);
+    showLogin("SSO: " + decodeURIComponent(err[1]));
+    return true;
+  }
+  return false;
 }
 
 function hideLogin() { document.getElementById("login").hidden = true; }
@@ -2106,6 +2142,8 @@ async function bootstrap() {
       switchView("ranges");
     } catch (err) { toast(err.message, "err"); }
   });
+
+  if (await handleSsoRedirect()) return;
 
   const saved = localStorage.getItem(TOKEN_KEY);
   if (saved) {

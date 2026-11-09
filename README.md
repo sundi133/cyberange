@@ -91,6 +91,29 @@ against an empty database. Failed logins are rate-limited (lockout after
 repeated failures). Then use the **Admin** tab, or `make seed`, to provision the
 other roles. See [docs/ROLES.md](docs/ROLES.md) for what each role can do.
 
+### Single sign-on (OIDC)
+
+Enterprise SSO is optional and off by default. Turn it on with environment
+variables — the control plane stays standard-library only (it runs the
+Authorization Code flow and reads identity from the IdP's userinfo endpoint, so
+no crypto dependency is added):
+
+| Variable | Purpose |
+|---|---|
+| `CR_OIDC_ENABLED` | `1` to enable SSO |
+| `CR_OIDC_ISSUER` | IdP issuer URL (endpoints are auto-discovered), e.g. `https://accounts.google.com` |
+| `CR_OIDC_CLIENT_ID` / `CR_OIDC_CLIENT_SECRET` | the app registered at the IdP (confidential client) |
+| `CR_OIDC_REDIRECT_URI` | `https://<your-host>/api/auth/oidc/callback` (register this at the IdP) |
+| `CR_OIDC_DEFAULT_ROLE` | role for first-time SSO users (default `solo`) |
+| `CR_OIDC_ADMIN_EMAILS` | comma-separated emails granted `admin` on first sign-in |
+| `CR_OIDC_SCOPES` | defaults to `openid email profile` |
+
+With it set, the login screen shows **Sign in with SSO**. First-time users are
+JIT-provisioned (matched/created by email) with the default role; an admin can
+change roles in the **Admin** tab. Explicit `CR_OIDC_AUTH_URL` /
+`CR_OIDC_TOKEN_URL` / `CR_OIDC_USERINFO_URL` override discovery for IdPs without
+a well-known document.
+
 ### Where to go next
 
 - **Run a lab end to end** — [docs/LAB_GUIDE.md](docs/LAB_GUIDE.md): red launches

@@ -30,7 +30,10 @@ _LOGIN_WINDOW_S = int(os.environ.get("CR_LOGIN_WINDOW_S", "300") or 300)
 _LOGIN_LOCKOUT_S = int(os.environ.get("CR_LOGIN_LOCKOUT_S", "900") or 900)
 
 from . import (auth, authoring, catalog, detection, execution, lifecycle,
-               provisioners, provisioning, rbac, scoring, siem)
+               oidc, provisioners, provisioning, rbac, scoring, siem)
+
+_OIDC_STATE_TTL = 600
+_OIDC_CODE_TTL = 120
 from .db import Database, row_to_dict
 
 SESSION_TTL_HOURS = 12
@@ -73,6 +76,10 @@ class CyberRangeService:
         # Per-username failed-login tracking for brute-force lockout.
         self._login_fails: dict[str, dict] = {}
         self._login_lock = threading.Lock()
+        # Optional enterprise SSO (OIDC). None unless CR_OIDC_* is configured.
+        self._oidc = oidc.from_env()
+        self._oidc_states: dict[str, float] = {}   # state -> expiry
+        self._oidc_codes: dict[str, tuple] = {}     # one-time code -> (expiry, session)
         # Competitions/CTF engine (leaderboards, scheduling). Imported locally to
         # avoid an import cycle (competitions imports ServiceError from here).
         from .competitions import Competitions
@@ -204,18 +211,90 @@ class CyberRangeService:
             raise ServiceError("invalid credentials", 401)
         with self._login_lock:  # successful login clears the throttle
             self._login_fails.pop(username, None)
+        return self._issue_session(username, row["role"], row["display_name"])
+
+    def _issue_session(self, username: str, role: str, display_name: str,
+                       *, event: str = "auth:login") -> dict:
         token = auth.new_token()
         now = datetime.now(timezone.utc)
         expires = (now + timedelta(hours=SESSION_TTL_HOURS)).isoformat()
         self.db.execute(
             "INSERT INTO sessions (token, username, created_at, expires_at) "
             "VALUES (?,?,?,?)", (token, username, now.isoformat(), expires))
-        self._audit(username, row["role"], "auth:login", username, "")
-        return {
-            "token": token, "username": username, "role": row["role"],
-            "display_name": row["display_name"], "expires_at": expires,
-            "permissions": sorted(rbac.permissions_for(row["role"])),
-        }
+        self._audit(username, role, event, username, "")
+        return {"token": token, "username": username, "role": role,
+                "display_name": display_name, "expires_at": expires,
+                "permissions": sorted(rbac.permissions_for(role))}
+
+    # ---- OIDC single sign-on (optional) ----------------------------------
+    def oidc_enabled(self) -> bool:
+        return self._oidc is not None
+
+    def oidc_login_url(self) -> str:
+        if not self._oidc:
+            raise ServiceError("SSO is not enabled", 404)
+        now = time.time()
+        self._oidc_states = {k: v for k, v in self._oidc_states.items() if v > now}
+        state = secrets.token_urlsafe(16)
+        self._oidc_states[state] = now + _OIDC_STATE_TTL
+        return self._oidc.auth_url(state)
+
+    def oidc_callback(self, code: str, state: str) -> str:
+        """Finish the IdP round-trip: verify state, pull identity, map/provision
+        the user, mint a session, and return a one-time code the SPA redeems."""
+        if not self._oidc:
+            raise ServiceError("SSO is not enabled", 404)
+        now = time.time()
+        expiry = self._oidc_states.pop(state or "", None)
+        if not expiry or expiry < now:
+            raise ServiceError("invalid or expired SSO state", 400)
+        if not code:
+            raise ServiceError("missing authorization code", 400)
+        try:
+            access = self._oidc.exchange_code(code)
+            claims = self._oidc.userinfo(access)
+        except oidc.OIDCError as exc:
+            raise ServiceError(f"SSO failed: {exc}", 502)
+        email = (claims.get("email") or claims.get("preferred_username")
+                 or claims.get("sub") or "").strip().lower()
+        if not email:
+            raise ServiceError("SSO identity carried no email/subject", 400)
+        display = claims.get("name") or claims.get("email") or email
+        username, role = self._provision_oidc_user(email, display)
+        session = self._issue_session(username, role, display, event="auth:sso_login")
+        onetime = secrets.token_urlsafe(18)
+        self._oidc_codes[onetime] = (now + _OIDC_CODE_TTL, session)
+        return onetime
+
+    def oidc_exchange(self, onetime: str) -> dict:
+        now = time.time()
+        self._oidc_codes = {k: v for k, v in self._oidc_codes.items() if v[0] > now}
+        item = self._oidc_codes.pop(onetime or "", None)
+        if not item or item[0] < now:
+            raise ServiceError("invalid or expired SSO code", 401)
+        return item[1]
+
+    def _provision_oidc_user(self, email: str, display: str) -> tuple[str, str]:
+        row = self.db.query_one(
+            "SELECT username, role, active FROM users WHERE username=?", (email,))
+        if row:
+            if not row["active"]:
+                raise ServiceError("account is disabled", 403)
+            self.db.execute("UPDATE users SET display_name=? WHERE username=?",
+                            (display, email))
+            return email, row["role"]
+        admins = [e.strip().lower() for e in
+                  os.environ.get("CR_OIDC_ADMIN_EMAILS", "").split(",") if e.strip()]
+        default_role = os.environ.get("CR_OIDC_DEFAULT_ROLE", "solo")
+        if default_role not in rbac.ROLES:
+            default_role = "solo"
+        role = "admin" if email in admins else default_role
+        # JIT-provisioned SSO users get an unusable random local password.
+        self._insert_user(email, display, role, secrets.token_urlsafe(24),
+                          created_by="oidc")
+        self._audit("oidc", "admin", "admin:create_user", email,
+                    f"SSO JIT provision ({role})")
+        return email, role
 
     def resolve_token(self, token: str) -> dict | None:
         row = self.db.query_one(

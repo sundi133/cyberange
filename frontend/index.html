@@ -106,6 +106,8 @@
         <input id="li-pass" type="password" autocomplete="current-password" placeholder="••••••••" />
       </label>
       <button class="act lg" type="submit">Sign in</button>
+      <div class="sso-sep" id="sso-sep" hidden><span>or</span></div>
+      <a class="ghost sso-btn" id="btn-sso" href="/api/auth/oidc/login" hidden>Sign in with SSO</a>
       <p id="li-err" class="login-err"></p>
       <p class="login-hint">
         First run seeds <span class="mono">admin</span> / <span class="mono">admin</span>.
