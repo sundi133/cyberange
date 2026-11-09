@@ -1,3 +1,4 @@
+import os
 import unittest
 
 from cyberrange import auth, rbac
@@ -20,6 +21,8 @@ class AuthHashTest(unittest.TestCase):
 
 class UserProvisioningTest(unittest.TestCase):
     def setUp(self):
+        os.environ["CR_ADMIN_PASSWORD"] = "admin"
+        self.addCleanup(lambda: os.environ.pop("CR_ADMIN_PASSWORD", None))
         self.svc = CyberRangeService(Database(":memory:"))
 
     def test_default_admin_seeded(self):

@@ -15,8 +15,19 @@ import json
 import os
 import secrets
 import subprocess
+import sys
+import threading
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
+
+# Login brute-force throttle: after this many failures within the window, the
+# account (by submitted username, so unknown names throttle too - no account
+# enumeration) is locked out for the cooldown. In-memory and per-process, which
+# is sufficient for the single-process control plane.
+_LOGIN_MAX_FAILS = int(os.environ.get("CR_LOGIN_MAX_FAILS", "5") or 5)
+_LOGIN_WINDOW_S = int(os.environ.get("CR_LOGIN_WINDOW_S", "300") or 300)
+_LOGIN_LOCKOUT_S = int(os.environ.get("CR_LOGIN_LOCKOUT_S", "900") or 900)
 
 from . import (auth, authoring, catalog, detection, execution, lifecycle,
                provisioners, provisioning, rbac, scoring, siem)
@@ -59,6 +70,9 @@ class CyberRangeService:
         # VM tier when it is configured. Everything above here is unchanged by
         # the choice; see cyberrange/provisioners/base.py.
         self._provisioner = provisioners.resolve()
+        # Per-username failed-login tracking for brute-force lockout.
+        self._login_fails: dict[str, dict] = {}
+        self._login_lock = threading.Lock()
         # Competitions/CTF engine (leaderboards, scheduling). Imported locally to
         # avoid an import cycle (competitions imports ServiceError from here).
         from .competitions import Competitions
@@ -80,12 +94,27 @@ class CyberRangeService:
 
     # ---- users & auth (FR-12, spec section 6) ----------------------------
     def _seed_admin(self):
-        """Bootstrap a default admin so someone can reach the admin panel."""
+        """Bootstrap a default admin so someone can reach the admin panel.
+
+        No hard-coded default credential: use CR_ADMIN_PASSWORD when set,
+        otherwise generate a strong random password and print it once so the
+        operator can capture it. This avoids shipping a well-known admin/admin.
+        """
         if self.db.query_one("SELECT username FROM users LIMIT 1"):
             return
-        password = os.environ.get("CR_ADMIN_PASSWORD", "admin")
+        password = os.environ.get("CR_ADMIN_PASSWORD")
+        generated = not password
+        if generated:
+            password = secrets.token_urlsafe(12)
         self._insert_user("admin", "Platform Admin", "admin", password,
                           created_by="system")
+        if generated:
+            line = "=" * 64
+            print(f"\n{line}\n  CyberRange first-boot: generated admin password\n"
+                  f"    username: admin\n    password: {password}\n"
+                  f"  Save it now - it is not shown again. Change it in-app, or set\n"
+                  f"  CR_ADMIN_PASSWORD before first boot to choose your own.\n{line}\n",
+                  file=sys.stderr, flush=True)
 
     def _insert_user(self, username, display_name, role, password, created_by):
         pw_hash, salt = auth.hash_password(password)
@@ -148,12 +177,33 @@ class CyberRangeService:
         self._audit(actor, actor_role, "admin:set_user_active", username, str(active))
         return self.get_user(username)
 
+    def _check_login_rate(self, username: str) -> None:
+        with self._login_lock:
+            rec = self._login_fails.get(username)
+            if rec and rec.get("until", 0) > time.time():
+                raise ServiceError(
+                    "Too many failed login attempts. Try again later.", 429)
+
+    def _record_login_fail(self, username: str) -> None:
+        now = time.time()
+        with self._login_lock:
+            rec = self._login_fails.setdefault(username, {"fails": [], "until": 0})
+            rec["fails"] = [t for t in rec["fails"] if now - t < _LOGIN_WINDOW_S]
+            rec["fails"].append(now)
+            if len(rec["fails"]) >= _LOGIN_MAX_FAILS:
+                rec["until"] = now + _LOGIN_LOCKOUT_S
+                rec["fails"] = []
+
     def login(self, username: str, password: str) -> dict:
+        self._check_login_rate(username)
         row = self.db.query_one("SELECT * FROM users WHERE username=?", (username,))
         # Generic error - never reveal whether the username exists.
         if not row or not row["active"] \
                 or not auth.verify_password(password, row["pw_salt"], row["pw_hash"]):
+            self._record_login_fail(username)
             raise ServiceError("invalid credentials", 401)
+        with self._login_lock:  # successful login clears the throttle
+            self._login_fails.pop(username, None)
         token = auth.new_token()
         now = datetime.now(timezone.utc)
         expires = (now + timedelta(hours=SESSION_TTL_HOURS)).isoformat()
@@ -180,6 +230,24 @@ class CyberRangeService:
         return {"username": row["username"], "role": row["role"],
                 "display_name": row["display_name"],
                 "permissions": sorted(rbac.permissions_for(row["role"]))}
+
+    def change_password(self, actor: str, role: str, old_password: str,
+                        new_password: str) -> dict:
+        row = self.db.query_one("SELECT * FROM users WHERE username=?", (actor,))
+        if not row:
+            raise ServiceError("unknown user", 404)
+        if not auth.verify_password(old_password, row["pw_salt"], row["pw_hash"]):
+            raise ServiceError("current password is incorrect", 403)
+        if len(new_password or "") < MIN_PASSWORD_LEN:
+            raise ServiceError(
+                f"new password must be at least {MIN_PASSWORD_LEN} characters", 400)
+        pw_hash, salt = auth.hash_password(new_password)
+        self.db.execute("UPDATE users SET pw_hash=?, pw_salt=? WHERE username=?",
+                        (pw_hash, salt, actor))
+        # Rotate out every live session for this user; they re-authenticate.
+        self.db.execute("DELETE FROM sessions WHERE username=?", (actor,))
+        self._audit(actor, role, "auth:change_password", actor, "")
+        return {"changed": True}
 
     def logout(self, token: str) -> dict:
         self.db.execute("DELETE FROM sessions WHERE token=?", (token,))

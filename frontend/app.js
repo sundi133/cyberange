@@ -2053,6 +2053,35 @@ async function doLogin(evt) {
   }
 }
 
+function openChangePassword() {
+  const ov = el(`<div class="login-overlay">
+    <form class="login-card" style="max-width:360px">
+      <div class="login-brand"><h2 style="font-size:18px">Change password</h2>
+        <p>Signed in as ${esc(session.username)}</p></div>
+      <label class="lbl">Current password<input id="cp-old" type="password" autocomplete="current-password" /></label>
+      <label class="lbl">New password<input id="cp-new" type="password" autocomplete="new-password" placeholder="at least 8 characters" /></label>
+      <button class="act lg" type="submit">Update password</button>
+      <p id="cp-err" class="login-err"></p>
+      <button class="ghost" type="button" id="cp-cancel">Cancel</button>
+    </form></div>`);
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.querySelector("#cp-cancel").onclick = close;
+  document.getElementById("cp-old").focus();
+  ov.querySelector("form").onsubmit = async (e) => {
+    e.preventDefault();
+    const old_password = document.getElementById("cp-old").value;
+    const new_password = document.getElementById("cp-new").value;
+    try {
+      await api("POST", "/me/password", { old_password, new_password });
+      close();
+      toast("Password changed — please sign in again");
+      clearSession();
+      showLogin("Password updated. Sign in with your new password.");
+    } catch (err) { document.getElementById("cp-err").textContent = err.message; }
+  };
+}
+
 async function doLogout() {
   try { await api("POST", "/logout", {}); } catch { /* ignore */ }
   clearSession();
@@ -2063,6 +2092,7 @@ async function bootstrap() {
   initTheme();
   document.getElementById("login-form").addEventListener("submit", doLogin);
   document.getElementById("btn-logout").addEventListener("click", doLogout);
+  document.getElementById("btn-passwd").addEventListener("click", openChangePassword);
   document.querySelectorAll(".tab").forEach((t) =>
     t.addEventListener("click", () => switchView(t.dataset.view)));
 

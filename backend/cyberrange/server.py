@@ -226,6 +226,12 @@ def build_router(svc: CyberRangeService) -> Router:
                 "permissions": sorted(rbac.permissions_for(ctx["role"]))}
     r.add("GET", "/api/me", whoami)
 
+    def change_password(ctx):
+        b = ctx["body"]
+        return svc.change_password(ctx["user"], ctx["role"],
+                                   b.get("old_password", ""), b.get("new_password", ""))
+    r.add("POST", "/api/me/password", change_password)
+
     r.add("GET", "/api/roles", lambda ctx: rbac.role_matrix())
 
     r.add("GET", "/api/users", lambda ctx: svc.list_users(ctx["user"], ctx["role"]))
