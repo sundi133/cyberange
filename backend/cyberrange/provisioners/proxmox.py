@@ -14,7 +14,15 @@ STATUS: the API surface here is written to the documented Proxmox VE API and
 is exercised by unit tests against a stubbed transport. It has NOT been run
 against a live hypervisor in this repository, because none is present. Treat it
 as unverified against real infrastructure until ``scripts/proxmox_conformance.py``
-passes against your own host.
+passes against your own host - that script now runs ``preflight()`` first, so a
+bad token, a template without the guest agent, or a non-VLAN-aware bridge fails
+clearly before any VM is cloned.
+
+Known limit: ranges get a slot from ``crc32(range_id) % 500`` for their VMID and
+VLAN tag. A collision is now detected and refused loudly (``provision`` checks
+the VM's ``cyberrange=`` owner) rather than silently reused, but the 500-slot
+space means collisions get likely past a few dozen concurrent ranges; a
+persisted slot allocator is the fix for large deployments.
 """
 
 from __future__ import annotations
@@ -156,6 +164,39 @@ class ProxmoxProvisioner:
         except ProvisionError:
             return False
 
+    def _owner_of(self, vmid: int) -> str | None:
+        """The range id stamped into the VM's description at clone time, if any.
+
+        Two different ranges can hash to the same slot (``_slot`` is crc32 % 500),
+        which would otherwise make one range silently reuse another's VMs. Reading
+        the owner lets provision refuse that collision loudly instead."""
+        try:
+            cfg = self.client.request(
+                "GET", self.client.node_path("qemu", str(vmid), "config")) or {}
+        except ProvisionError:
+            return None
+        for tok in str(cfg.get("description", "") or "").split():
+            if tok.startswith("cyberrange="):
+                return tok.split("=", 1)[1]
+        return None
+
+    def _snapshot_exists(self, vmid: int) -> bool:
+        try:
+            snaps = self.client.request(
+                "GET", self.client.node_path("qemu", str(vmid), "snapshot")) or []
+        except ProvisionError:
+            return False
+        return any(s.get("name") == self.SNAPSHOT for s in snaps)
+
+    def _stop(self, vmid: int) -> None:
+        try:
+            upid = self.client.request(
+                "POST", self.client.node_path("qemu", str(vmid), "status", "stop"))
+            if upid:
+                self.client.wait_for_task(upid, timeout=120)
+        except ProvisionError:
+            pass  # already stopped, or raced another operation
+
     def _clone(self, range_id: str, target: str, template_id: int, vmid: int) -> None:
         upid = self.client.request("POST", self.client.node_path("qemu", str(template_id), "clone"), {
             "newid": vmid,
@@ -202,14 +243,23 @@ class ProxmoxProvisioner:
             if target == "directory" and not with_directory:
                 continue
             vmid = self.vmid_for(range_id, target)
-            if not self._vm_exists(vmid):
+            if self._vm_exists(vmid):
+                owner = self._owner_of(vmid)
+                if owner and owner != range_id:
+                    raise ProvisionError(
+                        f"VMID {vmid} is owned by range {owner!r}, not {range_id!r} "
+                        f"(slot collision). Destroy that range or widen the VMID/VLAN "
+                        f"space before provisioning this one.")
+                if not self._vm_running(vmid):
+                    self._start(vmid)
+                    self._await_agent(vmid)
+                if not self._snapshot_exists(vmid):
+                    self._snapshot_clean(vmid)
+            else:
                 self._clone(range_id, target, template_id, vmid)
                 self._start(vmid)
                 self._await_agent(vmid)
                 self._snapshot_clean(vmid)
-            elif not self._vm_running(vmid):
-                self._start(vmid)
-                self._await_agent(vmid)
             targets.append({
                 "name": self.vm_name(range_id, target),
                 "hostname": target,
@@ -253,9 +303,16 @@ class ProxmoxProvisioner:
                 "GET", self.client.node_path("qemu", str(vmid), "agent", "exec-status"),
                 {"pid": pid}) or {}
             if status.get("exited"):
+                out = status.get("out-data", "") or ""
+                err = status.get("err-data", "") or ""
+                # The guest agent caps captured output; make a cut visible rather
+                # than let the blue team hunt telemetry that was silently trimmed.
+                if status.get("out-truncated"):
+                    out += "\n[guest-agent stdout truncated]"
+                if status.get("err-truncated"):
+                    err += "\n[guest-agent stderr truncated]"
                 return ExecResult(
-                    stdout=status.get("out-data", "") or "",
-                    stderr=status.get("err-data", "") or "",
+                    stdout=out, stderr=err,
                     returncode=int(status.get("exitcode", 0) or 0),
                     duration_s=round(time.monotonic() - t0, 3),
                 )
@@ -268,6 +325,15 @@ class ProxmoxProvisioner:
             vmid = self.vmid_for(range_id, target)
             if not self._vm_exists(vmid):
                 continue
+            if not self._snapshot_exists(vmid):
+                # Interrupted provision left no clean baseline. Take one now from
+                # the current state rather than fail the whole reset.
+                self._snapshot_clean(vmid)
+                continue
+            # Rolling back a snapshot taken without VM state requires the guest
+            # stopped on current Proxmox; stop first, then roll back and restart.
+            if self._vm_running(vmid):
+                self._stop(vmid)
             upid = self.client.request(
                 "POST",
                 self.client.node_path("qemu", str(vmid), "snapshot", self.SNAPSHOT, "rollback"))
@@ -296,6 +362,52 @@ class ProxmoxProvisioner:
                     self.client.wait_for_task(upid, timeout=300)
             except ProvisionError:
                 pass            # teardown is best effort, as in the container tier
+
+    # -- preflight ---------------------------------------------------------
+    def preflight(self) -> list[tuple[str, str, str]]:
+        """Check the host is ready BEFORE any VM is touched. Returns a list of
+        ``(level, name, detail)`` where level is ``pass`` / ``fail`` / ``warn``.
+        The conformance script runs this first so a misconfigured host fails
+        clearly instead of part way through cloning."""
+        out: list[tuple[str, str, str]] = []
+
+        def add(level: str, name: str, fn) -> None:
+            try:
+                out.append(("pass", name, str(fn() or "ok")))
+            except Exception as exc:  # noqa: BLE001 - every check reports, never aborts
+                out.append((level, name, str(exc)[:180]))
+
+        add("fail", "API reachable, token accepted",
+            lambda: f"PVE {(self.client.request('GET', '/version') or {}).get('version', '?')}")
+        add("fail", "Node reachable",
+            lambda: (self.client.request("GET", self.client.node_path("status")) and None)
+            or f"node {self.client.node} reachable")
+
+        for target, tid in sorted(self.templates.items()):
+            def check_template(tid=tid):
+                cfg = self.client.request(
+                    "GET", self.client.node_path("qemu", str(tid), "config"))
+                if not cfg:
+                    raise ProvisionError(f"template vmid {tid} not found")
+                issues = []
+                if str(cfg.get("template", "")) not in ("1", "True", "true"):
+                    issues.append("not marked as a template")
+                if "1" not in str(cfg.get("agent", "") or ""):
+                    issues.append("qemu guest agent not enabled (module exec needs it)")
+                if issues:
+                    raise ProvisionError("; ".join(issues))
+                return f"vmid {tid}: template with guest agent"
+            add("fail", f"Template '{target}'", check_template)
+
+        def check_bridge():
+            net = self.client.request(
+                "GET", self.client.node_path("network", self.bridge)) or {}
+            if str(net.get("bridge_vlan_aware", "")) not in ("1", "True", "true"):
+                raise ProvisionError(
+                    f"bridge {self.bridge} is not VLAN-aware; range isolation needs it")
+            return f"{self.bridge} is VLAN-aware"
+        add("warn", "VLAN-aware bridge (range isolation)", check_bridge)
+        return out
 
 
 def from_env() -> ProxmoxProvisioner | None:
