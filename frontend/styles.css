@@ -696,3 +696,10 @@ tr.me-row:hover { background: var(--accent-soft); }
 }
 
 .tag.blood { background: var(--danger-soft); color: var(--danger); }
+
+/* ---- SSO on the login card ---- */
+.sso-sep { display: flex; align-items: center; gap: 10px; color: var(--text-faint); font-size: 12px; }
+.sso-sep::before, .sso-sep::after { content: ""; flex: 1; height: 1px; background: var(--border-soft); }
+.sso-sep[hidden] { display: none; }
+.sso-btn { display: block; text-align: center; text-decoration: none; padding: 10px 16px; }
+.sso-btn[hidden] { display: none; }

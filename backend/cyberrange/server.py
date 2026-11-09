@@ -12,7 +12,7 @@ import os
 import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, quote
 
 from . import catalog, execution, rbac, reporting
 from .db import connect as db_connect
@@ -25,6 +25,12 @@ class FileResponse:
         self.body = body.encode("utf-8") if isinstance(body, str) else body
         self.content_type = content_type
         self.filename = filename
+
+
+class RedirectResponse:
+    """Return this from a handler to send a 302 redirect (used by the SSO flow)."""
+    def __init__(self, location: str):
+        self.location = location
 
 FRONTEND_DIR = Path(__file__).parent.parent.parent / "frontend"
 
@@ -63,6 +69,7 @@ def build_router(svc: CyberRangeService) -> Router:
         "status": "ok", "service": "cyberrange",
         "execution": execution.execution_mode(svc._docker_ok),
         "targets": svc.target_tier(),
+        "oidc": svc.oidc_enabled(),
     })
     r.add("GET", "/api/tactics", lambda ctx: catalog.tactics())
     r.add("GET", "/api/reference", lambda ctx: catalog.reference())
@@ -231,6 +238,22 @@ def build_router(svc: CyberRangeService) -> Router:
         return svc.change_password(ctx["user"], ctx["role"],
                                    b.get("old_password", ""), b.get("new_password", ""))
     r.add("POST", "/api/me/password", change_password)
+
+    # ---- OIDC single sign-on (optional) ----
+    r.add("GET", "/api/auth/oidc/login",
+          lambda ctx: RedirectResponse(svc.oidc_login_url()))
+
+    def oidc_callback(ctx):
+        q = ctx["query"]
+        try:
+            onetime = svc.oidc_callback(_first(q, "code"), _first(q, "state"))
+            return RedirectResponse(f"/#sso={onetime}")
+        except ServiceError as exc:
+            return RedirectResponse(f"/#sso_error={quote(str(exc))}")
+    r.add("GET", "/api/auth/oidc/callback", oidc_callback)
+
+    r.add("POST", "/api/auth/oidc/exchange",
+          lambda ctx: svc.oidc_exchange(ctx["body"].get("code", "")))
 
     r.add("GET", "/api/roles", lambda ctx: rbac.role_matrix())
 
@@ -505,7 +528,8 @@ class _Handler(BaseHTTPRequestHandler):
             token = auth_header[7:].strip()
 
         is_public = ((method, path) in PUBLIC_ROUTES
-                     or (method == "GET" and path.startswith("/api/verify/")))
+                     or (method == "GET" and path.startswith("/api/verify/"))
+                     or path.startswith("/api/auth/oidc/"))
         role = user = None
         if token:
             session = self.svc.resolve_token(token)
@@ -548,6 +572,11 @@ class _Handler(BaseHTTPRequestHandler):
             result = handler(ctx)
             if isinstance(result, FileResponse):
                 self._send_file(result)
+            elif isinstance(result, RedirectResponse):
+                self.send_response(302)
+                self.send_header("Location", result.location)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
             else:
                 self._send_json(result if result is not None else {})
         except ServiceError as exc:
