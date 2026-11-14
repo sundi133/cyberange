@@ -70,6 +70,7 @@ def build_router(svc: CyberRangeService) -> Router:
         "execution": execution.execution_mode(svc._docker_ok),
         "targets": svc.target_tier(),
         "oidc": svc.oidc_enabled(),
+        "saml": svc.saml_enabled(),
     })
     r.add("GET", "/api/tactics", lambda ctx: catalog.tactics())
     r.add("GET", "/api/reference", lambda ctx: catalog.reference())
@@ -253,6 +254,28 @@ def build_router(svc: CyberRangeService) -> Router:
     r.add("GET", "/api/auth/oidc/callback", oidc_callback)
 
     r.add("POST", "/api/auth/oidc/exchange",
+          lambda ctx: svc.oidc_exchange(ctx["body"].get("code", "")))
+
+    # ---- SAML single sign-on (optional) ----
+    r.add("GET", "/api/auth/saml/login",
+          lambda ctx: RedirectResponse(svc.saml_login_redirect()))
+
+    def saml_acs(ctx):
+        # The IdP POSTs the signed assertion here (HTTP-POST binding, form
+        # encoded). On success we hand the SPA the same one-time code the OIDC
+        # flow uses; on failure we bounce to the login screen with a reason.
+        try:
+            onetime = svc.saml_acs(ctx["body"])
+            return RedirectResponse(f"/#sso={onetime}")
+        except ServiceError as exc:
+            return RedirectResponse(f"/#sso_error={quote(str(exc))}")
+    r.add("POST", "/api/auth/saml/acs", saml_acs)
+
+    r.add("GET", "/api/auth/saml/metadata",
+          lambda ctx: FileResponse(
+              svc.saml_metadata(), "application/xml", "cyberrange-sp-metadata.xml"))
+
+    r.add("POST", "/api/auth/saml/exchange",
           lambda ctx: svc.oidc_exchange(ctx["body"].get("code", "")))
 
     r.add("GET", "/api/roles", lambda ctx: rbac.role_matrix())
@@ -529,7 +552,8 @@ class _Handler(BaseHTTPRequestHandler):
 
         is_public = ((method, path) in PUBLIC_ROUTES
                      or (method == "GET" and path.startswith("/api/verify/"))
-                     or path.startswith("/api/auth/oidc/"))
+                     or path.startswith("/api/auth/oidc/")
+                     or path.startswith("/api/auth/saml/"))
         role = user = None
         if token:
             session = self.svc.resolve_token(token)
@@ -557,11 +581,18 @@ class _Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", 0) or 0)
         if length:
             raw = self.rfile.read(length)
-            try:
-                body = json.loads(raw) if raw else {}
-            except json.JSONDecodeError:
-                self._send_json({"error": "invalid JSON body"}, 400)
-                return
+            ctype = (self.headers.get("Content-Type", "") or "").split(";")[0].strip()
+            if ctype == "application/x-www-form-urlencoded":
+                # Used by the SAML HTTP-POST binding: the IdP posts the assertion
+                # as a form, not JSON. Flatten to first values.
+                from urllib.parse import parse_qs as _pq
+                body = {k: v[0] for k, v in _pq(raw.decode("utf-8", "replace")).items()}
+            else:
+                try:
+                    body = json.loads(raw) if raw else {}
+                except json.JSONDecodeError:
+                    self._send_json({"error": "invalid JSON body"}, 400)
+                    return
 
         ctx = {
             "params": params, "query": parse_qs(parsed.query),

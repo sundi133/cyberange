@@ -30,10 +30,13 @@ _LOGIN_WINDOW_S = int(os.environ.get("CR_LOGIN_WINDOW_S", "300") or 300)
 _LOGIN_LOCKOUT_S = int(os.environ.get("CR_LOGIN_LOCKOUT_S", "900") or 900)
 
 from . import (auth, authoring, catalog, detection, execution, lifecycle,
-               oidc, provisioners, provisioning, rbac, scoring, siem)
+               oidc, provisioners, provisioning, rbac, saml, scoring, siem)
 
 _OIDC_STATE_TTL = 600
 _OIDC_CODE_TTL = 120
+# How long a consumed SAML assertion ID is remembered to block replay. Covers
+# the usual few-minute assertion validity window with margin.
+_SAML_REPLAY_TTL = 600
 from .db import Database, row_to_dict
 
 SESSION_TTL_HOURS = 12
@@ -79,7 +82,20 @@ class CyberRangeService:
         # Optional enterprise SSO (OIDC). None unless CR_OIDC_* is configured.
         self._oidc = oidc.from_env()
         self._oidc_states: dict[str, float] = {}   # state -> expiry
+        # One-time codes the SPA redeems after an SSO round-trip, shared by the
+        # OIDC and SAML flows (both end at /#sso=<code> then POST .../exchange).
         self._oidc_codes: dict[str, tuple] = {}     # one-time code -> (expiry, session)
+        # Optional enterprise SSO (SAML). None unless CR_SAML_* is configured.
+        # A misconfiguration disables SSO with a warning rather than crashing
+        # the whole control plane on boot.
+        try:
+            self._saml = saml.from_env()
+        except saml.SamlError as exc:  # pragma: no cover - config dependent
+            print(f"! SAML is enabled but misconfigured; SSO disabled: {exc}",
+                  file=sys.stderr, flush=True)
+            self._saml = None
+        self._saml_seen: dict[str, float] = {}      # assertion id -> expiry
+        self._saml_lock = threading.Lock()
         # Competitions/CTF engine (leaderboards, scheduling). Imported locally to
         # avoid an import cycle (competitions imports ServiceError from here).
         from .competitions import Competitions
@@ -293,6 +309,78 @@ class CyberRangeService:
         self._insert_user(email, display, role, secrets.token_urlsafe(24),
                           created_by="oidc")
         self._audit("oidc", "admin", "admin:create_user", email,
+                    f"SSO JIT provision ({role})")
+        return email, role
+
+    # ---- SAML single sign-on (optional) ----------------------------------
+    def saml_enabled(self) -> bool:
+        return self._saml is not None
+
+    def saml_login_redirect(self) -> str:
+        if not self._saml:
+            raise ServiceError("SAML SSO is not enabled", 404)
+        try:
+            return self._saml.login_redirect()
+        except saml.SamlError as exc:
+            raise ServiceError(f"SAML login failed: {exc}", 502)
+
+    def saml_metadata(self) -> str:
+        if not self._saml:
+            raise ServiceError("SAML SSO is not enabled", 404)
+        try:
+            return self._saml.metadata()
+        except saml.SamlError as exc:
+            raise ServiceError(f"SAML metadata unavailable: {exc}", 500)
+
+    def saml_acs(self, post_data: dict) -> str:
+        """Consume a POSTed assertion: verify it, block replays, map/provision
+        the user, mint a session, and return the one-time SSO code the SPA
+        redeems (the same jar the OIDC flow uses)."""
+        if not self._saml:
+            raise ServiceError("SAML SSO is not enabled", 404)
+        try:
+            result = self._saml.acs(post_data or {})
+        except saml.SamlError as exc:
+            # A rejected/forged/expired assertion lands here. Keep the client
+            # message generic; the detail is in the error for server logs.
+            raise ServiceError(f"SSO failed: {exc}", 400)
+        now = time.time()
+        assertion_id = result.get("assertion_id") or ""
+        with self._saml_lock:
+            self._saml_seen = {k: v for k, v in self._saml_seen.items() if v > now}
+            if assertion_id and assertion_id in self._saml_seen:
+                raise ServiceError("SSO assertion already used", 400)
+            if assertion_id:
+                self._saml_seen[assertion_id] = now + _SAML_REPLAY_TTL
+        email = self._saml.email_of(result)
+        if not email:
+            raise ServiceError("SSO identity carried no email address", 400)
+        display = self._saml.display_of(result, email)
+        username, role = self._provision_saml_user(email, display)
+        session = self._issue_session(username, role, display, event="auth:sso_login")
+        onetime = secrets.token_urlsafe(18)
+        self._oidc_codes[onetime] = (now + _OIDC_CODE_TTL, session)
+        return onetime
+
+    def _provision_saml_user(self, email: str, display: str) -> tuple[str, str]:
+        row = self.db.query_one(
+            "SELECT username, role, active FROM users WHERE username=?", (email,))
+        if row:
+            if not row["active"]:
+                raise ServiceError("account is disabled", 403)
+            self.db.execute("UPDATE users SET display_name=? WHERE username=?",
+                            (display, email))
+            return email, row["role"]
+        admins = [e.strip().lower() for e in
+                  os.environ.get("CR_SAML_ADMIN_EMAILS", "").split(",") if e.strip()]
+        default_role = os.environ.get("CR_SAML_DEFAULT_ROLE", "solo")
+        if default_role not in rbac.ROLES:
+            default_role = "solo"
+        role = "admin" if email in admins else default_role
+        # JIT-provisioned SSO users get an unusable random local password.
+        self._insert_user(email, display, role, secrets.token_urlsafe(24),
+                          created_by="saml")
+        self._audit("saml", "admin", "admin:create_user", email,
                     f"SSO JIT provision ({role})")
         return email, role
 

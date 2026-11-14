@@ -114,6 +114,47 @@ change roles in the **Admin** tab. Explicit `CR_OIDC_AUTH_URL` /
 `CR_OIDC_TOKEN_URL` / `CR_OIDC_USERINFO_URL` override discovery for IdPs without
 a well-known document.
 
+### Single sign-on (SAML 2.0)
+
+For IdPs that speak SAML rather than OIDC (ADFS, Shibboleth, and many on-prem
+Okta/Ping/Azure AD setups), the platform can act as a SAML Service Provider.
+Unlike OIDC, SAML **cannot** be done with the standard library: the assertion
+arrives through the browser, so the only thing that makes it trustworthy is its
+XML-DSig signature, and verifying that needs asymmetric crypto the stdlib does
+not have. SAML therefore uses one **optional dependency**, imported lazily so
+the rest of the control plane stays standard-library only:
+
+```
+pip install python3-saml      # pulls xmlsec, lxml, isodate (all wheels)
+```
+
+A deployment that never sets `CR_SAML_ENABLED` never imports it; an air-gapped
+install that wants SAML vendors those four wheels. The IdP's signature is
+**always verified** — the SP refuses to run with every signature requirement
+turned off.
+
+| Variable | Purpose |
+|---|---|
+| `CR_SAML_ENABLED` | `1` to enable the SAML SP |
+| `CR_SAML_ACS_URL` | this SP's Assertion Consumer Service, `https://<your-host>/api/auth/saml/acs` (register at the IdP) |
+| `CR_SAML_IDP_ENTITY_ID` | the IdP's entityID |
+| `CR_SAML_IDP_SSO_URL` | the IdP's SSO (HTTP-Redirect) endpoint |
+| `CR_SAML_IDP_X509_CERT` | the IdP's signing certificate — PEM inline, or `@/path/to/cert.pem` |
+| `CR_SAML_IDP_METADATA_FILE` / `CR_SAML_IDP_METADATA_URL` | alternative to the three fields above: fill them from IdP metadata |
+| `CR_SAML_SP_ENTITY_ID` | SP entityID (defaults to the SP metadata URL) |
+| `CR_SAML_SP_X509_CERT` / `CR_SAML_SP_PRIVATE_KEY` | optional SP keypair to sign AuthnRequests (`CR_SAML_SIGN_REQUESTS=1`) |
+| `CR_SAML_EMAIL_ATTR` / `CR_SAML_NAME_ATTR` | pin which assertion attribute carries email / display name (otherwise common names and the NameID are tried) |
+| `CR_SAML_DEFAULT_ROLE` | role for first-time SSO users (default `solo`) |
+| `CR_SAML_ADMIN_EMAILS` | comma-separated emails granted `admin` on first sign-in |
+
+Point your IdP at the SP metadata published at
+`https://<your-host>/api/auth/saml/metadata`. First-time users are
+JIT-provisioned by email exactly as with OIDC, and the same **Sign in with
+SSO** button starts the flow. Signature verification, assertion conditions
+(NotBefore/NotOnOrAfter, Audience, Destination) and single-use replay protection
+are all enforced; see `backend/tests/test_saml.py`. If both OIDC and SAML are
+configured, the login button uses OIDC.
+
 ### Where to go next
 
 - **Run a lab end to end** — [docs/LAB_GUIDE.md](docs/LAB_GUIDE.md): red launches

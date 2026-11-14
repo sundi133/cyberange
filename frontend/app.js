@@ -2039,8 +2039,11 @@ function showLogin(message) {
 async function revealSsoIfEnabled() {
   try {
     const h = await (await fetch("/api/health")).json();
-    if (h && h.oidc) {
-      document.getElementById("btn-sso").hidden = false;
+    if (h && (h.oidc || h.saml)) {
+      const btn = document.getElementById("btn-sso");
+      // One SSO button. Prefer OIDC when both are configured; otherwise SAML.
+      btn.href = h.oidc ? "/api/auth/oidc/login" : "/api/auth/saml/login";
+      btn.hidden = false;
       document.getElementById("sso-sep").hidden = false;
     }
   } catch { /* health unreachable — leave SSO hidden */ }
