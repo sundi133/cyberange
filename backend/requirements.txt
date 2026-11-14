@@ -1,4 +1,12 @@
 # The control plane runs on the Python standard library alone (SQLite backend).
-# The only optional dependency is the Postgres driver, needed ONLY when using
-# the PostgreSQL / Supabase backend (DATABASE_URL set to a postgres:// DSN).
+# Dependencies below are OPTIONAL and imported lazily; the core never needs them.
+
+# Postgres driver - ONLY when using the PostgreSQL / Supabase backend
+# (DATABASE_URL set to a postgres:// DSN).
 psycopg[binary]>=3.1
+
+# SAML 2.0 single sign-on - ONLY when CR_SAML_ENABLED=1. SAML assertions arrive
+# through the browser, so their XML-DSig signature must be verified with real
+# crypto the stdlib lacks; python3-saml (via xmlsec) does that. OIDC SSO needs
+# none of this. Installs as wheels (xmlsec, lxml, isodate) - no system libs.
+python3-saml>=1.16
